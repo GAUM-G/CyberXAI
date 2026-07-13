@@ -1,0 +1,7 @@
+VPN Rollout Notes
+=================
+- Region: APAC and EMEA
+- Current target completion: 2026-05-10
+- Temporary support alias: vpn-support@corp-example.local
+- Legacy IPSec profile name: Corp-Remote-Old
+- Updated OpenVPN profile name: Corp-Remote-Next

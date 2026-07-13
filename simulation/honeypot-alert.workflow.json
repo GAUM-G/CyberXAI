@@ -1,0 +1,51 @@
+{
+  "name": "Honeypot Alert Receiver",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "honeypot-alert",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "2c2df0d7-8b2d-4ec0-9bc8-1a1f5b7d7f01",
+      "name": "Honeypot Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [360, 300],
+      "webhookId": "c8c65a55-6c2a-4c5b-8ed8-0b6c3d3f2d7e"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "const incoming = $json;\nconst record = incoming.record ?? incoming;\nconst metadata = record.metadata && typeof record.metadata === 'object' ? record.metadata : {};\nconst payload = record.payload ?? incoming.payload ?? null;\nconst severity = record.severity ?? incoming.severity ?? 'info';\nconst ip = record.source_ip ?? incoming.ip ?? 'unknown';\nconst attackType = record.attack_type ?? incoming.attack_type ?? 'unknown';\nconst target = incoming.target ?? metadata.path ?? metadata.route ?? metadata.target ?? (typeof payload === 'string' ? payload.slice(0, 200) : 'n/a');\n\nconst extractCredentials = () => {\n  if (payload && typeof payload === 'object') {\n    return {\n      username: payload.username ?? payload.user ?? metadata.username ?? null,\n      password: payload.password ?? payload.pass ?? metadata.password ?? null,\n    };\n  }\n\n  if (typeof payload === 'string' && payload.includes('username=')) {\n    const parts = Object.fromEntries(payload.split('&').filter((part) => part.includes('=')).map((part) => part.split('=', 2)));\n    return {\n      username: parts.username ?? metadata.username ?? null,\n      password: parts.password ?? metadata.password ?? null,\n    };\n  }\n\n  return {\n    username: metadata.username ?? metadata.user ?? null,\n    password: metadata.password ?? metadata.pass ?? null,\n  };\n};\n\nconst credentials = extractCredentials();\nconst requestContext = {\n  method: metadata.method ?? null,\n  status: metadata.status ?? null,\n  durationMs: metadata.durationMs ?? null,\n  query: metadata.query ?? null,\n  body: metadata.body ?? null,\n  headers: metadata.headers ?? null,\n  userAgent: metadata.userAgent ?? metadata.headers?.['user-agent'] ?? null,\n  referer: metadata.referer ?? metadata.headers?.referer ?? null,\n  origin: metadata.origin ?? metadata.headers?.origin ?? null,\n  host: metadata.host ?? metadata.headers?.host ?? null,\n  remote_port: metadata.remote_port ?? null,\n  source_port: metadata.source_port ?? null,\n  command: metadata.command ?? null,\n  argument: metadata.argument ?? null,\n  query_length: metadata.query_length ?? null,\n  filename: metadata.filename ?? null,\n  attempt_count: metadata.attempt_count ?? null,\n  failed_attempts: metadata.failed_attempts ?? null,\n  threshold: metadata.threshold ?? null,\n  password_length: metadata.password_length ?? null,\n};\n\nconst requestContextClean = Object.fromEntries(Object.entries(requestContext).filter(([, value]) => value !== null && value !== undefined && value !== ''));\nconst indicatorHints = {\n  findings: metadata.findings ?? metadata.attacks_detected ?? [],\n  credentials,\n  event_path: metadata.path ?? metadata.route ?? null,\n};\n\nreturn [{\n  json: {\n    receivedAt: new Date().toISOString(),\n    acknowledged: true,\n    severity,\n    ip,\n    attack_type: attackType,\n    target: target ?? 'n/a',\n    service: record.service ?? incoming.service ?? null,\n    event: record.event ?? incoming.event ?? null,\n    timestamp: record.timestamp ?? incoming.timestamp ?? null,\n    metadata,\n    payload,\n    record,\n    analysis: {\n      target: target ?? 'n/a',\n      request_context: requestContextClean,\n      indicators: Object.fromEntries(Object.entries(indicatorHints).filter(([, value]) => value !== null && value !== undefined && !(Array.isArray(value) && value.length === 0) && !(typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0))),\n    },\n    summary: `${String(severity).toUpperCase()} ${attackType} from ${ip} targeting ${target ?? 'n/a'}`,\n    xai: {\n      decision: severity === 'critical' ? 'confirmed_attack' : severity === 'warning' ? 'malicious' : 'suspicious',\n      reasons: [attackType, record.event ?? incoming.event ?? 'event_observed', ...(Array.isArray(metadata.findings) ? metadata.findings : []), ...(Array.isArray(metadata.attacks_detected) ? metadata.attacks_detected : [])],\n      evidence: [\n        { field: 'source_ip', value: ip, reason: 'Origin address observed in honeypot telemetry' },\n        { field: 'attack_type', value: attackType, reason: 'Classified attack pattern' },\n        { field: 'target', value: target ?? 'n/a', reason: 'Target path or command extracted from event' },\n        { field: 'metadata', value: metadata, reason: 'Raw contextual metadata preserved for downstream analysis' },\n      ],\n    },\n  },\n}];"
+      },
+      "id": "1c6e2f0b-3d0b-4d0f-a9f0-3b4f4d41d9a2",
+      "name": "Normalize Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, 300]
+    }
+
+  ],
+  
+  "connections": {
+    "Honeypot Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "1"
+}

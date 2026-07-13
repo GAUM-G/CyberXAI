@@ -1,0 +1,1 @@
+"""Standalone decoy website package."""

@@ -1,0 +1,5 @@
+employee_id,full_name,department,bank_suffix,payout_usd
+EMP-1023,Alice Gardner,Finance,2910,4890.00
+EMP-1064,Mark Lester,Engineering,7722,6150.50
+EMP-1102,Sophia Lee,HR,8841,4725.25
+EMP-1139,Daniel Morris,Operations,3307,5222.75

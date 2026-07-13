@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honeypot Security Framework</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/feather-icons"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#05080f;--surface:#0d1117;--surface2:#131a24;--surface3:#192231;
+  --surface-glass:rgba(13, 17, 23, 0.4);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
+  --accent:#00d4ff;--accent2:#0099cc;
+  --green:#00ff88;--green2:#00cc6a;
+  --yellow:#ffcc00;--red:#ff3355;--orange:#ff6622;--purple:#aa55ff;
+  --text:#c9d6e3;--text2:#7a8fa6;--text3:#4a5a6a;
+  --mono:'Share Tech Mono',monospace;--sans:'Rajdhani',sans-serif;
+  --sidebar-w:220px;--topbar-h:52px
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px}
+canvas#starfield{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-2;pointer-events:none}
+.app{display:flex;height:100vh;position:relative;z-index:1}
+/* Sidebar - Opaque (No Stars) */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid rgba(255,255,255,0.04);
+  display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:10}
+.sidebar::after{content:'';position:absolute;top:0;right:-1px;bottom:0;width:2px;
+  background:linear-gradient(180deg,transparent,var(--accent) 40%,var(--accent) 60%,transparent);opacity:.2}
+.logo{padding:1.2rem 1rem 1rem;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;gap:0.6rem;}
+.logo-icon{color:var(--accent);display:flex;}
+.logo-title{font-family:var(--mono);font-size:.9rem;color:var(--accent);letter-spacing:.08em;
+  text-shadow:0 0 12px rgba(0,212,255,.4);margin-bottom:0;}
+.logo-sub{font-size:.68rem;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;margin-top:.1rem}
+.nav{flex:1;padding:.6rem 0}
+.nav-section{font-size:.6rem;text-transform:uppercase;letter-spacing:.15em;
+  color:var(--text3);padding:.8rem 1rem .3rem}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.6rem 1rem;cursor:pointer;
+  border-left:2px solid transparent;transition:all .18s;font-family:var(--sans);
+  font-weight:600;font-size:.88rem;letter-spacing:.03em;color:var(--text2);user-select:none}
+.nav-item:hover{background:var(--surface2);color:var(--text);border-left-color:var(--border2)}
+.nav-item.active{background:rgba(0,212,255,.06);color:var(--accent);border-left-color:var(--accent)}
+.nav-icon{width:18px;text-align:center;display:flex;align-items:center;justify-content:center;}
+.nav-badge{margin-left:auto;background:var(--red);color:white;font-size:.6rem;
+  font-family:var(--mono);padding:.1rem .35rem;border-radius:3px;min-width:18px;text-align:center}
+.sidebar-footer{padding:.8rem 1rem;border-top:1px solid rgba(255,255,255,0.04);
+  font-size:.72rem;color:var(--text3);font-family:var(--mono)}
+.status-row{display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:var(--topbar-h);background:var(--surface);border-bottom:1px solid rgba(255,255,255,0.04);
+  display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;flex-shrink:0;position:relative;z-index:9}
+.topbar-title{font-family:var(--sans);font-weight:700;font-size:1rem;letter-spacing:.04em}
+.topbar-title span{color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:1.2rem}
+.live-pill{display:flex;align-items:center;gap:.35rem;background:rgba(0,255,136,.08);
+  border:1px solid rgba(0,255,136,.2);border-radius:4px;padding:.25rem .6rem;
+  font-family:var(--mono);font-size:.72rem;color:var(--green)}
+.clock{font-family:var(--mono);font-size:.78rem;color:var(--text2)}
+.content{flex:1;overflow-y:auto;padding:1.2rem 1.5rem}
+.content::-webkit-scrollbar{width:4px}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.section{display:none}
+.section.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.section-header{margin-bottom:1.2rem}
+.section-header h2{font-family:var(--sans);font-weight:700;font-size:1.25rem;
+  letter-spacing:.04em;display:flex;align-items:center;gap:.5rem}
+.section-header p{color:var(--text2);font-size:.82rem;margin-top:.2rem}
+/* Grid */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:.9rem}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:.9rem}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:.9rem;margin-bottom:.9rem}
+.grid-1{margin-bottom:.9rem}
+/* Cards - Glassmorphism */
+.card{background:var(--surface-glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--border);border-radius:6px;
+  padding:1rem;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.25)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.15}
+.card-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--text3);margin-bottom:.7rem;font-family:var(--mono);display:flex;align-items:center;gap:0.3rem}
+.stat-val{font-family:var(--mono);font-size:2rem;font-weight:400;line-height:1}
+.stat-label{font-size:.75rem;color:var(--text2);margin-top:.3rem}
+.c-accent{color:var(--accent)}.c-green{color:var(--green)}.c-yellow{color:var(--yellow)}
+.c-red{color:var(--red)}.c-purple{color:var(--purple)}.c-orange{color:var(--orange)}
+/* Gauge */
+.gauge-wrap{margin-top:.5rem}
+.gauge-label{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text2);margin-bottom:.3rem}
+.gauge-track{height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;border:1px solid rgba(0,0,0,0.2)}
+.gauge-fill{height:100%;border-radius:3px;transition:width .6s ease;box-shadow:0 0 6px inset rgba(255,255,255,0.2)}
+.gauge-accent{background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.gauge-green{background:linear-gradient(90deg,var(--green2),var(--green))}
+.gauge-red{background:linear-gradient(90deg,#cc2244,var(--red))}
+/* Tables */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--text3);padding:.5rem .6rem;
+  border-bottom:1px solid var(--border2);text-align:left;white-space:nowrap;background:rgba(0,0,0,0.2)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,0.03);transition:background .12s}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
+.td-mono{font-family:var(--mono);font-size:.74rem}
+/* Badges */
+.badge{display:inline-block;padding:.1rem .45rem;border-radius:3px;
+  font-family:var(--mono);font-size:.64rem;font-weight:400;white-space:nowrap}
+.b-ssh{background:rgba(170,85,255,.15);color:#cc88ff;border:1px solid rgba(170,85,255,.25)}
+.b-ftp{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.2)}
+.b-http{background:rgba(0,212,255,.1);color:var(--accent);border:1px solid rgba(0,212,255,.2)}
+.b-website{background:rgba(255,102,34,.12);color:var(--orange);border:1px solid rgba(255,102,34,.25)}
+.b-warn{background:rgba(255,204,0,.1);color:var(--yellow);border:1px solid rgba(255,204,0,.2)}
+.b-crit{background:rgba(255,51,85,.12);color:var(--red);border:1px solid rgba(255,51,85,.25)}
+.b-info{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--border2)}
+/* Service cards */
+.svc-card{display:flex;flex-direction:column;gap:.5rem}
+.svc-header{display:flex;align-items:center;justify-content:space-between}
+.svc-name{font-family:var(--mono);font-size:.95rem;display:flex;align-items:center;gap:0.3rem}
+.svc-port{font-size:.65rem;color:var(--text3);font-family:var(--mono);margin-left:20px}
+.svc-status{font-size:.65rem;display:flex;align-items:center;gap:.3rem}
+.svc-nums{display:flex;gap:1rem;margin-top:.3rem;background:rgba(0,0,0,0.15);padding:0.6rem;border-radius:4px;}
+.svc-num-val{font-family:var(--mono);font-size:1.25rem}
+.svc-num-lbl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+/* Feed */
+.feed-wrap{max-height:360px;overflow-y:auto;background:rgba(0,0,0,0.1);border-radius:4px;}
+.feed-wrap::-webkit-scrollbar{width:3px}
+.feed-wrap::-webkit-scrollbar-thumb{background:var(--border2)}
+.feed-row{display:grid;grid-template-columns:100px 50px 72px 1fr;
+  gap:.5rem;padding:.38rem .4rem;border-bottom:1px solid rgba(255,255,255,0.03);
+  font-size:.74rem;align-items:center;transition:background .1s}
+.feed-row:hover{background:var(--surface2)}
+.feed-row.flash{animation:rowflash .5s}
+@keyframes rowflash{0%{background:rgba(0,212,255,.08)}100%{background:transparent}}
+.feed-ts{font-family:var(--mono);color:var(--text3);font-size:.68rem}
+/* Empty */
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text3);
+  font-family:var(--mono);font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:0.4rem}
+.empty-icon{opacity:.5;display:flex;justify-content:center}
+/* XAI grid */
+.xai-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.xai-block{background:var(--surface-glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px dashed var(--border2);border-radius:6px;padding:1.5rem 1rem;
+  text-align:center;}
+.xai-icon{margin-bottom:.5rem;display:flex;justify-content:center;color:var(--text3)}
+.xai-title{font-family:var(--sans);font-weight:700;font-size:.95rem;color:var(--text2)}
+.xai-desc{font-size:.75rem;color:var(--text3);margin-top:.3rem}
+.coming-soon{display:inline-block;font-family:var(--mono);font-size:.6rem;
+  color:var(--yellow);border:1px solid rgba(255,204,0,.3);padding:.1rem .4rem;
+  border-radius:3px;margin-top:.4rem;background:rgba(255,204,0,0.05)}
+/* Report */
+.report-pre{background:rgba(0,0,0,0.3);border:1px solid var(--border2);border-radius:6px;
+  padding:1rem;font-family:var(--mono);font-size:.72rem;color:var(--text);
+  white-space:pre-wrap;word-break:break-word;max-height:420px;overflow-y:auto;line-height:1.7}
+.report-pre::-webkit-scrollbar{width:4px}
+.report-pre::-webkit-scrollbar-thumb{background:var(--border2)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1rem;
+  border:none;border-radius:4px;cursor:pointer;font-family:var(--sans);
+  font-weight:600;font-size:.82rem;letter-spacing:.03em;transition:all .15s;text-decoration:none}
+.btn-accent{background:rgba(0,212,255,.12);color:var(--accent);border:1px solid rgba(0,212,255,.3)}
+.btn-accent:hover{background:rgba(0,212,255,.22)}
+.btn-green{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.btn-green:hover{background:rgba(0,255,136,.2)}
+.btn-row{display:flex;gap:.6rem;margin-bottom:1rem}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr}.xai-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon"><i data-feather="hexagon" width="18" height="18"></i></div>
+      <div class="logo-text-wrap">
+        <div class="logo-title">HONEYPOT.SYS</div>
+        <div class="logo-sub">Security Framework v2</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Sections</div>
+      <div class="nav-item active" onclick="switchSection('monitor',this)">
+        <span class="nav-icon"><i data-feather="activity" width="16" height="16"></i></span><span>Monitor</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('honeypot',this)">
+        <span class="nav-icon"><i data-feather="server" width="16" height="16"></i></span><span>Honeypot</span>
+        <span class="nav-badge" id="badge-hp">0</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('ids',this)">
+        <span class="nav-icon"><i data-feather="shield" width="16" height="16"></i></span><span>IDS</span>
+        <span class="nav-badge" id="badge-ids">0</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('xai',this)">
+        <span class="nav-icon"><i data-feather="cpu" width="16" height="16"></i></span><span>XAI</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('report',this)">
+        <span class="nav-icon"><i data-feather="file-text" width="16" height="16"></i></span><span>Report</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="status-row"><span class="dot dot-green"></span> SSH :2222</div>
+      <div class="status-row"><span class="dot dot-green"></span> FTP :2121</div>
+      <div class="status-row"><span class="dot dot-green"></span> HTTP :8080</div>
+      <div class="status-row"><span class="dot dot-green"></span> WEB :8090 (optional)</div>
+      <div style="margin-top:.5rem">Uptime: <span id="sb-uptime">--:--:--</span></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title"><span>■</span> HONEYPOT SECURITY FRAMEWORK</div>
+      <div class="topbar-right">
+        <div class="live-pill">
+          <span class="dot dot-green" style="width:6px;height:6px"></span>
+          LIVE · <span id="live-counter">0</span>
+        </div>
+        <div class="clock" id="top-clock">--:--:--</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- MONITOR -->
+      <div class="section active" id="sec-monitor">
+        <div class="section-header">
+          <h2><i data-feather="activity" style="color:var(--accent)"></i> System Monitor</h2>
+          <p>Real-time network resources, honeypot health, and live event stream</p>
+        </div>
+        <div class="grid-4">
+          <div class="card"><div class="card-title">Total Events</div><div class="stat-val c-accent" id="m-total">—</div><div class="stat-label">all services</div></div>
+          <div class="card"><div class="card-title">Threats</div><div class="stat-val c-red" id="m-threats">—</div><div class="stat-label">warning + critical</div></div>
+          <div class="card"><div class="card-title">Attacker IPs</div><div class="stat-val c-yellow" id="m-ips">—</div><div class="stat-label">unique sources</div></div>
+          <div class="card"><div class="card-title">Uptime</div><div class="stat-val c-green" id="m-uptime" style="font-size:1.4rem">—</div><div class="stat-label">since start</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">CPU Usage</div>
+            <div class="gauge-wrap">
+              <div class="gauge-label"><span id="cpu-lbl">0%</span><span style="color:var(--text3)">processor</span></div>
+              <div class="gauge-track"><div class="gauge-fill gauge-accent" id="cpu-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">RAM Usage</div>
+            <div class="gauge-wrap">
+              <div class="gauge-label"><span id="ram-lbl">0%</span><span id="ram-detail" style="color:var(--text3)">0/0 GB</span></div>
+              <div class="gauge-track"><div class="gauge-fill gauge-green" id="ram-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title" style="display:flex;justify-content:space-between">
+            <span>Live Event Feed</span>
+            <span style="color:var(--text3);font-family:var(--mono);font-size:.62rem">SSE STREAM ACTIVE</span>
+          </div>
+          <div class="feed-row" style="color:var(--text3);font-size:.62rem;font-weight:600;border-bottom:1px solid var(--border2)">
+            <span>TIMESTAMP</span><span>SVC</span><span>SEVERITY</span><span>EVENT</span>
+          </div>
+          <div class="feed-wrap" id="live-feed">
+            <div class="empty"><div class="empty-icon"><i data-feather="inbox" width="24" height="24"></i></div>Waiting for events…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HONEYPOT -->
+      <div class="section" id="sec-honeypot">
+        <div class="section-header">
+          <h2><i data-feather="server" style="color:var(--accent)"></i> Honeypot Services</h2>
+          <p>Per-service stats, recent events, and captured credentials</p>
+        </div>
+        <div class="grid-3" id="svc-cards"></div>
+        <div class="card grid-1">
+          <div class="card-title"><i data-feather="key" width="14" height="14"></i> Captured Credentials</div>
+          <div id="cred-table-wrap"><div class="empty"><div class="empty-icon"><i data-feather="key" width="24" height="24"></i></div>No credentials yet</div></div>
+        </div>
+        <div id="svc-events-wrap"></div>
+      </div>
+
+      <!-- IDS -->
+      <div class="section" id="sec-ids">
+        <div class="section-header">
+          <h2><i data-feather="shield" style="color:var(--accent)"></i> Intrusion Detection System</h2>
+          <p>Attack classification, timeline, and top threat sources</p>
+        </div>
+        <div class="grid-4">
+          <div class="card"><div class="card-title">Total Events</div><div class="stat-val c-accent" id="ids-total">—</div></div>
+          <div class="card"><div class="card-title">Threats</div><div class="stat-val c-red" id="ids-threats">—</div></div>
+          <div class="card"><div class="card-title">Attack Types</div><div class="stat-val c-yellow" id="ids-types">—</div></div>
+          <div class="card"><div class="card-title">Unique IPs</div><div class="stat-val c-green" id="ids-ips">—</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><div class="card-title">Attack Classification</div><div id="attack-breakdown"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="pie-chart" width="24" height="24"></i></div>No data</div></div></div>
+          <div class="card"><div class="card-title">Top Attacker IPs</div><div id="top-ips"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="globe" width="24" height="24"></i></div>No data</div></div></div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title">Attack Timeline</div>
+          <div style="position:relative;height:160px"><canvas id="timeline-canvas" height="160"></canvas></div>
+        </div>
+        <div class="card grid-1" style="border-color:rgba(255,204,0,.2);background:rgba(255,204,0,.04)">
+          <div class="card-title" style="color:var(--yellow)"><i data-feather="zap" width="14" height="14"></i> Phase 2 — ML Detection Engine</div>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
+            Next phase adds a <strong>Random Forest + LSTM classifier</strong> trained on your captured logs.
+            Each event will receive a real-time threat score. Currently running in <strong>rule-based mode</strong>.
+          </p>
+        </div>
+      </div>
+
+      <!-- XAI -->
+      <div class="section" id="sec-xai">
+        <div class="section-header">
+          <h2><i data-feather="cpu" style="color:var(--accent)"></i> Explainable AI</h2>
+          <p>Understand why each threat was detected — Phase 3 of the framework</p>
+        </div>
+        <div class="card grid-1" style="margin-bottom:.9rem;border-color:rgba(170,85,255,.25);background:rgba(170,85,255,.05)">
+          <div style="display:flex;align-items:center;gap:.7rem;margin-bottom:.5rem">
+            <span style="color:var(--purple)"><i data-feather="layers" width="24" height="24"></i></span>
+            <div>
+              <div style="font-weight:700;font-size:1rem;color:var(--purple)">XAI Layer — Coming in Phase 3</div>
+              <div style="font-size:.78rem;color:var(--text2)">Requires Phase 2 (ML models) to be trained first</div>
+            </div>
+          </div>
+          <p style="font-size:.82rem;color:var(--text2);line-height:1.7">
+            The XAI layer will provide <strong>SHAP value analysis</strong>, <strong>LIME explanations</strong>,
+            and <strong>feature importance rankings</strong> for every detection decision.
+          </p>
+        </div>
+        <div class="xai-grid">
+          <div class="xai-block"><div class="xai-icon"><i data-feather="bar-chart" width="24" height="24"></i></div><div class="xai-title">SHAP Analysis</div><div class="xai-desc">SHapley Additive exPlanations — feature contribution scores per prediction</div><div class="coming-soon">PHASE 3</div></div>
+          <div class="xai-block"><div class="xai-icon"><i data-feather="search" width="24" height="24"></i></div><div class="xai-title">LIME Explainer</div><div class="xai-desc">Local Interpretable Model-agnostic Explanations around each decision</div><div class="coming-soon">PHASE 3</div></div>
+          <div class="xai-block"><div class="xai-icon"><i data-feather="crosshair" width="24" height="24"></i></div><div class="xai-title">Feature Importance</div><div class="xai-desc">Global ranking of which features (IP, port, payload, rate) matter most</div><div class="coming-soon">PHASE 3</div></div>
+          <div class="xai-block"><div class="xai-icon"><i data-feather="aperture" width="24" height="24"></i></div><div class="xai-title">Decision Transparency</div><div class="xai-desc">Visual decision paths and confidence scores for every threat classification</div><div class="coming-soon">PHASE 3</div></div>
+        </div>
+        <div class="card grid-1" style="margin-top:.9rem">
+          <div class="card-title">Proposed XAI Pipeline</div>
+          <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2);line-height:2.2;padding:.5rem 0">
+            <span style="color:var(--accent)">Honeypot Logs</span>
+            <span style="color:var(--text3)"> → </span>
+            <span style="color:var(--green)">Feature Extraction</span>
+            <span style="color:var(--text3)"> → </span>
+            <span style="color:var(--yellow)">ML Model (RF + LSTM)</span>
+            <span style="color:var(--text3)"> → </span>
+            <span style="color:var(--purple)">SHAP / LIME</span>
+            <span style="color:var(--text3)"> → </span>
+            <span style="color:var(--orange)">Analyst Dashboard</span>
+          </div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title">XAI Alert Reporter</div>
+          <div class="btn-row" style="margin-bottom:.75rem;gap:.65rem;flex-wrap:wrap">
+            <button class="btn btn-accent" onclick="loadXaiAlerts()"><i data-feather="refresh-cw" width="14" height="14"></i> Refresh XAI Alerts</button>
+            <button class="btn btn-green" onclick="generateXaiReport()"><i data-feather="send" width="14" height="14"></i> Generate XAI Report</button>
+          </div>
+          <div id="xai-status" style="font-family:var(--mono);font-size:.8rem;color:var(--text2);margin-bottom:.9rem">No alerts loaded.</div>
+          <div id="xai-alert-wrap" class="tbl-wrap">
+            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="alert-circle" width="24" height="24"></i></div>Warning and critical alerts will appear here once loaded.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div class="section" id="sec-report">
+        <div class="section-header">
+          <h2><i data-feather="file-text" style="color:var(--accent)"></i> Security Report</h2>
+          <p>Full incident report with credentials, attack summary, and threat log</p>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-accent" onclick="loadReport()"><i data-feather="refresh-cw" width="14" height="14"></i> Refresh Report</button>
+          <a class="btn btn-green" href="/api/report/download" download><i data-feather="download" width="14" height="14"></i> Download .txt</a>
+        </div>
+        <div class="grid-4">
+          <div class="card"><div class="card-title">Total Events</div><div class="stat-val c-accent" id="rpt-total">—</div></div>
+          <div class="card"><div class="card-title">Threats</div><div class="stat-val c-red" id="rpt-threats">—</div></div>
+          <div class="card"><div class="card-title">Unique IPs</div><div class="stat-val c-yellow" id="rpt-ips">—</div></div>
+          <div class="card"><div class="card-title">Credentials</div><div class="stat-val c-green" id="rpt-creds">—</div></div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title"><i data-feather="key" width="14" height="14"></i> All Captured Credentials</div>
+          <div id="rpt-cred-wrap"><div class="empty"><div class="empty-icon"><i data-feather="key" width="24" height="24"></i></div>No credentials captured</div></div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i data-feather="terminal" width="14" height="14"></i> Full Report Preview</span>
+            <span id="rpt-gen-time" style="color:var(--text3);font-family:var(--mono);font-size:.65rem"></span>
+          </div>
+          <div class="report-pre" id="report-text">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// Init feather icons
+feather.replace();
+
+// Canvas Starfield Background
+const starCanvas = document.getElementById('starfield');
+const ctx = starCanvas.getContext('2d');
+let cw = starCanvas.width = window.innerWidth;
+let ch = starCanvas.height = window.innerHeight;
+const starsObj = [];
+for(let i=0; i<300; i++) {
+  starsObj.push({
+    x: Math.random()*cw,
+    y: Math.random()*ch,
+    r: Math.random()*1.2 + 0.3,
+    d: Math.random()*0.3 + 0.05,
+    o: Math.random()*0.6 + 0.1
+  });
+}
+function animStars() {
+  ctx.clearRect(0, 0, cw, ch);
+  for(let i=0; i<starsObj.length; i++) {
+    let s = starsObj[i];
+    ctx.fillStyle = `rgba(255, 255, 255, ${s.o})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2, true);
+    ctx.fill();
+    s.y -= s.d;
+    if(s.y < 0) { s.y = ch; s.x = Math.random()*cw; }
+  }
+  requestAnimationFrame(animStars);
+}
+animStars();
+window.addEventListener('resize', () => { cw=starCanvas.width=window.innerWidth; ch=starCanvas.height=window.innerHeight; });
+
+function fmtTs(s){return s?(s.slice(0,19).replace('T',' ')):'—'}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function svcBadge(s){const c={ssh:'b-ssh',ftp:'b-ftp',http:'b-http',website:'b-website'}[s]||'b-info';return `<span class="badge ${c}">${(s||'?').toUpperCase()}</span>`}
+function sevBadge(s){const c={warning:'b-warn',critical:'b-crit',info:'b-info'}[s]||'b-info';return `<span class="badge ${c}">${s||'info'}</span>`}
+
+// Clock
+setInterval(()=>{document.getElementById('top-clock').textContent=new Date().toTimeString().slice(0,8)},1000);
+
+// Section switch
+function switchSection(name,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='monitor')loadMonitor();
+  if(name==='honeypot')loadHoneypot();
+  if(name==='ids')loadIDS();
+  if(name==='report')loadReport();
+}
+
+let liveTotal=0;
+
+// Monitor
+function loadMonitor(){
+  fetch('/api/monitor').then(r=>r.json()).then(d=>{
+    document.getElementById('m-total').textContent=d.total_events??'—';
+    document.getElementById('m-threats').textContent=d.threats_detected??'—';
+    document.getElementById('m-ips').textContent=d.unique_ips??'—';
+    document.getElementById('m-uptime').textContent=d.uptime??'—';
+    document.getElementById('sb-uptime').textContent=d.uptime??'—';
+    const cpu=d.cpu_percent||0;
+    document.getElementById('cpu-lbl').textContent=cpu.toFixed(1)+'%';
+    document.getElementById('cpu-bar').style.width=cpu+'%';
+    const ram=d.ram_percent||0;
+    document.getElementById('ram-lbl').textContent=ram.toFixed(1)+'%';
+    document.getElementById('ram-detail').textContent=`${d.ram_used_gb||0}/${d.ram_total_gb||0} GB`;
+    document.getElementById('ram-bar').style.width=ram+'%';
+    document.getElementById('badge-hp').textContent=d.total_events??0;
+    document.getElementById('badge-ids').textContent=d.threats_detected??0;
+  }).catch(()=>{});
+}
+
+function initFeed(evs){
+  if(!evs||!evs.length)return;
+  const f=document.getElementById('live-feed');
+  f.innerHTML='';
+  evs.forEach(e=>appendRow(e,false));
+}
+
+function appendRow(e,flash=true){
+  const f=document.getElementById('live-feed');
+  const emp=f.querySelector('.empty');
+  if(emp)emp.remove();
+  const r=document.createElement('div');
+  r.className='feed-row'+(flash?' flash':'');
+  r.innerHTML=`<span class="feed-ts">${fmtTs(e.timestamp)}</span>${svcBadge(e.service)}${sevBadge(e.severity)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.attack_type)} — ${esc(e.event)}</span>`;
+  f.insertBefore(r,f.firstChild);
+  while(f.children.length>80)f.removeChild(f.lastChild);
+}
+
+// Honeypot
+function loadHoneypot(){
+  fetch('/api/honeypot').then(r=>r.json()).then(d=>{
+    renderSvcCards(d.services);
+    renderCreds(d.credentials||[],'cred-table-wrap');
+    renderSvcTables(d.services);
+    feather.replace();
+  }).catch(()=>{});
+}
+
+function renderSvcCards(svcs){
+  const w=document.getElementById('svc-cards');
+  const cfg={
+    ssh:{icon:'terminal',port:2222,col:'var(--purple)'},
+    ftp:{icon:'folder',port:2121,col:'var(--green)'},
+    http:{icon:'globe',port:8080,col:'var(--accent)'},
+    website:{icon:'layout',port:8090,col:'var(--orange)'}
+  };
+  const keys=Object.keys(svcs||{});
+  if(!keys.length)keys.push('ssh','ftp','http');
+  w.innerHTML=keys.map((s)=>{
+    const c=cfg[s]||{icon:'box',port:'-',col:'var(--text2)'};
+    const d=(svcs||{})[s]||{total:0,threats:0};
+    return `<div class="card svc-card">
+      <div class="svc-header"><div><div class="svc-name" style="color:${c.col}"><i data-feather="${c.icon}" width="14" height="14"></i> ${s.toUpperCase()}</div><div class="svc-port">port ${c.port}</div></div>
+      <div class="svc-status"><span class="dot dot-green"></span> ACTIVE</div></div>
+      <div class="svc-nums"><div class="svc-num"><div class="svc-num-val" style="color:${c.col}">${d.total}</div><div class="svc-num-lbl">Events</div></div>
+      <div class="svc-num"><div class="svc-num-val c-red">${d.threats}</div><div class="svc-num-lbl">Threats</div></div></div></div>`;
+  }).join('');
+}
+
+function renderCreds(creds,wid){
+  const w=document.getElementById(wid);
+  if(!creds||!creds.length){w.innerHTML='<div class="empty"><div class="empty-icon"><i data-feather="key" width="24" height="24"></i></div>No credentials captured yet</div>';return}
+  w.innerHTML=`<table><thead><tr><th>Timestamp</th><th>IP</th><th>Service</th><th>Username</th><th>Password</th><th>Severity</th></tr></thead><tbody>
+  ${creds.map(c=>`<tr><td class="td-mono">${fmtTs(c.timestamp)}</td><td class="td-mono">${esc(c.source_ip)}</td><td>${svcBadge(c.service)}</td>
+  <td class="td-mono" style="color:var(--yellow)">${esc(c.username)}</td><td class="td-mono" style="color:var(--yellow)">${esc(c.password)}</td>
+  <td>${sevBadge(c.severity)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderSvcTables(svcs){
+  const w=document.getElementById('svc-events-wrap');
+  w.innerHTML=Object.keys(svcs||{}).map(svc=>{
+    const evs=((svcs||{})[svc]||{}).recent||[];
+    return `<div class="card" style="margin-bottom:.9rem">
+      <div class="card-title"><i data-feather="list" width="14" height="14"></i> ${svc.toUpperCase()} — Recent Events (${evs.length})</div>
+      ${!evs.length?'<div class="empty" style="padding:1rem"><div class="empty-icon"><i data-feather="clock" width="24" height="24"></i></div>No events yet</div>':`
+      <div class="tbl-wrap"><table><thead><tr><th>Timestamp</th><th>IP</th><th>Event</th><th>Attack Type</th><th>Severity</th></tr></thead><tbody>
+      ${evs.slice(0,15).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
+      <td>${esc(e.event)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
+      </tbody></table></div>`}</div>`;
+  }).join('');
+}
+
+function loadXaiAlerts(){
+  const status = document.getElementById('xai-status');
+  status.textContent='Loading XAI alerts…';
+  fetch('/api/xai/alerts').then(r=>r.json()).then(d=>{
+    const alerts = d.alerts||[];
+    renderXaiAlerts(alerts);
+    status.textContent=`Loaded ${alerts.length} warning/critical alerts.`;
+  }).catch(()=>{status.textContent='Unable to load XAI alerts.'});
+}
+
+function renderXaiAlerts(alerts){
+  const w=document.getElementById('xai-alert-wrap');
+  if(!alerts||!alerts.length){
+    w.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="alert-circle" width="24" height="24"></i></div>No warning or critical alerts available</div>';
+    feather.replace();
+    return;
+  }
+  w.innerHTML=`<table><thead><tr><th>Time</th><th>IP</th><th>Service</th><th>Attack</th><th>Severity</th></tr></thead><tbody>
+      ${alerts.slice(0,20).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
+      <td>${svcBadge(e.service)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
+      </tbody></table>`;
+  feather.replace();
+}
+
+function generateXaiReport(){
+  const status = document.getElementById('xai-status');
+  status.textContent='Sending XAI report to n8n…';
+  fetch('/api/xai/report', {method:'POST'}).then(async r=>{
+    const d = await r.json();
+    if(r.ok && d.status==='sent'){
+      status.textContent = `Report sent: ${d.message}`;
+    } else {
+      status.textContent = `Report failed: ${d.message || d.detail || 'Unknown error'}`;
+    }
+  }).catch(()=>{status.textContent='Report request failed.'});
+}
+
+// IDS
+function loadIDS(){
+  fetch('/api/ids').then(r=>r.json()).then(d=>{
+    const st=d.stats||{};
+    document.getElementById('ids-total').textContent=st.total_events??'—';
+    document.getElementById('ids-threats').textContent=st.threats_detected??'—';
+    document.getElementById('ids-ips').textContent=st.unique_ips??'—';
+    const atk=st.by_attack||{};
+    document.getElementById('ids-types').textContent=Object.keys(atk).filter(k=>!['web_activity','connection_probe','command_activity'].includes(k)).length;
+    renderAttackBreakdown(atk);
+    renderTopIPs(d.top_ips||[]);
+    renderTimeline(d.timeline||[]);
+    feather.replace();
+  }).catch(()=>{});
+}
+
+function renderAttackBreakdown(byAtk){
+  const w=document.getElementById('attack-breakdown');
+  const f=Object.entries(byAtk).filter(([k])=>!['web_activity','connection_probe','command_activity'].includes(k)).sort((a,b)=>b[1]-a[1]);
+  if(!f.length){w.innerHTML='<div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="pie-chart" width="24" height="24"></i></div>No attack data</div>';return}
+  const max=Math.max(...f.map(x=>x[1]),1);
+  w.innerHTML=f.map(([k,v])=>`<div style="margin-bottom:.5rem">
+    <div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:.2rem">
+      <span>${esc(k)}</span><span style="font-family:var(--mono);color:var(--accent)">${v}</span></div>
+    <div class="gauge-track"><div class="gauge-fill gauge-accent" style="width:${v/max*100}%"></div></div></div>`).join('');
+}
+
+function renderTopIPs(ips){
+  const w=document.getElementById('top-ips');
+  if(!ips||!ips.length){w.innerHTML='<div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="globe" width="24" height="24"></i></div>No data</div>';return}
+  const max=Math.max(...ips.map(x=>x.count),1);
+  w.innerHTML=ips.map((item,i)=>`<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;font-size:.76rem">
+    <span style="width:16px;color:var(--text3);font-family:var(--mono)">#${i+1}</span>
+    <span style="flex:1;font-family:var(--mono)">${esc(item.ip)}</span>
+    <div style="width:80px"><div class="gauge-track"><div class="gauge-fill gauge-red" style="width:${item.count/max*100}%"></div></div></div>
+    <span style="width:28px;text-align:right;font-family:var(--mono);color:var(--red)">${item.count}</span></div>`).join('');
+}
+
+function renderTimeline(tl){
+  const canvas=document.getElementById('timeline-canvas');
+  if(!canvas)return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.parentElement.clientWidth||600,H=160;
+  canvas.width=W;canvas.height=H;
+  ctx.clearRect(0,0,W,H);
+  if(!tl||!tl.length){ctx.fillStyle='rgba(122,143,166,.3)';ctx.font='11px Share Tech Mono,monospace';ctx.textAlign='center';ctx.fillText('No timeline data yet',W/2,H/2);return}
+  const maxV=Math.max(...tl.map(b=>b.total),1);
+  const pL=10,pR=10,pT=10,pB=28,cW=W-pL-pR,cH=H-pT-pB;
+  const bw=Math.max(cW/tl.length-2,2);
+  ctx.strokeStyle='rgba(30,45,61,.8)';ctx.lineWidth=1;
+  for(let y=0;y<=4;y++){const yy=pT+(cH/4)*y;ctx.beginPath();ctx.moveTo(pL,yy);ctx.lineTo(pL+cW,yy);ctx.stroke()}
+  tl.forEach((b,i)=>{
+    const x=pL+i*(cW/tl.length),bh=(b.total/maxV)*cH,y=pT+cH-bh;
+    ctx.fillStyle='rgba(0,212,255,.22)';ctx.fillRect(x+1,y,bw,bh);
+    if(b.threats>0){const th=(b.threats/maxV)*cH,ty=pT+cH-th;ctx.fillStyle='rgba(255,51,85,.6)';ctx.fillRect(x+1,ty,bw,th)}
+  });
+  ctx.fillStyle='rgba(122,143,166,.55)';ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='center';
+  tl.forEach((b,i)=>{if(i%4===0){const x=pL+i*(cW/tl.length)+bw/2;ctx.fillText(b.label,x,H-8)}});
+}
+
+// Report
+function loadReport(){
+  fetch('/api/report').then(r=>r.json()).then(d=>{
+    const st=d.summary||{};
+    document.getElementById('rpt-total').textContent=st.total_events??'—';
+    document.getElementById('rpt-threats').textContent=st.threats_detected??'—';
+    document.getElementById('rpt-ips').textContent=st.unique_ips??'—';
+    document.getElementById('rpt-creds').textContent=(d.credentials_captured||[]).length;
+    document.getElementById('rpt-gen-time').textContent=fmtTs(d.generated_at)+' UTC';
+    renderCreds(d.credentials_captured||[],'rpt-cred-wrap');
+    buildReportText(d);
+    feather.replace();
+  }).catch(()=>{});
+}
+
+function buildReportText(d){
+  const st=d.summary||{},creds=d.credentials_captured||[],threats=d.recent_threats||[];
+  let lines=['='.repeat(60),'  HONEYPOT SECURITY REPORT','  Generated: '+fmtTs(d.generated_at),'='.repeat(60),'',
+    '── SUMMARY ──────────────────────────────────────────',
+    `  Total Events       : ${st.total_events||0}`,
+    `  Threats Detected   : ${st.threats_detected||0}`,
+    `  Unique Attacker IPs: ${st.unique_ips||0}`,'',
+    '── EVENTS BY SERVICE ────────────────────────────────'];
+  Object.entries(st.by_service||{}).forEach(([k,v])=>lines.push(`  ${k.toUpperCase().padEnd(10)}: ${v}`));
+  lines.push('','── ATTACK TYPES ─────────────────────────────────────');
+  Object.entries(st.by_attack||{}).filter(([k])=>!['web_activity','connection_probe','command_activity'].includes(k))
+    .sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>lines.push(`  ${k.padEnd(35)}: ${v}`));
+  lines.push('','── CAPTURED CREDENTIALS ─────────────────────────────');
+  if(creds.length){
+    lines.push('  '+'Timestamp'.padEnd(20)+'IP'.padEnd(16)+'Svc'.padEnd(6)+'Username'.padEnd(20)+'Password');
+    lines.push('  '+'─'.repeat(72));
+    creds.forEach(c=>lines.push('  '+fmtTs(c.timestamp).padEnd(20)+(c.source_ip||'').padEnd(16)+(c.service||'').padEnd(6)+(c.username||'').padEnd(20)+(c.password||'')));
+  } else lines.push('  No credentials captured yet.');
+  lines.push('','── RECENT THREATS ───────────────────────────────────');
+  threats.slice(0,20).forEach(e=>lines.push(`  [${fmtTs(e.timestamp)}] [${(e.service||'?').padEnd(4)}] ${e.attack_type}`));
+  lines.push('','='.repeat(60),'  END OF REPORT','='.repeat(60));
+  document.getElementById('report-text').textContent=lines.join('\n');
+}
+
+// SSE
+function connectSSE(){
+  const es=new EventSource('/stream');
+  es.onmessage=ev=>{
+    try{
+      const e=JSON.parse(ev.data);
+      liveTotal++;
+      document.getElementById('live-counter').textContent=liveTotal;
+      appendRow(e,true);
+      document.getElementById('badge-hp').textContent=liveTotal;
+    }catch{}
+  };
+  es.onerror=()=>{es.close();setTimeout(connectSSE,3000)};
+}
+
+// Init
+window.addEventListener('DOMContentLoaded',()=>{
+  fetch('/api/monitor').then(r=>r.json()).then(d=>{
+    document.getElementById('m-total').textContent=d.total_events??'—';
+    document.getElementById('m-threats').textContent=d.threats_detected??'—';
+    document.getElementById('m-ips').textContent=d.unique_ips??'—';
+    document.getElementById('m-uptime').textContent=d.uptime??'—';
+    document.getElementById('sb-uptime').textContent=d.uptime??'—';
+    document.getElementById('badge-hp').textContent=d.total_events??0;
+    document.getElementById('badge-ids').textContent=d.threats_detected??0;
+    const cpu=d.cpu_percent||0,ram=d.ram_percent||0;
+    document.getElementById('cpu-lbl').textContent=cpu.toFixed(1)+'%';
+    document.getElementById('cpu-bar').style.width=cpu+'%';
+    document.getElementById('ram-lbl').textContent=ram.toFixed(1)+'%';
+    document.getElementById('ram-detail').textContent=`${d.ram_used_gb||0}/${d.ram_total_gb||0} GB`;
+    document.getElementById('ram-bar').style.width=ram+'%';
+    initFeed(d.recent_events||[]);
+    liveTotal=d.total_events||0;
+    document.getElementById('live-counter').textContent=liveTotal;
+  }).catch(()=>{});
+  connectSSE();
+  loadXaiAlerts();
+  setInterval(()=>{
+    const a=document.querySelector('.section.active')?.id;
+    if(a==='sec-monitor')loadMonitor();
+  },10000);
+});
+</script>
+</body>
+</html>

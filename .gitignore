@@ -1,0 +1,44 @@
+# Python
+.venv/
+venv/
+env/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node.js
+**/node_modules/
+website/frontend/dist/
+npm-debug.log*
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+website/backend/.env
+
+# Runtime logs and databases
+data/raw_logs/*.jsonl
+website/backend/logs/
+website/backend/data/*.db
+honeypot_security_report.txt
+*.log
+
+# Sensitive n8n exports and local configuration
+n8n/
+.n8n/
+
+# Generated archives and reports
+*.zip
+XAI/*report*.json
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Cloudflare local credentials
+.cloudflared/

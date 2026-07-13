@@ -1,0 +1,12 @@
+# XAI Module Requirements
+
+# Core Dependencies
+requests>=2.28.0
+urllib3>=1.26.0
+
+# Optional Dependencies (for enhanced functionality)
+# Uncomment if needed:
+# pydantic>=1.9.0  # For advanced data validation
+# python-dotenv>=0.20.0  # For environment variable management
+# colorama>=0.4.4  # For colored console output
+# tabulate>=0.9.0  # For formatted tables
