@@ -130,7 +130,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 .feed-wrap{max-height:360px;overflow-y:auto;background:rgba(0,0,0,0.1);border-radius:4px;}
 .feed-wrap::-webkit-scrollbar{width:3px}
 .feed-wrap::-webkit-scrollbar-thumb{background:var(--border2)}
-.feed-row{display:grid;grid-template-columns:100px 50px 72px 1fr;
+.feed-row{display:grid;grid-template-columns:120px 50px minmax(110px,.7fr) 72px 1fr;
   gap:.5rem;padding:.38rem .4rem;border-bottom:1px solid rgba(255,255,255,0.03);
   font-size:.74rem;align-items:center;transition:background .1s}
 .feed-row:hover{background:var(--surface2)}
@@ -239,6 +239,15 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
           <div class="card"><div class="card-title">Attacker IPs</div><div class="stat-val c-yellow" id="m-ips">—</div><div class="stat-label">unique sources</div></div>
           <div class="card"><div class="card-title">Uptime</div><div class="stat-val c-green" id="m-uptime" style="font-size:1.4rem">—</div><div class="stat-label">since start</div></div>
         </div>
+        <div class="card grid-1" id="port-scan-panel" style="border-color:rgba(255,204,0,.35);background:rgba(255,204,0,.05)">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;color:var(--yellow)">
+            <span><i data-feather="radio" width="14" height="14"></i> Network Port-Scan Detection</span>
+            <span class="badge b-info" id="port-scan-count">0 detected</span>
+          </div>
+          <div id="port-scan-status" style="font-family:var(--mono);font-size:.78rem;color:var(--text2)">
+            No correlated port scan detected in the current event history.
+          </div>
+        </div>
         <div class="grid-2">
           <div class="card">
             <div class="card-title">CPU Usage</div>
@@ -261,7 +270,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
             <span style="color:var(--text3);font-family:var(--mono);font-size:.62rem">SSE STREAM ACTIVE</span>
           </div>
           <div class="feed-row" style="color:var(--text3);font-size:.62rem;font-weight:600;border-bottom:1px solid var(--border2)">
-            <span>TIMESTAMP</span><span>SVC</span><span>SEVERITY</span><span>EVENT</span>
+            <span>TIMESTAMP (IST)</span><span>SVC</span><span>ATTACK</span><span>SEVERITY</span><span>EVENT</span>
           </div>
           <div class="feed-wrap" id="live-feed">
             <div class="empty"><div class="empty-icon"><i data-feather="inbox" width="24" height="24"></i></div>Waiting for events…</div>
@@ -432,13 +441,40 @@ function animStars() {
 animStars();
 window.addEventListener('resize', () => { cw=starCanvas.width=window.innerWidth; ch=starCanvas.height=window.innerHeight; });
 
-function fmtTs(s){return s?(s.slice(0,19).replace('T',' ')):'—'}
+const INDIA_DATE_TIME_FORMATTER=new Intl.DateTimeFormat('en-GB',{
+  timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit',
+  hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+});
+const INDIA_CLOCK_FORMATTER=new Intl.DateTimeFormat('en-GB',{
+  timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+});
+function fmtTs(s){
+  if(!s)return '—';
+  const date=new Date(s);
+  if(Number.isNaN(date.getTime()))return String(s).slice(0,19).replace('T',' ');
+  const parts=Object.fromEntries(
+    INDIA_DATE_TIME_FORMATTER.formatToParts(date)
+      .filter(part=>part.type!=='literal')
+      .map(part=>[part.type,part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function svcBadge(s){const c={ssh:'b-ssh',ftp:'b-ftp',http:'b-http',website:'b-website'}[s]||'b-info';return `<span class="badge ${c}">${(s||'?').toUpperCase()}</span>`}
 function sevBadge(s){const c={warning:'b-warn',critical:'b-crit',info:'b-info'}[s]||'b-info';return `<span class="badge ${c}">${s||'info'}</span>`}
+function attackLabel(s){
+  const labels={
+    ssh_bruteforce:'SSH Brute Force',ftp_bruteforce:'FTP Brute Force',
+    sql_injection:'SQL Injection',xss:'XSS',directory_scanning:'Directory Scanning',
+    port_scanning:'Port Scanning',credential_access:'Credential Access',
+    authentication_probe:'Authentication Probe',connection_probe:'Connection Probe',
+    command_activity:'Command Activity',web_activity:'Web Activity'
+  };
+  return labels[s]||String(s||'Unknown').replace(/_/g,' ');
+}
 
 // Clock
-setInterval(()=>{document.getElementById('top-clock').textContent=new Date().toTimeString().slice(0,8)},1000);
+setInterval(()=>{document.getElementById('top-clock').textContent=INDIA_CLOCK_FORMATTER.format(new Date())+' IST'},1000);
 
 // Section switch
 function switchSection(name,el){
@@ -471,6 +507,22 @@ function loadMonitor(){
     document.getElementById('ram-bar').style.width=ram+'%';
     document.getElementById('badge-hp').textContent=d.total_events??0;
     document.getElementById('badge-ids').textContent=d.threats_detected??0;
+    const scanCount=d.port_scans_detected||0;
+    const latestScan=d.latest_port_scan;
+    const scanPanel=document.getElementById('port-scan-panel');
+    document.getElementById('port-scan-count').textContent=`${scanCount} detected`;
+    if(latestScan){
+      const ports=(latestScan.observed_ports||[]).join(', ')||'not recorded';
+      document.getElementById('port-scan-status').textContent=
+        `DETECTED • ${fmtTs(latestScan.timestamp)} • source ${latestScan.source_ip||'unknown'} • ports ${ports}`;
+      scanPanel.style.borderColor='rgba(255,77,109,.65)';
+      scanPanel.style.background='rgba(255,77,109,.09)';
+    }else{
+      document.getElementById('port-scan-status').textContent=
+        'No correlated port scan detected in the current event history.';
+      scanPanel.style.borderColor='rgba(255,204,0,.35)';
+      scanPanel.style.background='rgba(255,204,0,.05)';
+    }
   }).catch(()=>{});
 }
 
@@ -487,9 +539,9 @@ function appendRow(e,flash=true){
   if(emp)emp.remove();
   const r=document.createElement('div');
   r.className='feed-row'+(flash?' flash':'');
-  r.innerHTML=`<span class="feed-ts">${fmtTs(e.timestamp)}</span>${svcBadge(e.service)}${sevBadge(e.severity)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.attack_type)} — ${esc(e.event)}</span>`;
+  r.innerHTML=`<span class="feed-ts">${fmtTs(e.timestamp)}</span>${svcBadge(e.service)}<span>${esc(attackLabel(e.attack_type))}</span>${sevBadge(e.severity)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.event)}</span>`;
   f.insertBefore(r,f.firstChild);
-  while(f.children.length>80)f.removeChild(f.lastChild);
+  while(f.children.length>200)f.removeChild(f.lastChild);
 }
 
 // Honeypot
@@ -526,8 +578,8 @@ function renderSvcCards(svcs){
 function renderCreds(creds,wid){
   const w=document.getElementById(wid);
   if(!creds||!creds.length){w.innerHTML='<div class="empty"><div class="empty-icon"><i data-feather="key" width="24" height="24"></i></div>No credentials captured yet</div>';return}
-  w.innerHTML=`<table><thead><tr><th>Timestamp</th><th>IP</th><th>Service</th><th>Username</th><th>Password</th><th>Severity</th></tr></thead><tbody>
-  ${creds.map(c=>`<tr><td class="td-mono">${fmtTs(c.timestamp)}</td><td class="td-mono">${esc(c.source_ip)}</td><td>${svcBadge(c.service)}</td>
+  w.innerHTML=`<table><thead><tr><th>Timestamp (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Username</th><th>Password</th><th>Severity</th></tr></thead><tbody>
+  ${creds.map(c=>`<tr><td class="td-mono">${fmtTs(c.timestamp)}</td><td class="td-mono">${esc(c.source_ip)}</td><td>${svcBadge(c.service)}</td><td><span class="badge b-info">${esc(attackLabel(c.attack_type))}</span></td>
   <td class="td-mono" style="color:var(--yellow)">${esc(c.username)}</td><td class="td-mono" style="color:var(--yellow)">${esc(c.password)}</td>
   <td>${sevBadge(c.severity)}</td></tr>`).join('')}</tbody></table>`;
 }
@@ -539,8 +591,8 @@ function renderSvcTables(svcs){
     return `<div class="card" style="margin-bottom:.9rem">
       <div class="card-title"><i data-feather="list" width="14" height="14"></i> ${svc.toUpperCase()} — Recent Events (${evs.length})</div>
       ${!evs.length?'<div class="empty" style="padding:1rem"><div class="empty-icon"><i data-feather="clock" width="24" height="24"></i></div>No events yet</div>':`
-      <div class="tbl-wrap"><table><thead><tr><th>Timestamp</th><th>IP</th><th>Event</th><th>Attack Type</th><th>Severity</th></tr></thead><tbody>
-      ${evs.slice(0,15).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
+      <div class="tbl-wrap"><table><thead><tr><th>Timestamp (IST)</th><th>IP</th><th>Event</th><th>Attack Type</th><th>Severity</th></tr></thead><tbody>
+      ${evs.slice(0,100).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
       <td>${esc(e.event)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
       </tbody></table></div>`}</div>`;
   }).join('');
@@ -563,8 +615,8 @@ function renderXaiAlerts(alerts){
     feather.replace();
     return;
   }
-  w.innerHTML=`<table><thead><tr><th>Time</th><th>IP</th><th>Service</th><th>Attack</th><th>Severity</th></tr></thead><tbody>
-      ${alerts.slice(0,20).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
+  w.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Severity</th></tr></thead><tbody>
+      ${alerts.slice(0,50).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
       <td>${svcBadge(e.service)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
       </tbody></table>`;
   feather.replace();
@@ -651,7 +703,7 @@ function loadReport(){
     document.getElementById('rpt-threats').textContent=st.threats_detected??'—';
     document.getElementById('rpt-ips').textContent=st.unique_ips??'—';
     document.getElementById('rpt-creds').textContent=(d.credentials_captured||[]).length;
-    document.getElementById('rpt-gen-time').textContent=fmtTs(d.generated_at)+' UTC';
+    document.getElementById('rpt-gen-time').textContent=fmtTs(d.generated_at)+' IST';
     renderCreds(d.credentials_captured||[],'rpt-cred-wrap');
     buildReportText(d);
     feather.replace();
@@ -660,7 +712,7 @@ function loadReport(){
 
 function buildReportText(d){
   const st=d.summary||{},creds=d.credentials_captured||[],threats=d.recent_threats||[];
-  let lines=['='.repeat(60),'  HONEYPOT SECURITY REPORT','  Generated: '+fmtTs(d.generated_at),'='.repeat(60),'',
+  let lines=['='.repeat(60),'  HONEYPOT SECURITY REPORT','  Generated: '+fmtTs(d.generated_at)+' IST','='.repeat(60),'',
     '── SUMMARY ──────────────────────────────────────────',
     `  Total Events       : ${st.total_events||0}`,
     `  Threats Detected   : ${st.threats_detected||0}`,
@@ -672,9 +724,9 @@ function buildReportText(d){
     .sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>lines.push(`  ${k.padEnd(35)}: ${v}`));
   lines.push('','── CAPTURED CREDENTIALS ─────────────────────────────');
   if(creds.length){
-    lines.push('  '+'Timestamp'.padEnd(20)+'IP'.padEnd(16)+'Svc'.padEnd(6)+'Username'.padEnd(20)+'Password');
+    lines.push('  '+'Timestamp (IST)'.padEnd(20)+'IP'.padEnd(16)+'Svc'.padEnd(6)+'Attack'.padEnd(24)+'Username'.padEnd(20)+'Password');
     lines.push('  '+'─'.repeat(72));
-    creds.forEach(c=>lines.push('  '+fmtTs(c.timestamp).padEnd(20)+(c.source_ip||'').padEnd(16)+(c.service||'').padEnd(6)+(c.username||'').padEnd(20)+(c.password||'')));
+    creds.forEach(c=>lines.push('  '+fmtTs(c.timestamp).padEnd(20)+(c.source_ip||'').padEnd(16)+(c.service||'').padEnd(6)+attackLabel(c.attack_type).padEnd(24)+(c.username||'').padEnd(20)+(c.password||'')));
   } else lines.push('  No credentials captured yet.');
   lines.push('','── RECENT THREATS ───────────────────────────────────');
   threats.slice(0,20).forEach(e=>lines.push(`  [${fmtTs(e.timestamp)}] [${(e.service||'?').padEnd(4)}] ${e.attack_type}`));

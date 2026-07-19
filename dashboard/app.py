@@ -93,6 +93,33 @@ def _compute_stats(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _port_scan_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return a stable dashboard summary even when the scan row is buried."""
+
+    scans = [event for event in events if event.get("attack_type") == "port_scanning"]
+    if not scans:
+        return {"port_scans_detected": 0, "latest_port_scan": None}
+
+    latest = scans[0]
+    payload = latest.get("payload") if isinstance(latest.get("payload"), dict) else {}
+    metadata = latest.get("metadata") if isinstance(latest.get("metadata"), dict) else {}
+    observed_ports = payload.get("observed_ports") or metadata.get("observed_ports") or []
+
+    return {
+        "port_scans_detected": len(scans),
+        "latest_port_scan": {
+            "timestamp": latest.get("timestamp", ""),
+            "source_ip": latest.get("source_ip", ""),
+            "service": latest.get("service", ""),
+            "event": latest.get("event", ""),
+            "attack_type": latest.get("attack_type", ""),
+            "severity": latest.get("severity", "warning"),
+            "status": latest.get("status", "detected"),
+            "observed_ports": observed_ports,
+        },
+    }
+
+
 def _xai_alerts(events: list[dict[str, Any]], limit: int = 50) -> list[dict[str, Any]]:
     alerts = [e for e in events if e.get("severity") in ("warning", "critical")]
     return alerts[:limit]
@@ -224,10 +251,16 @@ def create_dashboard_app() -> "Flask":
 
     @app.route("/api/monitor")
     def api_monitor() -> Any:
-        events = _all_events(500)
+        events = _all_events(2000)
         stats = _compute_stats(events)
         sys_stats = _system_stats()
-        return jsonify({**stats, **sys_stats, "recent_events": events[:15]})
+        port_scan_stats = _port_scan_summary(events)
+        return jsonify({
+            **stats,
+            **sys_stats,
+            **port_scan_stats,
+            "recent_events": events[:100],
+        })
 
     @app.route("/api/honeypot")
     def api_honeypot() -> Any:
@@ -238,7 +271,7 @@ def create_dashboard_app() -> "Flask":
             services[svc] = {
                 "total": len(svc_events),
                 "threats": sum(1 for e in svc_events if e.get("severity") in ("warning", "critical")),
-                "recent": svc_events[:20],
+                "recent": svc_events[:100],
             }
         credentials = _extract_credentials(events)
         return jsonify({"services": services, "credentials": credentials[:100]})

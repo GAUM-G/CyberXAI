@@ -1,7 +1,7 @@
 """
 simulate_attacks.py
 ====================
-Runs all three attack simulations (SSH, FTP, HTTP) in sequence.
+Runs all Step 5 traffic simulations in a controlled local sequence.
 Used by run.py --simulate, or call run_all() directly.
 
 Usage:
@@ -31,13 +31,22 @@ def run_all(
     from simulation.sim_ssh  import simulate_ssh_bruteforce
     from simulation.sim_ftp  import simulate_ftp_bruteforce
     from simulation.sim_http import simulate_http_attacks
+    from simulation.sim_port_scan import simulate_port_scan
 
     print("\n" + "="*55)
     print("  🔴  ATTACK SIMULATION STARTING")
     print("  All events will appear in the dashboard live feed.")
     print("="*55 + "\n")
 
-    # SSH and FTP can run in parallel; HTTP after
+    # Correlate one source across all three honeypot ports first.
+    simulate_port_scan(
+        ssh_port=ssh_port,
+        ftp_port=ftp_port,
+        http_port=http_port,
+        delay=delay,
+    )
+
+    # SSH and FTP can run in parallel; HTTP follows.
     ssh_thread = threading.Thread(
         target=simulate_ssh_bruteforce,
         kwargs={"port": ssh_port, "delay": delay},

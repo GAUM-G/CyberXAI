@@ -7,12 +7,34 @@ const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("./db");
+const {
+  getEventStats,
+  insertEvent,
+  listEvents,
+  validateEventRecord,
+} = require("./event_store");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
+const allowedFrontendOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...String(process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedFrontendOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Frontend origin is not allowed by CORS"));
+  },
+}));
 app.use(express.json());
 
 const decoyDir = path.join(__dirname, "..", "decoy_files");
@@ -155,7 +177,7 @@ app.use((req, res, next) => {
   const startedAt = Date.now();
 
   res.on("finish", () => {
-    if (req.path.startsWith("/logs")) {
+    if (req.path.startsWith("/logs") || req.path.startsWith("/api/events")) {
       return;
     }
 
@@ -182,6 +204,56 @@ app.use((req, res, next) => {
   next();
 });
 
+app.post("/api/events", async (req, res) => {
+  const errors = validateEventRecord(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({
+      stored: false,
+      error: "Invalid common event",
+      details: errors,
+    });
+  }
+
+  try {
+    const result = await insertEvent(db, req.body);
+    return res.status(result.inserted ? 201 : 200).json({
+      stored: true,
+      duplicate: !result.inserted,
+      database_id: result.id,
+      event_id: result.event_id,
+    });
+  } catch (error) {
+    console.error("[Event Store] Insert failed:", error.message);
+    return res.status(500).json({ stored: false, error: "Could not store event" });
+  }
+});
+
+app.get("/api/events", async (req, res) => {
+  try {
+    const events = await listEvents(db, {
+      limit: req.query.limit,
+      service: req.query.service,
+      severity: req.query.severity,
+      eventType: req.query.event_type,
+      attackType: req.query.attack_type,
+    });
+    return res.json({ source: "sqlite", count: events.length, events });
+  } catch (error) {
+    console.error("[Event Store] Query failed:", error.message);
+    return res.status(500).json({ error: "Could not read centralized events" });
+  }
+});
+
+app.get("/api/events/stats", async (_req, res) => {
+  try {
+    const stats = await getEventStats(db);
+    return res.json({ source: "sqlite", ...stats });
+  } catch (error) {
+    console.error("[Event Store] Stats failed:", error.message);
+    return res.status(500).json({ error: "Could not calculate event statistics" });
+  }
+});
+
 app.get("/", (_req, res) => {
   logEvent("website_index", { type: "web_activity" });
   res.json({
@@ -197,6 +269,8 @@ app.get("/", (_req, res) => {
       "/frontend/log",
       "/logs/backend",
       "/logs/frontend",
+      "/api/events",
+      "/api/events/stats",
     ],
   });
 });

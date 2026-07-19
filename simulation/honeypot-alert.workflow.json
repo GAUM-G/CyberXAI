@@ -25,6 +25,16 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [620, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const service = $json.service ?? $json.type ?? $json.record?.service ?? 'unknown';\nconst record = { ...($json.record ?? {}), service, type: service };\nreturn [{ json: { ...$json, service, type: service, record } }];"
+      },
+      "id": "0a43a9c5-348f-42d6-b831-b85b77351f0f",
+      "name": "Preserve Telegram Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 300]
     }
 
   ],
@@ -35,6 +45,17 @@
         [
           {
             "node": "Normalize Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Alert": {
+      "main": [
+        [
+          {
+            "node": "Preserve Telegram Type",
             "type": "main",
             "index": 0
           }

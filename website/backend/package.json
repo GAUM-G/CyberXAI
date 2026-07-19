@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:events": "node --test tests/event_store.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

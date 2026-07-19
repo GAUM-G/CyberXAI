@@ -18,8 +18,14 @@ import ftplib
 import time
 
 CREDENTIALS = [
+    # Controlled failures verify ftp_bruteforce warning events.
+    ("admin",     "password"),
+    ("root",      "toor"),
+    ("ftp",       "anonymous"),
+    ("backup",    "backup123"),
+    ("test",      "test"),
+    # Keep the existing successful decoy login and browsing behavior.
     ("ftp",       "ftp"),
-       # anonymous login — often accepted
 ]
 
 

@@ -1,6 +1,7 @@
 """
 HTTP Attack Simulation
-Sends realistic attack payloads to the HTTP honeypot:
+Sends realistic normal and attack payloads to the HTTP honeypot:
+  - Normal web traffic
   - Login brute-force
   - SQL injection
   - XSS injection
@@ -45,6 +46,19 @@ def _get(url: str) -> int:
 
 
 # ── attack scenarios ─────────────────────────────────────────────────────────
+
+def sim_normal_traffic(base: str, delay: float) -> None:
+    print("[SIM-HTTP] Normal web traffic...")
+    paths = [
+        "/",
+        "/search?q=quarterly+report",
+        "/forgot",
+    ]
+    for path in paths:
+        code = _get(f"{base}{path}")
+        print(f"  GET {path} → {code}")
+        time.sleep(delay)
+
 
 def sim_login_bruteforce(base: str, delay: float) -> None:
     print("[SIM-HTTP] Login brute-force...")
@@ -131,6 +145,8 @@ def simulate_http_attacks(host: str = "127.0.0.1", port: int = 8080, delay: floa
     base = f"http://{host}:{port}"
     print(f"[SIM-HTTP] Starting HTTP attack simulation → {base}")
 
+    sim_normal_traffic(base, delay)
+    time.sleep(0.5)
     sim_login_bruteforce(base, delay)
     time.sleep(0.5)
     sim_sql_injection(base, delay)
