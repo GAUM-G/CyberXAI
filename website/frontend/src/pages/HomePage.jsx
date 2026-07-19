@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PortalShell from "../components/PortalShell";
-import { apiRequest } from "../api";
+import { API_BASE, apiRequest } from "../api";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -103,7 +103,7 @@ export default function HomePage() {
         <ul className="file-list">
           {files.map((file) => (
             <li key={file}>
-              <a href={`http://localhost:5000/files/${encodeURIComponent(file)}`} target="_blank" rel="noreferrer">
+              <a href={`${API_BASE}/files/${encodeURIComponent(file)}`} target="_blank" rel="noreferrer">
                 {file}
               </a>
             </li>

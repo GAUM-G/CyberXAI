@@ -31,6 +31,8 @@ class AppConfig:
 def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
     payload_value = record.get("payload")
+    service = record.get("service") or "unknown"
+    normalized_record = {**record, "service": service, "type": service}
 
     target = metadata.get("path") or metadata.get("route") or metadata.get("target")
     if not target and isinstance(payload_value, str):
@@ -79,14 +81,16 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "severity": record.get("severity", "info"),
         "ip": record.get("source_ip", "unknown"),
+        # Compatibility alias used by the existing Telegram message template.
+        "type": service,
         "attack_type": record.get("attack_type", "unknown"),
         "target": target or "n/a",
         "timestamp": record.get("timestamp"),
-        "service": record.get("service"),
+        "service": service,
         "event": record.get("event"),
         "metadata": metadata,
         "payload": payload_value,
-        "record": record,
+        "record": normalized_record,
         "analysis": {
             "target": target or "n/a",
             "request_context": {k: v for k, v in request_context.items() if v is not None},

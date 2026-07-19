@@ -15,6 +15,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from core.attack_detection import PortScanDetector
 from core.event_schema import build_common_event
 
 
@@ -53,12 +54,22 @@ EVENT_COLLECTOR_RETRY_SECONDS = max(
 EVENT_COLLECTOR_QUEUE_SIZE = max(
     100, _to_int(os.getenv("EVENT_COLLECTOR_QUEUE_SIZE", "5000"), 5000)
 )
+PORT_SCAN_THRESHOLD = max(
+    2, _to_int(os.getenv("PORT_SCAN_THRESHOLD", "3"), 3)
+)
+PORT_SCAN_WINDOW_SECONDS = max(
+    1.0, _to_float(os.getenv("PORT_SCAN_WINDOW_SECONDS", "30.0"), 30.0)
+)
 
 _collector_queue: queue.Queue[dict[str, Any]] = queue.Queue(
     maxsize=EVENT_COLLECTOR_QUEUE_SIZE
 )
 _collector_start_lock = threading.Lock()
 _collector_worker_started = False
+_port_scan_detector = PortScanDetector(
+    threshold=PORT_SCAN_THRESHOLD,
+    window_seconds=PORT_SCAN_WINDOW_SECONDS,
+)
 
 
 def _post_event_to_collector(record: dict[str, Any]) -> str:
@@ -128,6 +139,8 @@ def _queue_event_for_collector(record: dict[str, Any]) -> None:
 def _build_n8n_payload(record: dict[str, Any]) -> dict[str, Any]:
     metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
     payload_value = record.get("payload")
+    service = record.get("service") or "unknown"
+    normalized_record = {**record, "service": service, "type": service}
 
     target = metadata.get("path") or metadata.get("route") or metadata.get("target")
     if not target and isinstance(payload_value, str):
@@ -175,14 +188,16 @@ def _build_n8n_payload(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "severity": record.get("severity", "info"),
         "ip": record.get("source_ip", "unknown"),
+        # Keep both names because older Telegram templates use `type`.
+        "type": service,
         "attack_type": record.get("attack_type", "unknown"),
         "target": target or "n/a",
         "timestamp": record.get("timestamp"),
-        "service": record.get("service"),
+        "service": service,
         "event": record.get("event"),
         "metadata": metadata,
         "payload": payload_value,
-        "record": record,
+        "record": normalized_record,
         "analysis": {
             "target": target or "n/a",
             "request_context": {k: v for k, v in request_context.items() if v is not None},
@@ -209,6 +224,71 @@ def _post_critical_alert_to_n8n(record: dict[str, Any]) -> None:
     except (urllib.error.URLError, TimeoutError):
         # Notification delivery failure should not break honeypot logging.
         return
+
+
+def _publish_record(record: dict[str, Any]) -> None:
+    """Publish one already-normalized record through every existing output."""
+
+    # Write to JSONL file (thread-safe)
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _lock:
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=True) + "\n")
+
+    # Push to SSE queue (non-blocking: drop if full to avoid memory issues)
+    try:
+        _event_queue.put_nowait(record)
+    except queue.Full:
+        pass
+
+    # Deliver to the centralized backend without blocking honeypot responses.
+    _queue_event_for_collector(record)
+
+    if record.get("severity") == "critical":
+        threading.Thread(
+            target=_post_critical_alert_to_n8n,
+            args=(record,),
+            daemon=True,
+        ).start()
+
+
+def _build_port_scan_event(record: dict[str, Any]) -> dict[str, Any] | None:
+    """Correlate distinct ports while avoiding correlation of synthetic alerts."""
+
+    if record.get("attack_type") == "port_scanning":
+        return None
+
+    finding = _port_scan_detector.register(
+        str(record.get("source_ip", "")),
+        record.get("destination_port"),
+    )
+    if finding is None:
+        return None
+
+    evidence = {
+        "observed_ports": list(finding.observed_ports),
+        "distinct_port_count": len(finding.observed_ports),
+        "threshold": finding.threshold,
+        "window_seconds": finding.window_seconds,
+        "trigger_event_id": record.get("event_id"),
+    }
+    return build_common_event(
+        source_ip=finding.source_ip,
+        source_port=record.get("source_port"),
+        destination_port=record.get("destination_port"),
+        service=str(record.get("service", "http")),
+        protocol=str(record.get("protocol", record.get("service", "http"))),
+        event_type="attack",
+        event="port_scan_detected",
+        attack_type="port_scanning",
+        status="detected",
+        session_id=record.get("session_id"),
+        request_method=record.get("request_method"),
+        request_path=record.get("request_path"),
+        payload={"observed_ports": list(finding.observed_ports)},
+        metadata=evidence,
+        severity="warning",
+    )
 
 
 def log_event(
@@ -251,23 +331,11 @@ def log_event(
         status=status,
     )
 
-    # Write to JSONL file (thread-safe)
-    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with _lock:
-        with LOG_FILE.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=True) + "\n")
+    _publish_record(record)
 
-    # Push to SSE queue (non-blocking: drop if full to avoid memory issues)
-    try:
-        _event_queue.put_nowait(record)
-    except queue.Full:
-        pass
-
-    # Deliver to the centralized backend without blocking honeypot responses.
-    _queue_event_for_collector(record)
-
-    if severity == "critical":
-        threading.Thread(target=_post_critical_alert_to_n8n, args=(record,), daemon=True).start()
+    port_scan_event = _build_port_scan_event(record)
+    if port_scan_event is not None:
+        _publish_record(port_scan_event)
 
     return record
 
