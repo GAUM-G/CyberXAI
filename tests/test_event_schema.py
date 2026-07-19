@@ -97,8 +97,10 @@ class LoggerCompatibilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             old_log_file = logger.LOG_FILE
             old_webhook = logger.N8N_WEBHOOK_URL
+            old_collector_url = logger.EVENT_COLLECTOR_URL
             logger.LOG_FILE = Path(temp_dir) / "honeypot_events.jsonl"
             logger.N8N_WEBHOOK_URL = ""
+            logger.EVENT_COLLECTOR_URL = ""
             try:
                 record = logger.log_event(
                     source_ip="127.0.0.1",
@@ -116,6 +118,7 @@ class LoggerCompatibilityTests(unittest.TestCase):
             finally:
                 logger.LOG_FILE = old_log_file
                 logger.N8N_WEBHOOK_URL = old_webhook
+                logger.EVENT_COLLECTOR_URL = old_collector_url
 
 
 if __name__ == "__main__":

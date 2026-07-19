@@ -9,6 +9,7 @@ import json
 import os
 import queue
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -32,7 +33,96 @@ def _to_float(value: str, fallback: float) -> float:
         return fallback
 
 
+def _to_int(value: str, fallback: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 N8N_WEBHOOK_TIMEOUT = _to_float(os.getenv("N8N_WEBHOOK_TIMEOUT", "2.0"), 2.0)
+EVENT_COLLECTOR_URL = os.getenv(
+    "EVENT_COLLECTOR_URL", "http://127.0.0.1:5000/api/events"
+).strip()
+EVENT_COLLECTOR_TIMEOUT = max(
+    0.2, _to_float(os.getenv("EVENT_COLLECTOR_TIMEOUT", "2.0"), 2.0)
+)
+EVENT_COLLECTOR_RETRY_SECONDS = max(
+    0.2, _to_float(os.getenv("EVENT_COLLECTOR_RETRY_SECONDS", "2.0"), 2.0)
+)
+EVENT_COLLECTOR_QUEUE_SIZE = max(
+    100, _to_int(os.getenv("EVENT_COLLECTOR_QUEUE_SIZE", "5000"), 5000)
+)
+
+_collector_queue: queue.Queue[dict[str, Any]] = queue.Queue(
+    maxsize=EVENT_COLLECTOR_QUEUE_SIZE
+)
+_collector_start_lock = threading.Lock()
+_collector_worker_started = False
+
+
+def _post_event_to_collector(record: dict[str, Any]) -> str:
+    """Return success, retry or drop without interrupting honeypot logging."""
+
+    body = json.dumps(record, ensure_ascii=True).encode("utf-8")
+    req = urllib.request.Request(
+        EVENT_COLLECTOR_URL,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=EVENT_COLLECTOR_TIMEOUT) as response:
+            return "success" if 200 <= response.getcode() < 300 else "retry"
+    except urllib.error.HTTPError as exc:
+        if 400 <= exc.code < 500 and exc.code not in (408, 429):
+            # Retrying a schema/authentication rejection would block later events.
+            return "drop"
+        return "retry"
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return "retry"
+
+
+def _collector_worker() -> None:
+    while True:
+        record = _collector_queue.get()
+        try:
+            while EVENT_COLLECTOR_URL:
+                outcome = _post_event_to_collector(record)
+                if outcome in {"success", "drop"}:
+                    break
+                time.sleep(EVENT_COLLECTOR_RETRY_SECONDS)
+        finally:
+            _collector_queue.task_done()
+
+
+def _ensure_collector_worker() -> None:
+    global _collector_worker_started
+
+    if _collector_worker_started:
+        return
+    with _collector_start_lock:
+        if _collector_worker_started:
+            return
+        threading.Thread(
+            target=_collector_worker,
+            name="backend-event-collector",
+            daemon=True,
+        ).start()
+        _collector_worker_started = True
+
+
+def _queue_event_for_collector(record: dict[str, Any]) -> None:
+    if not EVENT_COLLECTOR_URL or record.get("service") not in {"ssh", "ftp", "http"}:
+        return
+
+    _ensure_collector_worker()
+    try:
+        _collector_queue.put_nowait(record)
+    except queue.Full:
+        # JSONL remains the durable fallback if the backend is unavailable.
+        pass
 
 
 def _build_n8n_payload(record: dict[str, Any]) -> dict[str, Any]:
@@ -172,6 +262,9 @@ def log_event(
         _event_queue.put_nowait(record)
     except queue.Full:
         pass
+
+    # Deliver to the centralized backend without blocking honeypot responses.
+    _queue_event_for_collector(record)
 
     if severity == "critical":
         threading.Thread(target=_post_critical_alert_to_n8n, args=(record,), daemon=True).start()
