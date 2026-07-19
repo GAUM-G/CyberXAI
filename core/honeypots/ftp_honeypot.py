@@ -12,6 +12,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from threading import Lock
+from uuid import uuid4
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -45,15 +46,40 @@ _failed_lock = Lock()
 
 class _LoggingFTPHandler(FTPHandler):
 
+    def _session_id(self) -> str:
+        session_id = getattr(self, "_honeypot_session_id", None)
+        if not session_id:
+            session_id = str(uuid4())
+            self._honeypot_session_id = session_id
+        return session_id
+
+    def _destination_port(self) -> int | None:
+        try:
+            return int(self.socket.getsockname()[1])
+        except (AttributeError, OSError, TypeError, ValueError):
+            return None
+
     def on_connect(self) -> None:
+        session_id = self._session_id()
+        destination_port = self._destination_port()
         log_event(
             source_ip=self.remote_ip,
             service="ftp",
             event="ftp_connection",
             attack_type="connection_probe",
             payload="FTP connection opened",
-            metadata={"remote_port": self.remote_port},
+            metadata={
+                "remote_port": self.remote_port,
+                "destination_port": destination_port,
+                "session_id": session_id,
+            },
             severity="info",
+            event_type="connection",
+            protocol="ftp",
+            source_port=self.remote_port,
+            destination_port=destination_port,
+            session_id=session_id,
+            status="opened",
         )
 
     def on_login_failed(self, username: str, password: str) -> None:
@@ -67,8 +93,20 @@ class _LoggingFTPHandler(FTPHandler):
             event="ftp_login_failed",
             attack_type="ftp_bruteforce",
             payload={"username": username, "password": password},
-            metadata={"failed_attempts": count},
+            metadata={
+                "failed_attempts": count,
+                "source_port": self.remote_port,
+                "destination_port": self._destination_port(),
+                "session_id": self._session_id(),
+            },
             severity="warning",
+            event_type="authentication",
+            protocol="ftp",
+            source_port=self.remote_port,
+            destination_port=self._destination_port(),
+            username=username,
+            session_id=self._session_id(),
+            status="failed",
         )
 
     def on_login(self, username: str) -> None:
@@ -78,8 +116,20 @@ class _LoggingFTPHandler(FTPHandler):
             event="ftp_login_success",
             attack_type="credential_access",
             payload={"username": username},
-            metadata={"home": self.fs.root},
+            metadata={
+                "home": self.fs.root,
+                "source_port": self.remote_port,
+                "destination_port": self._destination_port(),
+                "session_id": self._session_id(),
+            },
             severity="critical",
+            event_type="authentication",
+            protocol="ftp",
+            source_port=self.remote_port,
+            destination_port=self._destination_port(),
+            username=username,
+            session_id=self._session_id(),
+            status="success",
         )
 
     def pre_process_command(self, line: str, cmd: str, arg: str | None) -> None:
@@ -89,8 +139,20 @@ class _LoggingFTPHandler(FTPHandler):
             event="ftp_command",
             attack_type="command_activity",
             payload=line,
-            metadata={"command": cmd, "argument": arg},
+            metadata={
+                "command": cmd,
+                "argument": arg,
+                "source_port": self.remote_port,
+                "destination_port": self._destination_port(),
+                "session_id": self._session_id(),
+            },
             severity="info",
+            event_type="command",
+            protocol="ftp",
+            source_port=self.remote_port,
+            destination_port=self._destination_port(),
+            session_id=self._session_id(),
+            status="observed",
         )
         super().pre_process_command(line, cmd, arg)
 

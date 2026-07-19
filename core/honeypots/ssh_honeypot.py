@@ -14,6 +14,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from threading import Lock
+from uuid import uuid4
 
 # Allow running standalone
 if __package__ in {None, ""}:
@@ -51,6 +52,9 @@ class SSHHoneypotHandler(socketserver.StreamRequestHandler):
 
     def handle(self) -> None:
         source_ip: str = self.client_address[0]
+        source_port: int = self.client_address[1]
+        destination_port: int = self.server.server_address[1]
+        session_id = str(uuid4())
         try:
             # Send a realistic-looking SSH banner
             self.wfile.write(b"SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n")
@@ -72,8 +76,22 @@ class SSHHoneypotHandler(socketserver.StreamRequestHandler):
                 event="ssh_bruteforce_attempt" if is_brute else "ssh_login_attempt",
                 attack_type="ssh_bruteforce" if is_brute else "authentication_probe",
                 payload={"username": username, "password": password},
-                metadata={"attempt_count": count, "threshold": _TRACKER.threshold, "source_port": self.client_address[1], "banner": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5"},
+                metadata={
+                    "attempt_count": count,
+                    "threshold": _TRACKER.threshold,
+                    "source_port": source_port,
+                    "destination_port": destination_port,
+                    "session_id": session_id,
+                    "banner": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5",
+                },
                 severity="warning" if is_brute else "info",
+                event_type="authentication",
+                protocol="ssh",
+                source_port=source_port,
+                destination_port=destination_port,
+                username=username,
+                session_id=session_id,
+                status="failed",
             )
 
             self.wfile.write(b"Permission denied, please try again.\r\n")

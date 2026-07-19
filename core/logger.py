@@ -11,9 +11,10 @@ import queue
 import threading
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from core.event_schema import build_common_event
 
 
 LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "raw_logs" / "honeypot_events.jsonl"
@@ -129,19 +130,36 @@ def log_event(
     payload: Any = None,
     metadata: dict[str, Any] | None = None,
     severity: str = "info", # "info" | "warning" | "critical"
+    event_type: str | None = None,
+    protocol: str | None = None,
+    source_port: int | str | None = None,
+    destination_port: int | str | None = None,
+    username: str | None = None,
+    session_id: str | None = None,
+    request_method: str | None = None,
+    request_path: str | None = None,
+    status: str | None = None,
 ) -> dict[str, Any]:
     """Write one event to disk and push it to the live stream queue."""
 
-    record: dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "source_ip": source_ip,
-        "service": service,
-        "event": event,
-        "attack_type": attack_type,
-        "payload": payload,
-        "severity": severity,
-        "metadata": metadata or {},
-    }
+    record = build_common_event(
+        source_ip=source_ip,
+        service=service,
+        event=event,
+        attack_type=attack_type,
+        payload=payload,
+        metadata=metadata,
+        severity=severity,
+        event_type=event_type,
+        protocol=protocol,
+        source_port=source_port,
+        destination_port=destination_port,
+        username=username,
+        session_id=session_id,
+        request_method=request_method,
+        request_path=request_path,
+        status=status,
+    )
 
     # Write to JSONL file (thread-safe)
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

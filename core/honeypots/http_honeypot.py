@@ -20,6 +20,7 @@ import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -27,7 +28,7 @@ if __package__ in {None, ""}:
 from core.logger import log_event
 
 try:
-    from flask import Flask, jsonify, render_template_string, request
+    from flask import Flask, g, jsonify, render_template_string, request
     _FLASK_OK = True
 except ImportError:
     _FLASK_OK = False
@@ -158,8 +159,37 @@ def create_http_honeypot() -> "Flask":
 
     app = Flask(__name__)
 
+    @app.before_request
+    def _assign_event_session() -> None:
+        # One ID links all records generated while handling the same HTTP request.
+        g.honeypot_session_id = str(uuid4())
+
     def _ip() -> str:
         return request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
+
+    def _source_port() -> int | str | None:
+        return request.environ.get("REMOTE_PORT")
+
+    def _destination_port() -> int | str:
+        return request.environ.get("SERVER_PORT", 8080)
+
+    def _common_context(
+        *,
+        event_type: str,
+        status: str,
+        username: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "event_type": event_type,
+            "protocol": "http",
+            "source_port": _source_port(),
+            "destination_port": _destination_port(),
+            "username": username,
+            "session_id": g.honeypot_session_id,
+            "request_method": request.method,
+            "request_path": request.path,
+            "status": status,
+        }
 
 
     def _headers() -> dict[str, str]:
@@ -197,6 +227,7 @@ def create_http_honeypot() -> "Flask":
             payload=payload[:500],
             metadata={**(extra_meta or {}), "route": route, "method": request.method, "path": request.path, "headers": _headers(), "query_string": request.query_string.decode("utf-8", errors="ignore")},
             severity="info",
+            **_common_context(event_type="request", status="observed"),
         )
 
         # Specific attack logs
@@ -209,6 +240,7 @@ def create_http_honeypot() -> "Flask":
                 payload=payload[:500],
                 metadata={**(extra_meta or {}), "route": route, "method": request.method, "path": request.path, "headers": _headers(), "query_string": request.query_string.decode("utf-8", errors="ignore")},
                 severity="warning",
+                **_common_context(event_type="attack", status="detected"),
             )
 
     # -------- routes --------------------------------------------------------
@@ -254,6 +286,11 @@ def create_http_honeypot() -> "Flask":
                     "path": request.path,
                 },
                 severity="warning" if (is_brute or attacks) else "info",
+                **_common_context(
+                    event_type="authentication",
+                    status="failed",
+                    username=username,
+                ),
             )
 
             for attack in attacks:
@@ -265,6 +302,11 @@ def create_http_honeypot() -> "Flask":
                     payload=payload,
                     metadata={"username": username, "headers": _headers(), "path": request.path},
                     severity="warning",
+                    **_common_context(
+                        event_type="attack",
+                        status="detected",
+                        username=username,
+                    ),
                 )
 
             error = "Invalid username or password."
@@ -310,6 +352,10 @@ def create_http_honeypot() -> "Flask":
             payload=full[:300],
             metadata={"path": path},
             severity="warning" if attacks else "info",
+            **_common_context(
+                event_type="attack" if attacks else "request",
+                status="detected" if attacks else "failed",
+            ),
         )
         return jsonify({"error": "Not found"}), 404
 
