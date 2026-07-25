@@ -4,10 +4,13 @@ pyftpdlib>=1.5.9
 pyyaml>=6.0.1
 requests>=2.31.0
 
-# For future IDS phase
+# Dataset preprocessing and traditional ML
+numpy>=1.26.0,<3.0
+scikit-learn>=1.4.0,<2.0
+joblib>=1.3.0,<2.0
+
+# For future deep-learning and XAI phases
 # torch>=2.2.0
-# scikit-learn>=1.4.0
 # pandas>=2.0.0
-# numpy>=1.26.0
 # shap>=0.44.0
 # lime>=0.2.0.1
