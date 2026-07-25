@@ -267,13 +267,17 @@ function listEvents(database, filters = {}) {
 
   const requestedLimit = Number(filters.limit || 100);
   const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 100, 1000));
-  params.push(limit);
+  const requestedOffset = Number(filters.offset || 0);
+  const offset = Math.max(
+    0, Math.floor(Number.isFinite(requestedOffset) ? requestedOffset : 0)
+  );
+  params.push(limit, offset);
 
   const sql = `
     SELECT * FROM honeypot_events
     ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
     ORDER BY timestamp DESC, id DESC
-    LIMIT ?
+    LIMIT ? OFFSET ?
   `;
 
   return new Promise((resolve, reject) => {

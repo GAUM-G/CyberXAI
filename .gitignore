@@ -21,6 +21,8 @@ website/backend/.env
 
 # Runtime logs and databases
 data/raw_logs/*.jsonl
+data/processed/
+data/ml_ready/
 website/backend/logs/
 website/backend/data/*.db
 honeypot_security_report.txt

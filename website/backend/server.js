@@ -232,6 +232,7 @@ app.get("/api/events", async (req, res) => {
   try {
     const events = await listEvents(db, {
       limit: req.query.limit,
+      offset: req.query.offset,
       service: req.query.service,
       severity: req.query.severity,
       eventType: req.query.event_type,
