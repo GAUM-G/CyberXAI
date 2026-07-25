@@ -44,7 +44,7 @@ else:
     )
 
 
-PREPROCESSING_VERSION = "1.0"
+PREPROCESSING_VERSION = "1.1"
 
 # Safe non-behavioural inputs retained from the Step 7 baseline.
 BASE_NUMERICAL_FEATURES = (
@@ -61,8 +61,6 @@ CATEGORICAL_FEATURES = (
     "source_ip_scope",
     "service",
     "protocol",
-    "severity",
-    "status",
     "request_method",
 )
 
@@ -81,6 +79,8 @@ EXCLUDED_MODEL_FIELDS = (
     "request_path",
     "payload_json",
     "metadata_json",
+    "severity",
+    "status",
     "label",
 )
 
@@ -92,6 +92,8 @@ REQUIRED_INPUT_FIELDS = frozenset(
         "label",
         *BASE_NUMERICAL_FEATURES,
         *CATEGORICAL_FEATURES,
+        "severity",
+        "status",
         "event_type",
         "event",
         "request_path",
