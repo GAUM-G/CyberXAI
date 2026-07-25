@@ -67,6 +67,27 @@ test("central event store validates, deduplicates and retrieves events", async (
     assert.equal(stats.total_events, 1);
     assert.deepEqual(stats.by_service, { ssh: 1 });
 
+    const secondEvent = sampleEvent({
+      event_id: "9f7648bc-6797-4db1-b50a-71bb288c0002",
+      timestamp: "2026-07-19T10:01:00+00:00",
+    });
+    await insertEvent(database, secondEvent);
+
+    const firstPage = await listEvents(database, {
+      service: "ssh",
+      limit: 1,
+      offset: 0,
+    });
+    const secondPage = await listEvents(database, {
+      service: "ssh",
+      limit: 1,
+      offset: 1,
+    });
+    assert.equal(firstPage.length, 1);
+    assert.equal(secondPage.length, 1);
+    assert.equal(firstPage[0].event_id, secondEvent.event_id);
+    assert.equal(secondPage[0].event_id, event.event_id);
+
     const invalid = sampleEvent({ service: "smtp" });
     assert.match(validateEventRecord(invalid).join(" "), /service must be ssh, ftp or http/);
     await assert.rejects(insertEvent(database, invalid), /service must be ssh, ftp or http/);
