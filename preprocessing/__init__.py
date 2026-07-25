@@ -1,6 +1,7 @@
 """Leakage-safe preprocessing for the honeypot IDS datasets."""
 
 from .preprocess_dataset import (
+    BASE_NUMERICAL_FEATURES,
     CATEGORICAL_FEATURES,
     NUMERICAL_FEATURES,
     PREPROCESSING_VERSION,
@@ -9,6 +10,7 @@ from .preprocess_dataset import (
 )
 
 __all__ = [
+    "BASE_NUMERICAL_FEATURES",
     "CATEGORICAL_FEATURES",
     "NUMERICAL_FEATURES",
     "PREPROCESSING_VERSION",

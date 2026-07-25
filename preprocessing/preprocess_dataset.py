@@ -26,21 +26,36 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from dataset.labeling import APPROVED_LABELS
+    from feature_engineering.engineer_features import (
+        ENGINEERED_NUMERICAL_FEATURES,
+        FEATURE_DEFINITIONS,
+        FEATURE_ENGINEERING_VERSION,
+        FeatureEngineeringState,
+        engineer_rows,
+    )
 else:
     from dataset.labeling import APPROVED_LABELS
+    from feature_engineering.engineer_features import (
+        ENGINEERED_NUMERICAL_FEATURES,
+        FEATURE_DEFINITIONS,
+        FEATURE_ENGINEERING_VERSION,
+        FeatureEngineeringState,
+        engineer_rows,
+    )
 
 
 PREPROCESSING_VERSION = "1.0"
 
-# These are safe baseline inputs. Step 8 can extend the numerical feature list
-# with explicitly reviewed behavioural features.
-NUMERICAL_FEATURES = (
+# Safe non-behavioural inputs retained from the Step 7 baseline.
+BASE_NUMERICAL_FEATURES = (
     "source_port",
     "destination_port",
-    "payload_length",
     "username_present",
     "session_id_present",
 )
+
+# Step 8 adds exactly the eight reviewed behavioural/security features.
+NUMERICAL_FEATURES = BASE_NUMERICAL_FEATURES + ENGINEERED_NUMERICAL_FEATURES
 
 CATEGORICAL_FEATURES = (
     "source_ip_scope",
@@ -75,7 +90,14 @@ REQUIRED_INPUT_FIELDS = frozenset(
         "timestamp_utc",
         "source_ip_hash",
         "label",
-        *MODEL_FEATURES,
+        *BASE_NUMERICAL_FEATURES,
+        *CATEGORICAL_FEATURES,
+        "event_type",
+        "event",
+        "request_path",
+        "payload_length",
+        "payload_json",
+        "metadata_json",
     }
 )
 
@@ -365,6 +387,10 @@ def preprocess_dataset(
     rows, read_stats = read_dataset(input_csv)
     train_rows, test_rows = split_rows(rows, test_size=test_size)
 
+    feature_state = FeatureEngineeringState()
+    train_rows = engineer_rows(train_rows, state=feature_state)
+    test_rows = engineer_rows(test_rows, state=feature_state)
+
     train_matrix = rows_to_matrix(train_rows)
     test_matrix = rows_to_matrix(test_rows)
 
@@ -448,6 +474,19 @@ def preprocess_dataset(
                 "transform_fit_scope": "training_rows_only",
             },
             "features": {
+                "feature_engineering_version": FEATURE_ENGINEERING_VERSION,
+                "engineered_numerical": list(ENGINEERED_NUMERICAL_FEATURES),
+                "engineered_definitions": FEATURE_DEFINITIONS,
+                "engineering_scope": {
+                    "ordering": "chronological",
+                    "grouping": ["source_ip_hash", "service"],
+                    "history": "current and past events only",
+                    "test_context": (
+                        "past training rows and chronologically earlier "
+                        "test rows only"
+                    ),
+                    "label_used": False,
+                },
                 "numerical": list(NUMERICAL_FEATURES),
                 "categorical": list(CATEGORICAL_FEATURES),
                 "excluded_direct_model_fields": list(EXCLUDED_MODEL_FIELDS),
@@ -495,6 +534,8 @@ def preprocess_dataset(
                 "preprocessor_fitted_on_test_data": False,
                 "raw_payload_used_as_direct_model_input": False,
                 "direct_identifiers_used_as_model_inputs": False,
+                "labels_used_for_feature_engineering": False,
+                "future_events_used_for_feature_engineering": False,
             },
         }
         _write_json(staging / "preprocessing_manifest.json", manifest)
@@ -554,6 +595,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"[PREPROCESS] Encoded features: "
         f"{manifest['features']['encoded_feature_count']}"
+    )
+    print(
+        f"[PREPROCESS] Engineered features: "
+        f"{len(manifest['features']['engineered_numerical'])}"
     )
     print(
         f"[PREPROCESS] Train/Test sequences: "
