@@ -159,6 +159,53 @@ class SequenceAndArtifactTests(unittest.TestCase):
             self.assertEqual(0, int(sequence[0, 0]) % 2 ^ int(sequence[1, 0]) % 2)
         self.assertEqual(6, len(y_sequences))
 
+    def test_test_targets_can_use_only_earlier_historical_context(self):
+        rows = [make_row(index) for index in range(8)]
+        for row in rows:
+            row["_timestamp"] = row["timestamp_utc"]
+
+        features = np.asarray([[index] for index in range(8)], dtype=np.float32)
+        labels = np.arange(8, dtype=np.int64)
+        test_event_ids = frozenset(row["event_id"] for row in rows[6:])
+
+        X_sequences, y_sequences = create_sequences(
+            features,
+            labels,
+            rows,
+            sequence_length=3,
+            target_event_ids=test_event_ids,
+        )
+
+        self.assertEqual((2, 3, 1), X_sequences.shape)
+        self.assertEqual([[2, 4, 6], [3, 5, 7]], X_sequences[:, :, 0].tolist())
+        self.assertEqual([6, 7], y_sequences.tolist())
+
+    def test_short_histories_are_left_padded_without_future_rows(self):
+        rows = [make_row(index) for index in range(4)]
+        for row in rows:
+            row["_timestamp"] = row["timestamp_utc"]
+
+        features = np.asarray(
+            [[index + 1] for index in range(4)],
+            dtype=np.float32,
+        )
+        labels = np.arange(4, dtype=np.int64)
+
+        X_sequences, y_sequences = create_sequences(
+            features,
+            labels,
+            rows,
+            sequence_length=3,
+            pad_short_history=True,
+        )
+
+        self.assertEqual((4, 3, 1), X_sequences.shape)
+        self.assertEqual([0, 0, 1], X_sequences[0, :, 0].tolist())
+        self.assertEqual([0, 0, 2], X_sequences[1, :, 0].tolist())
+        self.assertEqual([0, 1, 3], X_sequences[2, :, 0].tolist())
+        self.assertEqual([0, 2, 4], X_sequences[3, :, 0].tolist())
+        self.assertEqual([0, 1, 2, 3], y_sequences.tolist())
+
     def test_end_to_end_outputs_are_finite_and_leakage_safe(self):
         rows = [make_row(index) for index in range(24)]
         rows.append(dict(rows[5]))
@@ -184,6 +231,10 @@ class SequenceAndArtifactTests(unittest.TestCase):
                 output_dir / "X_train_sequences.npy",
                 allow_pickle=False,
             )
+            X_test_sequences = np.load(
+                output_dir / "X_test_sequences.npy",
+                allow_pickle=False,
+            )
             loaded_transformer = joblib.load(output_dir / "preprocessor.joblib")
             with (output_dir / "preprocessing_manifest.json").open(
                 "r", encoding="utf-8"
@@ -198,9 +249,22 @@ class SequenceAndArtifactTests(unittest.TestCase):
         self.assertTrue(np.isfinite(X_train).all())
         self.assertTrue(np.isfinite(X_test).all())
         self.assertGreater(len(X_train_sequences), 0)
+        self.assertGreater(len(X_test_sequences), 0)
+        self.assertEqual(len(X_train), len(X_train_sequences))
+        self.assertEqual(len(X_test), len(X_test_sequences))
         self.assertEqual(X_train.shape[1], len(loaded_transformer.get_feature_names_out()))
         self.assertEqual("training_rows_only", disk_manifest["split"]["transform_fit_scope"])
         self.assertFalse(disk_manifest["safety"]["preprocessor_fitted_on_test_data"])
+        self.assertEqual(
+            "test rows only",
+            disk_manifest["sequences"]["test_target_scope"],
+        )
+        self.assertFalse(disk_manifest["sequences"]["future_context_used"])
+        self.assertFalse(disk_manifest["sequences"]["context_labels_used"])
+        self.assertEqual(
+            "left zero padding",
+            disk_manifest["sequences"]["short_history_policy"],
+        )
         self.assertNotIn(
             "event",
             disk_manifest["features"]["numerical"]
