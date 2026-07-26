@@ -61,8 +61,6 @@ CATEGORICAL_FEATURES = (
     "source_ip_scope",
     "service",
     "protocol",
-    "severity",
-    "status",
     "request_method",
 )
 
@@ -78,6 +76,8 @@ EXCLUDED_MODEL_FIELDS = (
     "source_ip_hash",
     "event_type",
     "event",
+    "severity",
+    "status",
     "request_path",
     "payload_json",
     "metadata_json",
