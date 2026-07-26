@@ -33,7 +33,12 @@ from dataset.labeling import APPROVED_LABELS, assign_label  # noqa: E402
 
 
 DEFAULT_TARGET = 310
-GENERATOR_NAME = "controlled-local-v1"
+GENERATOR_NAME = "controlled-local-v2"
+_ISOLATED_PROBE_NETWORK_PREFIX = "198.18"
+_ISOLATED_PROBE_HOSTS_PER_SUBNET = 254
+_ISOLATED_PROBE_MAX_ORDINAL = (
+    256 * _ISOLATED_PROBE_HOSTS_PER_SUBNET
+)
 
 _LABEL_INDEX = {
     label: index
@@ -147,6 +152,24 @@ def _source_ip(label: str, ordinal: int) -> str:
     first_host = (_LABEL_INDEX[label] * 28) + 1
     host = first_host + (ordinal % 28)
     return f"192.0.2.{host}"
+
+
+def _isolated_probe_ip(ordinal: int) -> str:
+    """Return one non-repeating local benchmark address per auth probe."""
+
+    if not 0 <= ordinal < _ISOLATED_PROBE_MAX_ORDINAL:
+        raise ValueError(
+            "other_anomaly ordinal exceeds the isolated probe address pool"
+        )
+
+    third_octet, host_index = divmod(
+        ordinal,
+        _ISOLATED_PROBE_HOSTS_PER_SUBNET,
+    )
+    return (
+        f"{_ISOLATED_PROBE_NETWORK_PREFIX}."
+        f"{third_octet}.{host_index + 1}"
+    )
 
 
 def _source_port(rng: random.Random) -> int:
@@ -354,7 +377,10 @@ def _event_spec(
     if label == "other_anomaly":
         username = _USERS[ordinal % len(_USERS)]
         return {
-            "source_ip": source_ip,
+            # Each pre-threshold authentication probe is intentionally
+            # isolated. Reusing an address would create an artificial burst
+            # that is behaviourally indistinguishable from SSH brute force.
+            "source_ip": _isolated_probe_ip(ordinal),
             "source_port": source_port,
             "destination_port": 2222,
             "service": "ssh",
@@ -362,15 +388,20 @@ def _event_spec(
             "event_type": "authentication",
             "event": "ssh_login_attempt",
             "attack_type": "authentication_probe",
-            "severity": "warning",
+            "severity": "info",
             "status": "failed",
             "username": username,
-            "session_id": session_id,
+            "session_id": f"controlled-07-probe-{ordinal:06d}",
             "payload": {
                 "username": username,
                 "password": _PASSWORDS[ordinal % len(_PASSWORDS)],
             },
-            "metadata": metadata,
+            "metadata": {
+                **metadata,
+                "attempt_count": 1,
+                "threshold": 3,
+                "probe_mode": "isolated",
+            },
         }
 
     raise ValueError(f"Unsupported label: {label}")
