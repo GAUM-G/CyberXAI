@@ -1,13 +1,14 @@
-﻿"""PyTorch LSTM classifier for Step 11 sequence-based attack detection."""
+"""PyTorch LSTM classifier for Step 11 sequence-based attack detection."""
 
 from __future__ import annotations
 
 import torch
 from torch import Tensor, nn
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
 class LSTMClassifier(nn.Module):
-    """Classify a fixed-length sequence using its final LSTM output."""
+    """Classify a fixed-length sequence while ignoring left-zero padding."""
 
     def __init__(
         self,
@@ -48,7 +49,7 @@ class LSTMClassifier(nn.Module):
         self.classifier = nn.Linear(hidden_size, num_classes)
 
     def forward(self, inputs: Tensor) -> Tensor:
-        """Return unnormalized class scores with shape (batch, classes)."""
+        """Return class scores while excluding leading zero-padding steps."""
 
         if inputs.ndim != 3:
             raise ValueError(
@@ -62,8 +63,53 @@ class LSTMClassifier(nn.Module):
                 f"received {inputs.shape[2]}"
             )
 
-        sequence_outputs, _ = self.lstm(inputs)
-        final_output = sequence_outputs[:, -1, :]
+        valid_steps = torch.any(inputs != 0, dim=2)
+        sequence_lengths = valid_steps.sum(dim=1)
+
+        if torch.any(sequence_lengths == 0):
+            raise ValueError(
+                "Each LSTM sequence must contain at least one non-padding step"
+            )
+
+        # The preprocessing contract permits exact-zero padding only on the
+        # left. Reject an all-zero timestep after real data because silently
+        # compacting such a gap would change event order.
+        has_internal_gap = torch.any(
+            valid_steps[:, :-1] & ~valid_steps[:, 1:]
+        )
+        if has_internal_gap:
+            raise ValueError(
+                "Zero padding must appear only before real sequence steps"
+            )
+
+        time_steps = inputs.shape[1]
+        positions = torch.arange(
+            time_steps,
+            device=inputs.device,
+        ).unsqueeze(0)
+        left_padding = time_steps - sequence_lengths
+        source_positions = positions + left_padding.unsqueeze(1)
+        source_positions = source_positions.clamp(max=time_steps - 1)
+
+        gather_indexes = source_positions.unsqueeze(2).expand(
+            -1,
+            -1,
+            self.input_size,
+        )
+        right_padded = torch.gather(inputs, 1, gather_indexes)
+        right_valid_steps = positions < sequence_lengths.unsqueeze(1)
+        right_padded = right_padded * right_valid_steps.unsqueeze(2).to(
+            inputs.dtype
+        )
+
+        packed_inputs = pack_padded_sequence(
+            right_padded,
+            sequence_lengths.detach().cpu(),
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        _, (hidden_state, _) = self.lstm(packed_inputs)
+        final_output = hidden_state[-1]
         return self.classifier(self.dropout(final_output))
 
     def get_config(self) -> dict[str, int | float]:
