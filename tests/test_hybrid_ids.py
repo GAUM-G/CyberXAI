@@ -1,4 +1,4 @@
-"""Tests for the Step 13 inference-only hybrid IDS."""
+"""Tests for the Step 14 threat-aware, inference-only hybrid IDS."""
 
 from __future__ import annotations
 
@@ -141,8 +141,23 @@ class HybridIDSEngineTests(unittest.TestCase):
             "confidence",
             "anomaly_score",
             "model_used",
+            "threat_level",
+            "threat_score",
+            "threat_factors",
         ):
             self.assertIn(field, result)
+        self.assertEqual(result["threat_level"], "Low")
+        self.assertEqual(result["threat_score"], 0)
+        self.assertEqual(
+            [factor["factor"] for factor in result["threat_factors"]],
+            [
+                "attack_type",
+                "confidence",
+                "repetition",
+                "service",
+                "anomaly_score",
+            ],
+        )
         self.assertNotIn("payload", result)
         self.assertNotIn("username", result)
         self.assertFalse(
@@ -164,6 +179,7 @@ class HybridIDSEngineTests(unittest.TestCase):
         self.assertEqual(result["attack_type"], "sql_injection")
         self.assertEqual(result["prediction"], "attack")
         self.assertEqual(result["model_used"], "rules")
+        self.assertIn(result["threat_level"], {"High", "Critical"})
 
     def test_selected_tabular_model_handles_known_attack(self) -> None:
         result = HybridIDSEngine(

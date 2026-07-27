@@ -1,8 +1,9 @@
-"""Run the Step 13 hybrid IDS on live common-event JSONL records.
+"""Run the Step 14 threat-aware hybrid IDS on live common-event JSONL records.
 
 The engine combines deterministic rules, the Step 12 selected tabular
 classifier, Isolation Forest, and the LSTM sequence classifier. It performs
-inference only: no model ``fit`` or artifact-writing operation exists here.
+inference only, then assigns a deterministic threat level. No model ``fit`` or
+artifact-writing operation exists here.
 """
 
 from __future__ import annotations
@@ -32,11 +33,12 @@ from feature_engineering.engineer_features import (
     engineer_rows,
 )
 from machine_learning.lstm_model import LSTMClassifier
+from machine_learning.threat_reporting import ThreatReporter
 from preprocessing.preprocess_dataset import rows_to_matrix
 from rule_based_detection.detector import RuleBasedDetector
 
 
-HYBRID_IDS_VERSION = "1.0"
+HYBRID_IDS_VERSION = "1.1"
 DEFAULT_INPUT_DIR = Path("data/ml_ready")
 DEFAULT_MODEL_DIR = DEFAULT_INPUT_DIR / "models"
 DEFAULT_SELECTION_PATH = DEFAULT_INPUT_DIR / "evaluation" / "model_selection.json"
@@ -372,6 +374,7 @@ class HybridIDSEngine:
         hash_salt: str = "honeypot-dataset-v1",
         sequence_attack_threshold: float = 0.60,
         rule_detector: RuleBasedDetector | None = None,
+        threat_reporter: ThreatReporter | None = None,
     ) -> None:
         if not 0.0 <= sequence_attack_threshold <= 1.0:
             raise ValueError("sequence attack threshold must be between 0 and 1")
@@ -379,6 +382,7 @@ class HybridIDSEngine:
         self.hash_salt = str(hash_salt)
         self.sequence_attack_threshold = float(sequence_attack_threshold)
         self.rule_detector = rule_detector or RuleBasedDetector()
+        self.threat_reporter = threat_reporter or ThreatReporter()
         self.feature_state = FeatureEngineeringState()
         self.sequence_buffers: dict[
             tuple[str, str], deque[np.ndarray]
@@ -602,6 +606,20 @@ class HybridIDSEngine:
                 sequence_events=sequence_events,
                 is_anomaly=is_anomaly,
             )
+            result_confidence = (
+                None if confidence is None else round(float(confidence), 6)
+            )
+            result_anomaly_score = round(float(anomaly_score), 6)
+            threat_report = self.threat_reporter.assess(
+                event,
+                {
+                    "service": event["service"],
+                    "attack_type": attack_type,
+                    "prediction": prediction,
+                    "confidence": result_confidence,
+                    "anomaly_score": result_anomaly_score,
+                },
+            )
             self._processed_event_ids.add(event_id)
 
         return {
@@ -611,11 +629,15 @@ class HybridIDSEngine:
             "service": event["service"],
             "attack_type": attack_type,
             "prediction": prediction,
-            "confidence": (
-                None if confidence is None else round(float(confidence), 6)
-            ),
-            "anomaly_score": round(float(anomaly_score), 6),
+            "confidence": result_confidence,
+            "anomaly_score": result_anomaly_score,
             "model_used": model_used,
+            "threat_reporting_version": threat_report[
+                "threat_reporting_version"
+            ],
+            "threat_level": threat_report["threat_level"],
+            "threat_score": threat_report["threat_score"],
+            "threat_factors": threat_report["threat_factors"],
             "components": {
                 "rules": {
                     "finding_count": len(rule_findings),
@@ -692,7 +714,8 @@ def _process_line(
         f"{result['service']} | {result['attack_type']} | "
         f"{result['prediction']} | confidence={confidence} | "
         f"anomaly_score={result['anomaly_score']:.4f} | "
-        f"model={result['model_used']}"
+        f"model={result['model_used']} | "
+        f"threat={result['threat_level']}({result['threat_score']})"
     )
     return True
 
@@ -762,7 +785,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument(
         "--check",
         action="store_true",
-        help="validate all Step 13 artifacts and exit (default mode)",
+        help="validate protected inference artifacts and exit (default mode)",
     )
     mode.add_argument(
         "--once",
