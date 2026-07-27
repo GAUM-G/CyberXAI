@@ -1,9 +1,10 @@
-"""Run the Step 14 threat-aware hybrid IDS on live common-event JSONL records.
+"""Run the Step 15 explainable hybrid IDS on live common-event JSONL records.
 
 The engine combines deterministic rules, the Step 12 selected tabular
 classifier, Isolation Forest, and the LSTM sequence classifier. It performs
-inference only, then assigns a deterministic threat level. No model ``fit`` or
-artifact-writing operation exists here.
+inference only, assigns a deterministic threat level, and adds SHAP plus
+human-readable explanations. No model ``fit`` or artifact-writing operation
+exists here.
 """
 
 from __future__ import annotations
@@ -36,9 +37,10 @@ from machine_learning.lstm_model import LSTMClassifier
 from machine_learning.threat_reporting import ThreatReporter
 from preprocessing.preprocess_dataset import rows_to_matrix
 from rule_based_detection.detector import RuleBasedDetector
+from XAI.prediction_explainer import PredictionExplainer
 
 
-HYBRID_IDS_VERSION = "1.1"
+HYBRID_IDS_VERSION = "1.2"
 DEFAULT_INPUT_DIR = Path("data/ml_ready")
 DEFAULT_MODEL_DIR = DEFAULT_INPUT_DIR / "models"
 DEFAULT_SELECTION_PATH = DEFAULT_INPUT_DIR / "evaluation" / "model_selection.json"
@@ -375,6 +377,7 @@ class HybridIDSEngine:
         sequence_attack_threshold: float = 0.60,
         rule_detector: RuleBasedDetector | None = None,
         threat_reporter: ThreatReporter | None = None,
+        xai_explainer: Any | None = None,
     ) -> None:
         if not 0.0 <= sequence_attack_threshold <= 1.0:
             raise ValueError("sequence attack threshold must be between 0 and 1")
@@ -383,6 +386,12 @@ class HybridIDSEngine:
         self.sequence_attack_threshold = float(sequence_attack_threshold)
         self.rule_detector = rule_detector or RuleBasedDetector()
         self.threat_reporter = threat_reporter or ThreatReporter()
+        self.xai_explainer = xai_explainer or PredictionExplainer(
+            feature_names=self.artifacts.feature_names,
+            label_mapping=self.artifacts.label_mapping,
+            tabular_model_name=self.artifacts.tabular_model_name,
+            tabular_estimator=self.artifacts.tabular_estimator,
+        )
         self.feature_state = FeatureEngineeringState()
         self.sequence_buffers: dict[
             tuple[str, str], deque[np.ndarray]
@@ -620,63 +629,70 @@ class HybridIDSEngine:
                     "anomaly_score": result_anomaly_score,
                 },
             )
+            result = {
+                "hybrid_ids_version": HYBRID_IDS_VERSION,
+                "event_id": event_id,
+                "timestamp": event["timestamp"],
+                "service": event["service"],
+                "attack_type": attack_type,
+                "prediction": prediction,
+                "confidence": result_confidence,
+                "anomaly_score": result_anomaly_score,
+                "model_used": model_used,
+                "threat_reporting_version": threat_report[
+                    "threat_reporting_version"
+                ],
+                "threat_level": threat_report["threat_level"],
+                "threat_score": threat_report["threat_score"],
+                "threat_factors": threat_report["threat_factors"],
+                "components": {
+                    "rules": {
+                        "finding_count": len(rule_findings),
+                        "findings": [
+                            {
+                                "attack_type": finding["attack_type"],
+                                "confidence": finding["confidence"],
+                                "matched_rules": finding["matched_rules"],
+                            }
+                            for finding in rule_findings
+                        ],
+                    },
+                    "tabular": {
+                        "model": self.artifacts.tabular_model_name,
+                        "attack_type": tabular_label,
+                        "confidence": round(tabular_confidence, 6),
+                    },
+                    "sequence": {
+                        "model": "lstm_classifier",
+                        "attack_type": sequence_label,
+                        "confidence": round(sequence_confidence, 6),
+                        "context_events": sequence_events,
+                        "sequence_length": self.artifacts.sequence_length,
+                    },
+                    "anomaly": {
+                        "model": "isolation_forest",
+                        "is_anomaly": is_anomaly,
+                        "anomaly_score": round(anomaly_score, 6),
+                    },
+                },
+                "fusion_reason": fusion_reason,
+                "safety": {
+                    "model_fit_called": False,
+                    "protected_artifacts_modified": False,
+                    "producer_attack_type_used_as_model_feature": False,
+                    "raw_payload_in_result": False,
+                    "future_events_used": False,
+                    "xai_changed_prediction": False,
+                },
+            }
+            result["xai"] = self.xai_explainer.explain(
+                encoded=encoded,
+                ids_result=result,
+                rule_findings=rule_findings,
+            )
             self._processed_event_ids.add(event_id)
 
-        return {
-            "hybrid_ids_version": HYBRID_IDS_VERSION,
-            "event_id": event_id,
-            "timestamp": event["timestamp"],
-            "service": event["service"],
-            "attack_type": attack_type,
-            "prediction": prediction,
-            "confidence": result_confidence,
-            "anomaly_score": result_anomaly_score,
-            "model_used": model_used,
-            "threat_reporting_version": threat_report[
-                "threat_reporting_version"
-            ],
-            "threat_level": threat_report["threat_level"],
-            "threat_score": threat_report["threat_score"],
-            "threat_factors": threat_report["threat_factors"],
-            "components": {
-                "rules": {
-                    "finding_count": len(rule_findings),
-                    "findings": [
-                        {
-                            "attack_type": finding["attack_type"],
-                            "confidence": finding["confidence"],
-                            "matched_rules": finding["matched_rules"],
-                        }
-                        for finding in rule_findings
-                    ],
-                },
-                "tabular": {
-                    "model": self.artifacts.tabular_model_name,
-                    "attack_type": tabular_label,
-                    "confidence": round(tabular_confidence, 6),
-                },
-                "sequence": {
-                    "model": "lstm_classifier",
-                    "attack_type": sequence_label,
-                    "confidence": round(sequence_confidence, 6),
-                    "context_events": sequence_events,
-                    "sequence_length": self.artifacts.sequence_length,
-                },
-                "anomaly": {
-                    "model": "isolation_forest",
-                    "is_anomaly": is_anomaly,
-                    "anomaly_score": round(anomaly_score, 6),
-                },
-            },
-            "fusion_reason": fusion_reason,
-            "safety": {
-                "model_fit_called": False,
-                "protected_artifacts_modified": False,
-                "producer_attack_type_used_as_model_feature": False,
-                "raw_payload_in_result": False,
-                "future_events_used": False,
-            },
-        }
+        return result
 
 
 def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
@@ -715,8 +731,10 @@ def _process_line(
         f"{result['prediction']} | confidence={confidence} | "
         f"anomaly_score={result['anomaly_score']:.4f} | "
         f"model={result['model_used']} | "
-        f"threat={result['threat_level']}({result['threat_score']})"
+        f"threat={result['threat_level']}({result['threat_score']}) | "
+        f"xai={result['xai']['shap']['status']}"
     )
+    print(f"[XAI] {result['xai']['human_reason']['summary']}")
     return True
 
 
@@ -849,6 +867,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         "[HYBRID IDS] Features/sequence:",
         f"{len(artifacts.feature_names)}/{artifacts.sequence_length}",
+    )
+    print(
+        "[XAI] SHAP:",
+        f"{engine.xai_explainer.status}"
+        if hasattr(engine.xai_explainer, "status")
+        else "injected",
     )
 
     if not args.once and not args.follow:
