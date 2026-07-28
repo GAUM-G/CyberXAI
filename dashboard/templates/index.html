@@ -167,10 +167,45 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 .btn-green{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.25)}
 .btn-green:hover{background:rgba(0,255,136,.2)}
 .btn-row{display:flex;gap:.6rem;margin-bottom:1rem}
+/* Step 17 IDS additions — isolated so existing dashboard styling stays unchanged */
+.ids-toolbar{display:grid;grid-template-columns:minmax(180px,1.6fr) repeat(4,minmax(120px,1fr)) auto;
+  gap:.55rem;align-items:end}
+.ids-control label{display:block;font-family:var(--mono);font-size:.6rem;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem}
+.ids-control input,.ids-control select{width:100%;height:34px;background:rgba(0,0,0,.3);
+  color:var(--text);border:1px solid var(--border2);border-radius:4px;padding:0 .55rem;
+  font-family:var(--mono);font-size:.7rem;outline:none}
+.ids-control input:focus,.ids-control select:focus{border-color:rgba(0,212,255,.55)}
+.ids-control select option{background:var(--surface2);color:var(--text)}
+.ids-table-row{cursor:pointer}
+.ids-table-row:focus{outline:1px solid var(--accent);outline-offset:-1px}
+.ids-explanation{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)}
+.ids-result-count{font-family:var(--mono);font-size:.65rem;color:var(--text3)}
+.threat-low{color:var(--green)}.threat-medium{color:var(--yellow)}
+.threat-high{color:var(--orange)}.threat-critical{color:var(--red)}
+.ids-modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:center;
+  justify-content:center;padding:1.25rem;z-index:100}
+.ids-modal.open{display:flex}
+.ids-modal-card{width:min(860px,96vw);max-height:88vh;overflow-y:auto;background:var(--surface);
+  border:1px solid rgba(0,212,255,.35);border-radius:7px;padding:1.1rem;
+  box-shadow:0 18px 60px rgba(0,0,0,.6)}
+.ids-modal-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.ids-modal-title{font-family:var(--mono);font-size:.9rem;color:var(--accent)}
+.ids-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-top:.9rem}
+.ids-detail-item{background:rgba(0,0,0,.22);border:1px solid var(--border);border-radius:4px;padding:.65rem}
+.ids-detail-label{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--text3);margin-bottom:.25rem}
+.ids-detail-value{font-family:var(--mono);font-size:.72rem;color:var(--text);word-break:break-word}
+.ids-detail-wide{grid-column:1/-1}
+.ids-list{margin:.35rem 0 0 1.1rem;color:var(--text2);font-size:.76rem;line-height:1.65}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@media(max-width:1100px){.ids-toolbar{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr}.xai-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.ids-detail-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.ids-toolbar{grid-template-columns:1fr}.ids-detail-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -304,13 +339,78 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
           <div class="card"><div class="card-title">Attack Types</div><div class="stat-val c-yellow" id="ids-types">—</div></div>
           <div class="card"><div class="card-title">Unique IPs</div><div class="stat-val c-green" id="ids-ips">—</div></div>
         </div>
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-title">Active Threats</div>
+            <div class="stat-val c-red" id="ids-active">—</div>
+            <div class="stat-label" id="ids-active-window">attacks in the last 15 minutes</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Average Model Confidence</div>
+            <div class="stat-val c-purple" id="ids-confidence">—</div>
+            <div class="stat-label">across scored IDS results</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Critical Incidents</div>
+            <div class="stat-val c-orange" id="ids-critical">—</div>
+            <div class="stat-label">final Critical attack predictions</div>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="card"><div class="card-title">Attack Classification</div><div id="attack-breakdown"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="pie-chart" width="24" height="24"></i></div>No data</div></div></div>
           <div class="card"><div class="card-title">Top Attacker IPs</div><div id="top-ips"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="globe" width="24" height="24"></i></div>No data</div></div></div>
         </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Severity Distribution</div>
+            <div id="ids-severity-breakdown"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="bar-chart-2" width="24" height="24"></i></div>No data</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Service-wise Attack Statistics</div>
+            <div id="ids-service-stats" class="tbl-wrap"><div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="server" width="24" height="24"></i></div>No data</div></div>
+          </div>
+        </div>
         <div class="card grid-1">
           <div class="card-title">Attack Timeline</div>
           <div style="position:relative;height:160px"><canvas id="timeline-canvas" height="160"></canvas></div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i data-feather="filter" width="14" height="14"></i> Live IDS Predictions, Confidence and XAI</span>
+            <span class="ids-result-count" id="ids-result-count">0 results</span>
+          </div>
+          <div class="ids-toolbar">
+            <div class="ids-control">
+              <label for="ids-search">Search</label>
+              <input id="ids-search" type="search" placeholder="IP, event, path or attack…" oninput="applyIDSFilters()">
+            </div>
+            <div class="ids-control">
+              <label for="ids-service-filter">Service</label>
+              <select id="ids-service-filter" onchange="applyIDSFilters()"><option value="">All services</option></select>
+            </div>
+            <div class="ids-control">
+              <label for="ids-attack-filter">Attack type</label>
+              <select id="ids-attack-filter" onchange="applyIDSFilters()"><option value="">All attack types</option></select>
+            </div>
+            <div class="ids-control">
+              <label for="ids-severity-filter">Severity</label>
+              <select id="ids-severity-filter" onchange="applyIDSFilters()"><option value="">All severities</option></select>
+            </div>
+            <div class="ids-control">
+              <label for="ids-model-filter">Model</label>
+              <select id="ids-model-filter" onchange="applyIDSFilters()"><option value="">All models</option></select>
+            </div>
+            <button class="btn btn-accent" type="button" onclick="resetIDSFilters()"><i data-feather="rotate-ccw" width="14" height="14"></i> Reset</button>
+          </div>
+          <div id="ids-results-wrap" class="tbl-wrap" style="margin-top:.9rem">
+            <div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="shield" width="24" height="24"></i></div>No IDS results yet</div>
+          </div>
+        </div>
+        <div class="card grid-1" style="border-color:rgba(255,51,85,.22);background:rgba(255,51,85,.035)">
+          <div class="card-title"><i data-feather="alert-triangle" width="14" height="14"></i> Recent Critical Incidents</div>
+          <div id="ids-critical-wrap" class="tbl-wrap">
+            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="check-circle" width="24" height="24"></i></div>No critical incidents</div>
+          </div>
         </div>
         <div class="card grid-1" style="border-color:rgba(255,204,0,.2);background:rgba(255,204,0,.04)">
           <div class="card-title" style="color:var(--yellow)"><i data-feather="zap" width="14" height="14"></i> Phase 2 — ML Detection Engine</div>
@@ -406,6 +506,16 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
   </div>
 </div>
 
+<div class="ids-modal" id="ids-detail-modal" role="dialog" aria-modal="true" aria-labelledby="ids-detail-title" onclick="closeIDSDetailOnBackdrop(event)">
+  <div class="ids-modal-card">
+    <div class="ids-modal-header">
+      <div class="ids-modal-title" id="ids-detail-title">IDS Event Detail</div>
+      <button class="btn btn-accent" type="button" onclick="closeIDSDetail()"><i data-feather="x" width="14" height="14"></i> Close</button>
+    </div>
+    <div id="ids-detail-content"></div>
+  </div>
+</div>
+
 <script>
 // Init feather icons
 feather.replace();
@@ -460,8 +570,23 @@ function fmtTs(s){
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function escAttr(s){return esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function svcBadge(s){const c={ssh:'b-ssh',ftp:'b-ftp',http:'b-http',website:'b-website'}[s]||'b-info';return `<span class="badge ${c}">${(s||'?').toUpperCase()}</span>`}
 function sevBadge(s){const c={warning:'b-warn',critical:'b-crit',info:'b-info'}[s]||'b-info';return `<span class="badge ${c}">${s||'info'}</span>`}
+function threatBadge(s){
+  const level=String(s||'Low');
+  const cls={Low:'b-info',Medium:'b-warn',High:'b-warn',Critical:'b-crit'}[level]||'b-info';
+  return `<span class="badge ${cls} threat-${level.toLowerCase()}">${esc(level)}</span>`;
+}
+function predictionBadge(s){
+  return s==='attack'
+    ? '<span class="badge b-crit">attack</span>'
+    : '<span class="badge b-info">normal</span>';
+}
+function fmtConfidence(value){
+  const number=Number(value);
+  return Number.isFinite(number)?`${(Math.max(0,Math.min(number,1))*100).toFixed(1)}%`:'—';
+}
 function attackLabel(s){
   const labels={
     ssh_bruteforce:'SSH Brute Force',ftp_bruteforce:'FTP Brute Force',
@@ -489,6 +614,9 @@ function switchSection(name,el){
 }
 
 let liveTotal=0;
+let idsAllResults=[];
+let idsFilteredResults=[];
+let idsCriticalIncidents=[];
 
 // Monitor
 function loadMonitor(){
@@ -642,10 +770,22 @@ function loadIDS(){
     document.getElementById('ids-total').textContent=st.total_events??'—';
     document.getElementById('ids-threats').textContent=st.threats_detected??'—';
     document.getElementById('ids-ips').textContent=st.unique_ips??'—';
+    document.getElementById('ids-active').textContent=st.active_threats??0;
+    document.getElementById('ids-critical').textContent=st.critical_incidents??0;
+    document.getElementById('ids-confidence').textContent=fmtConfidence(st.average_confidence);
+    document.getElementById('ids-active-window').textContent=
+      `attacks in the last ${st.active_window_minutes||15} minutes`;
     const atk=st.by_attack||{};
     document.getElementById('ids-types').textContent=Object.keys(atk).filter(k=>!['web_activity','connection_probe','command_activity'].includes(k)).length;
+    idsAllResults=Array.isArray(d.recent_results)?d.recent_results:[];
+    idsCriticalIncidents=Array.isArray(d.critical_incidents)?d.critical_incidents:[];
     renderAttackBreakdown(atk);
     renderTopIPs(d.top_ips||[]);
+    renderIDSSeverity(st.by_threat_level||{});
+    renderIDSServiceStats(d.service_stats||[]);
+    populateIDSFilters(d.filter_options||{});
+    applyIDSFilters();
+    renderCriticalIncidents(idsCriticalIncidents);
     renderTimeline(d.timeline||[]);
     feather.replace();
   }).catch(()=>{});
@@ -671,6 +811,184 @@ function renderTopIPs(ips){
     <span style="flex:1;font-family:var(--mono)">${esc(item.ip)}</span>
     <div style="width:80px"><div class="gauge-track"><div class="gauge-fill gauge-red" style="width:${item.count/max*100}%"></div></div></div>
     <span style="width:28px;text-align:right;font-family:var(--mono);color:var(--red)">${item.count}</span></div>`).join('');
+}
+
+function renderIDSSeverity(byLevel){
+  const w=document.getElementById('ids-severity-breakdown');
+  const levels=['Critical','High','Medium','Low'];
+  const rows=levels.map(level=>[level,Number(byLevel[level]||0)]).filter(([,count])=>count>0);
+  if(!rows.length){
+    w.innerHTML='<div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="bar-chart-2" width="24" height="24"></i></div>No severity data</div>';
+    return;
+  }
+  const colours={Critical:'gauge-red',High:'gauge-red',Medium:'gauge-accent',Low:'gauge-green'};
+  const max=Math.max(...rows.map(([,count])=>count),1);
+  w.innerHTML=rows.map(([level,count])=>`<div style="margin-bottom:.55rem">
+    <div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:.2rem">
+      <span>${threatBadge(level)}</span><span style="font-family:var(--mono)">${count}</span></div>
+    <div class="gauge-track"><div class="gauge-fill ${colours[level]}" style="width:${count/max*100}%"></div></div>
+  </div>`).join('');
+}
+
+function renderIDSServiceStats(rows){
+  const w=document.getElementById('ids-service-stats');
+  if(!rows||!rows.length){
+    w.innerHTML='<div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="server" width="24" height="24"></i></div>No service data</div>';
+    return;
+  }
+  w.innerHTML=`<table><thead><tr><th>Service</th><th>Results</th><th>Attacks</th><th>Active</th><th>Critical</th><th>Avg Confidence</th></tr></thead><tbody>
+    ${rows.map(row=>`<tr><td>${svcBadge(row.service)}</td><td class="td-mono">${row.total_results||0}</td>
+      <td class="td-mono c-red">${row.attacks||0}</td><td class="td-mono c-orange">${row.active_threats||0}</td>
+      <td class="td-mono c-red">${row.critical||0}</td><td class="td-mono c-purple">${fmtConfidence(row.average_confidence)}</td></tr>`).join('')}
+    </tbody></table>`;
+}
+
+function populateIDSFilters(options){
+  const configs=[
+    ['ids-service-filter','All services',options.services||[]],
+    ['ids-attack-filter','All attack types',options.attack_types||[]],
+    ['ids-severity-filter','All severities',options.threat_levels||[]],
+    ['ids-model-filter','All models',options.models||[]]
+  ];
+  configs.forEach(([id,label,values])=>{
+    const select=document.getElementById(id);
+    const current=select.value;
+    select.innerHTML=`<option value="">${label}</option>`+
+      values.map(value=>`<option value="${escAttr(value)}">${esc(attackLabel(value))}</option>`).join('');
+    if(values.includes(current))select.value=current;
+  });
+}
+
+function applyIDSFilters(){
+  const query=document.getElementById('ids-search').value.trim().toLowerCase();
+  const service=document.getElementById('ids-service-filter').value;
+  const attack=document.getElementById('ids-attack-filter').value;
+  const severity=document.getElementById('ids-severity-filter').value;
+  const model=document.getElementById('ids-model-filter').value;
+  idsFilteredResults=idsAllResults.filter(result=>{
+    if(service&&result.service!==service)return false;
+    if(attack&&result.attack_type!==attack)return false;
+    if(severity&&result.threat_level!==severity)return false;
+    if(model&&result.model_used!==model)return false;
+    if(!query)return true;
+    const xai=((result.xai||{}).human_reason||{}).summary||'';
+    return [
+      result.source_ip,result.event,result.event_type,result.request_path,
+      result.attack_type,result.model_used,result.status,xai
+    ].some(value=>String(value||'').toLowerCase().includes(query));
+  });
+  renderIDSResults(idsFilteredResults);
+}
+
+function resetIDSFilters(){
+  document.getElementById('ids-search').value='';
+  ['ids-service-filter','ids-attack-filter','ids-severity-filter','ids-model-filter']
+    .forEach(id=>{document.getElementById(id).value=''});
+  applyIDSFilters();
+}
+
+function renderIDSResults(results){
+  const w=document.getElementById('ids-results-wrap');
+  document.getElementById('ids-result-count').textContent=`${results.length} of ${idsAllResults.length} results`;
+  if(!results.length){
+    w.innerHTML='<div class="empty" style="padding:1.5rem"><div class="empty-icon"><i data-feather="shield" width="24" height="24"></i></div>No IDS results match the filters</div>';
+    feather.replace();
+    return;
+  }
+  w.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Prediction</th><th>Attack</th><th>Severity</th><th>Confidence</th><th>Model</th><th>XAI Explanation</th></tr></thead><tbody>
+    ${results.map(result=>{
+      const resultIndex=idsAllResults.indexOf(result);
+      const reason=(((result.xai||{}).human_reason||{}).summary)||'No explanation available';
+      return `<tr class="ids-table-row" tabindex="0" onclick="openIDSDetail(${resultIndex})" onkeydown="openIDSDetailFromKey(event,${resultIndex})">
+        <td class="td-mono">${fmtTs(result.processed_at||result.timestamp)}</td><td class="td-mono">${esc(result.source_ip)}</td>
+        <td>${svcBadge(result.service)}</td><td>${predictionBadge(result.prediction)}</td><td>${esc(attackLabel(result.attack_type))}</td>
+        <td>${threatBadge(result.threat_level)}</td><td class="td-mono c-purple">${fmtConfidence(result.confidence)}</td>
+        <td class="td-mono">${esc(result.model_used)}</td><td class="ids-explanation" title="${escAttr(reason)}">${esc(reason)}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function renderCriticalIncidents(incidents){
+  const w=document.getElementById('ids-critical-wrap');
+  if(!incidents||!incidents.length){
+    w.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="check-circle" width="24" height="24"></i></div>No critical incidents</div>';
+    return;
+  }
+  w.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Score</th><th>Model</th><th>Explanation</th></tr></thead><tbody>
+    ${incidents.map(result=>{
+      const resultIndex=idsAllResults.findIndex(item=>item.event_id===result.event_id);
+      const reason=(((result.xai||{}).human_reason||{}).summary)||'No explanation available';
+      const interaction=resultIndex>=0
+        ? `class="ids-table-row" tabindex="0" onclick="openIDSDetail(${resultIndex})" onkeydown="openIDSDetailFromKey(event,${resultIndex})"`
+        : '';
+      return `<tr ${interaction}><td class="td-mono">${fmtTs(result.processed_at||result.timestamp)}</td>
+        <td class="td-mono">${esc(result.source_ip)}</td><td>${svcBadge(result.service)}</td>
+        <td>${esc(attackLabel(result.attack_type))}</td><td class="td-mono c-red">${result.threat_score??'—'}</td>
+        <td class="td-mono">${esc(result.model_used)}</td><td class="ids-explanation" title="${escAttr(reason)}">${esc(reason)}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function idsObjectList(items){
+  if(!Array.isArray(items)||!items.length)return '<div class="ids-detail-value">None recorded</div>';
+  return `<ul class="ids-list">${items.map(item=>{
+    if(item&&typeof item==='object'){
+      return `<li>${Object.entries(item).map(([key,value])=>`${esc(key)}: ${esc(value)}`).join(' · ')}</li>`;
+    }
+    return `<li>${esc(item)}</li>`;
+  }).join('')}</ul>`;
+}
+
+function idsDetailItem(label,value,wide=false){
+  return `<div class="ids-detail-item${wide?' ids-detail-wide':''}">
+    <div class="ids-detail-label">${esc(label)}</div><div class="ids-detail-value">${value}</div></div>`;
+}
+
+function openIDSDetail(index){
+  const result=idsAllResults[index];
+  if(!result)return;
+  const xai=result.xai||{};
+  const reason=(xai.human_reason||{}).summary||'No explanation available';
+  const shap=xai.shap||{};
+  const target=result.request_path||result.destination_port||'—';
+  document.getElementById('ids-detail-title').textContent=`IDS Event · ${result.event_id||'unknown'}`;
+  document.getElementById('ids-detail-content').innerHTML=`<div class="ids-detail-grid">
+    ${idsDetailItem('Processed time (IST)',esc(fmtTs(result.processed_at||result.timestamp)))}
+    ${idsDetailItem('Source IP',esc(result.source_ip||'—'))}
+    ${idsDetailItem('Service',svcBadge(result.service))}
+    ${idsDetailItem('Prediction',predictionBadge(result.prediction))}
+    ${idsDetailItem('Attack type',esc(attackLabel(result.attack_type)))}
+    ${idsDetailItem('Threat',`${threatBadge(result.threat_level)} · score ${esc(result.threat_score??'—')}`)}
+    ${idsDetailItem('Model',esc(result.model_used||'—'))}
+    ${idsDetailItem('Confidence',esc(fmtConfidence(result.confidence)))}
+    ${idsDetailItem('Target',esc(target))}
+    ${idsDetailItem('Event',esc(result.event||'—'))}
+    ${idsDetailItem('Status',esc(result.status||'—'))}
+    ${idsDetailItem('Event ID',esc(result.event_id||'—'))}
+    ${idsDetailItem('Fusion reason',esc(result.fusion_reason||'—'),true)}
+    ${idsDetailItem('XAI human explanation',esc(reason),true)}
+    ${idsDetailItem(`SHAP features (${esc(shap.status||'unknown')})`,idsObjectList(shap.top_features||[]),true)}
+    ${idsDetailItem('Threat factors',idsObjectList(result.threat_factors||[]),true)}
+    ${idsDetailItem('Sanitized model components',`<pre class="report-pre" style="max-height:220px">${esc(JSON.stringify(result.components||{},null,2))}</pre>`,true)}
+  </div>`;
+  document.getElementById('ids-detail-modal').classList.add('open');
+  feather.replace();
+}
+
+function openIDSDetailFromKey(event,index){
+  if(event.key==='Enter'||event.key===' '){
+    event.preventDefault();
+    openIDSDetail(index);
+  }
+}
+
+function closeIDSDetail(){
+  document.getElementById('ids-detail-modal').classList.remove('open');
+}
+
+function closeIDSDetailOnBackdrop(event){
+  if(event.target.id==='ids-detail-modal')closeIDSDetail();
 }
 
 function renderTimeline(tl){
@@ -774,7 +1092,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   setInterval(()=>{
     const a=document.querySelector('.section.active')?.id;
     if(a==='sec-monitor')loadMonitor();
+    if(a==='sec-ids')loadIDS();
   },10000);
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape')closeIDSDetail();
 });
 </script>
 </body>

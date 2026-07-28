@@ -5,6 +5,7 @@ Dashboard app — serves the multi-section honeypot UI and all API endpoints.
 from __future__ import annotations
 
 import json
+import math
 import os
 import platform
 import queue
@@ -13,6 +14,7 @@ import time
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Generator
 from urllib.error import HTTPError, URLError
@@ -40,6 +42,10 @@ IDS_RESULTS_API_URL = os.environ.get(
     "IDS_RESULTS_API_URL",
     "http://127.0.0.1:5000/api/ids-results",
 ).strip()
+IDS_ACTIVE_WINDOW_MINUTES = max(
+    1,
+    int(os.environ.get("IDS_ACTIVE_WINDOW_MINUTES", "15")),
+)
 _START_TIME = time.time()
 
 
@@ -133,10 +139,43 @@ def _compute_stats(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _parse_ids_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _ids_result_time(result: dict[str, Any]) -> datetime | None:
+    return _parse_ids_datetime(result.get("processed_at")) or _parse_ids_datetime(
+        result.get("timestamp")
+    )
+
+
+def _finite_confidences(results: list[dict[str, Any]]) -> list[float]:
+    values: list[float] = []
+    for result in results:
+        value = result.get("confidence")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        confidence = float(value)
+        if math.isfinite(confidence):
+            values.append(max(0.0, min(confidence, 1.0)))
+    return values
+
+
 def _compute_ids_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
     by_service: dict[str, int] = defaultdict(int)
     by_attack: dict[str, int] = defaultdict(int)
     by_severity: dict[str, int] = defaultdict(int)
+    by_threat_level: dict[str, int] = defaultdict(int)
+    by_model: dict[str, int] = defaultdict(int)
     unique_ips: set[str] = set()
     severity_names = {
         "Low": "info",
@@ -144,15 +183,29 @@ def _compute_ids_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
         "High": "warning",
         "Critical": "critical",
     }
+    current_time = datetime.now(timezone.utc)
+    active_cutoff = current_time - timedelta(minutes=IDS_ACTIVE_WINDOW_MINUTES)
+    active_threats = 0
+    critical_incidents = 0
 
     for result in results:
         by_service[result.get("service", "unknown")] += 1
         by_attack[result.get("attack_type", "unknown")] += 1
         level = str(result.get("threat_level", "Low"))
         by_severity[severity_names.get(level, "info")] += 1
+        by_threat_level[level] += 1
+        by_model[str(result.get("model_used", "unknown"))] += 1
         source_ip = str(result.get("source_ip", "")).strip()
         if source_ip:
             unique_ips.add(source_ip)
+        if result.get("prediction") == "attack":
+            if level == "Critical":
+                critical_incidents += 1
+            result_time = _ids_result_time(result)
+            if result_time is not None and result_time >= active_cutoff:
+                active_threats += 1
+
+    confidences = _finite_confidences(results)
 
     return {
         "total_events": len(results),
@@ -160,9 +213,94 @@ def _compute_ids_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
         "threats_detected": sum(
             1 for result in results if result.get("prediction") == "attack"
         ),
+        "active_threats": active_threats,
+        "critical_incidents": critical_incidents,
+        "average_confidence": (
+            round(sum(confidences) / len(confidences), 4)
+            if confidences
+            else None
+        ),
+        "active_window_minutes": IDS_ACTIVE_WINDOW_MINUTES,
         "by_service": dict(by_service),
         "by_attack": dict(by_attack),
         "by_severity": dict(by_severity),
+        "by_threat_level": dict(by_threat_level),
+        "by_model": dict(by_model),
+    }
+
+
+def _ids_service_stats(
+    results: list[dict[str, Any]],
+    *,
+    now: datetime | None = None,
+    active_window_minutes: int = IDS_ACTIVE_WINDOW_MINUTES,
+) -> list[dict[str, Any]]:
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+    else:
+        current_time = current_time.astimezone(timezone.utc)
+    active_cutoff = current_time - timedelta(minutes=max(1, active_window_minutes))
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for result in results:
+        grouped[str(result.get("service", "unknown"))].append(result)
+
+    preferred = ["ssh", "ftp", "http"]
+    service_names = [service for service in preferred if service in grouped]
+    service_names += sorted(service for service in grouped if service not in preferred)
+    rows: list[dict[str, Any]] = []
+    for service in service_names:
+        service_results = grouped[service]
+        attacks = [
+            result
+            for result in service_results
+            if result.get("prediction") == "attack"
+        ]
+        active = sum(
+            1
+            for result in attacks
+            if (
+                (result_time := _ids_result_time(result)) is not None
+                and result_time >= active_cutoff
+            )
+        )
+        confidences = _finite_confidences(service_results)
+        rows.append(
+            {
+                "service": service,
+                "total_results": len(service_results),
+                "attacks": len(attacks),
+                "active_threats": active,
+                "critical": sum(
+                    1
+                    for result in attacks
+                    if result.get("threat_level") == "Critical"
+                ),
+                "average_confidence": (
+                    round(sum(confidences) / len(confidences), 4)
+                    if confidences
+                    else None
+                ),
+            }
+        )
+    return rows
+
+
+def _ids_filter_options(results: list[dict[str, Any]]) -> dict[str, list[str]]:
+    def _values(field: str) -> list[str]:
+        return sorted(
+            {
+                str(result.get(field, "")).strip()
+                for result in results
+                if str(result.get(field, "")).strip()
+            }
+        )
+
+    return {
+        "services": _values("service"),
+        "attack_types": _values("attack_type"),
+        "threat_levels": _values("threat_level"),
+        "models": _values("model_used"),
     }
 
 
@@ -366,6 +504,7 @@ def create_dashboard_app() -> "Flask":
     def api_ids() -> Any:
         results = _all_ids_results(2000)
         stats = _compute_ids_stats(results)
+        service_stats = _ids_service_stats(results)
         timeline = _timeline(results, buckets=24)
         ip_counts: dict[str, int] = defaultdict(int)
         threat_results = [
@@ -382,6 +521,13 @@ def create_dashboard_app() -> "Flask":
             "timeline": timeline,
             "top_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
             "recent_results": results[:100],
+            "service_stats": service_stats,
+            "critical_incidents": [
+                result
+                for result in threat_results
+                if result.get("threat_level") == "Critical"
+            ][:20],
+            "filter_options": _ids_filter_options(results),
         })
 
     @app.route("/api/xai/alerts")
