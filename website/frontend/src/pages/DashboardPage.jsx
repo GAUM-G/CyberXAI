@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PortalShell from "../components/PortalShell";
+import IDSInsights from "../components/IDSInsights";
 import { apiRequest } from "../api";
 
 export default function DashboardPage() {
@@ -194,6 +195,7 @@ export default function DashboardPage() {
           <p>Loading panel...</p>
         )}
       </section>
+      <IDSInsights />
     </PortalShell>
   );
 }
