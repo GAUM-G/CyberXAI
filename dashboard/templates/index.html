@@ -199,13 +199,134 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 .ids-detail-value{font-family:var(--mono);font-size:.72rem;color:var(--text);word-break:break-word}
 .ids-detail-wide{grid-column:1/-1}
 .ids-list{margin:.35rem 0 0 1.1rem;color:var(--text2);font-size:.76rem;line-height:1.65}
+/* Step 20 operational XAI and analyst-review workspace */
+.xai-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  border-color:rgba(170,85,255,.32);background:
+  radial-gradient(circle at top right,rgba(170,85,255,.14),transparent 42%),
+  rgba(13,17,23,.62)}
+.xai-hero-copy{display:flex;align-items:flex-start;gap:.8rem}
+.xai-hero-icon{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;
+  color:var(--purple);background:rgba(170,85,255,.12);border:1px solid rgba(170,85,255,.25)}
+.xai-hero h3{font-family:var(--sans);font-size:1.08rem;color:var(--text);margin-bottom:.2rem}
+.xai-hero p{font-size:.8rem;color:var(--text2);line-height:1.55;max-width:720px}
+.xai-live-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .58rem;
+  border-radius:999px;border:1px solid rgba(0,255,136,.28);background:rgba(0,255,136,.08);
+  color:var(--green);font-family:var(--mono);font-size:.64rem;white-space:nowrap}
+.xai-review-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin:.9rem 0}
+.xai-review-stat{padding:.85rem;border:1px solid var(--border);border-radius:6px;
+  background:rgba(0,0,0,.2)}
+.xai-review-stat span{display:block;font-family:var(--mono);font-size:.6rem;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.08em}
+.xai-review-stat strong{display:block;margin-top:.3rem;font-family:var(--mono);
+  font-size:1.45rem;color:var(--accent)}
+.analyst-session{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);
+  gap:.9rem;align-items:start}
+.analyst-session-copy p{font-size:.78rem;color:var(--text2);line-height:1.6}
+.analyst-login-form{display:grid;grid-template-columns:1fr 1fr auto;gap:.55rem;align-items:end}
+.analyst-login-form label,.feedback-field{display:flex;flex-direction:column;gap:.28rem;
+  font-family:var(--mono);font-size:.6rem;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.07em}
+.analyst-login-form input,.feedback-field select,.feedback-field textarea{
+  width:100%;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--border2);
+  border-radius:4px;padding:.55rem;font-family:var(--mono);font-size:.72rem;outline:none}
+.analyst-login-form input{height:36px}
+.analyst-login-form input:focus,.feedback-field select:focus,.feedback-field textarea:focus{
+  border-color:rgba(0,212,255,.55)}
+.analyst-session-state{display:flex;align-items:center;justify-content:space-between;gap:.7rem;
+  padding:.7rem;border:1px solid rgba(0,255,136,.2);background:rgba(0,255,136,.055);
+  border-radius:5px}
+.analyst-session-state strong{display:block;color:var(--green);font-size:.82rem}
+.analyst-session-state span{font-family:var(--mono);font-size:.65rem;color:var(--text2)}
+.xai-review-table-row{cursor:pointer}
+.xai-review-table-row:hover{background:rgba(170,85,255,.07)}
+.review-state{display:inline-flex;align-items:center;padding:.14rem .48rem;border-radius:999px;
+  font-family:var(--mono);font-size:.62rem;white-space:nowrap}
+.review-awaiting{color:var(--yellow);border:1px solid rgba(255,204,0,.25);background:rgba(255,204,0,.08)}
+.review-confirmed{color:var(--green);border:1px solid rgba(0,255,136,.25);background:rgba(0,255,136,.08)}
+.review-false-positive{color:var(--text2);border:1px solid var(--border2);background:rgba(255,255,255,.04)}
+.ids-modal-card{width:min(1120px,96vw)}
+.investigation-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);
+  gap:.9rem;margin-top:.9rem}
+.investigation-column{display:flex;flex-direction:column;gap:.8rem}
+.xai-panel{border:1px solid rgba(170,85,255,.2);background:rgba(170,85,255,.035);
+  border-radius:6px;padding:.85rem}
+.xai-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:.7rem;
+  margin-bottom:.7rem}
+.xai-panel-heading h4{font-size:.92rem;color:var(--text)}
+.xai-eyebrow{font-family:var(--mono);font-size:.58rem;color:var(--purple);
+  text-transform:uppercase;letter-spacing:.12em;margin-bottom:.15rem}
+.xai-model-chip{font-family:var(--mono);font-size:.6rem;color:var(--accent);
+  border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.07);
+  border-radius:999px;padding:.18rem .48rem}
+.xai-score-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+.xai-score-card{background:rgba(0,0,0,.22);border:1px solid var(--border);border-radius:5px;padding:.65rem}
+.xai-score-label{display:flex;justify-content:space-between;gap:.5rem;font-size:.7rem;color:var(--text2)}
+.xai-score-label strong{font-family:var(--mono);color:var(--text)}
+.xai-meter{height:7px;margin-top:.45rem;background:rgba(255,255,255,.05);border-radius:999px;overflow:hidden}
+.xai-meter span{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  box-shadow:0 0 10px rgba(0,212,255,.35)}
+.xai-meter-threat span{background:linear-gradient(90deg,var(--orange),var(--red));
+  box-shadow:0 0 10px rgba(255,51,85,.35)}
+.xai-reason-grid{display:grid;gap:.55rem;margin-top:.65rem}
+.xai-reason-card{background:rgba(0,0,0,.18);border-left:2px solid rgba(170,85,255,.55);
+  border-radius:0 4px 4px 0;padding:.62rem}
+.xai-reason-card span{font-family:var(--mono);font-size:.58rem;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.08em}
+.xai-reason-card p{margin-top:.2rem;color:var(--text2);font-size:.76rem;line-height:1.55}
+.xai-feature-list{display:flex;flex-direction:column;gap:.55rem;margin-top:.65rem}
+.xai-feature-meta{display:flex;justify-content:space-between;gap:.6rem;font-size:.67rem}
+.xai-feature-meta strong{color:var(--text);font-weight:600}
+.xai-feature-meta span{font-family:var(--mono);color:var(--text3)}
+.xai-feature-track{height:6px;margin-top:.22rem;border-radius:999px;background:rgba(255,255,255,.05);overflow:hidden}
+.xai-feature-track span{display:block;height:100%;border-radius:999px}
+.xai-feature-support{background:linear-gradient(90deg,var(--green2),var(--green))}
+.xai-feature-oppose{background:linear-gradient(90deg,var(--orange),var(--red))}
+.xai-limitation{margin-top:.7rem;padding:.58rem;border:1px solid rgba(255,204,0,.22);
+  background:rgba(255,204,0,.055);border-radius:4px;color:var(--yellow);
+  font-size:.7rem;line-height:1.5}
+.xai-limitation.safe{border-color:rgba(0,255,136,.2);background:rgba(0,255,136,.05);color:var(--green)}
+.xai-safety-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-top:.65rem}
+.xai-safety-grid span{font-family:var(--mono);font-size:.6rem;border-radius:4px;padding:.4rem}
+.xai-safe{color:var(--green);border:1px solid rgba(0,255,136,.2);background:rgba(0,255,136,.05)}
+.xai-check{color:var(--yellow);border:1px solid rgba(255,204,0,.2);background:rgba(255,204,0,.05)}
+.feedback-panel{border:1px solid rgba(0,212,255,.2);background:rgba(0,212,255,.03);
+  border-radius:6px;padding:.85rem}
+.feedback-original{font-size:.72rem;color:var(--text2);line-height:1.5;
+  padding:.55rem;background:rgba(0,0,0,.2);border-radius:4px}
+.feedback-verdicts{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin:.7rem 0}
+.feedback-choice{display:flex;gap:.5rem;align-items:flex-start;padding:.65rem;border:1px solid var(--border);
+  border-radius:5px;cursor:pointer;background:rgba(0,0,0,.15)}
+.feedback-choice.selected{border-color:rgba(0,212,255,.45);background:rgba(0,212,255,.07)}
+.feedback-choice input{margin-top:.16rem;accent-color:var(--accent)}
+.feedback-choice strong{display:block;color:var(--text);font-size:.76rem}
+.feedback-choice small{display:block;color:var(--text3);font-size:.66rem;line-height:1.35;margin-top:.12rem}
+.feedback-field{margin-top:.65rem}
+.feedback-field textarea{min-height:94px;resize:vertical;line-height:1.45}
+.feedback-field small{text-transform:none;letter-spacing:0;color:var(--text3);text-align:right}
+.feedback-message{min-height:1rem;margin:.55rem 0;font-family:var(--mono);font-size:.66rem;color:var(--text2)}
+.feedback-message.error{color:var(--red)}.feedback-message.success{color:var(--green)}
+.feedback-history{margin-top:.7rem;border-top:1px solid var(--border);padding-top:.65rem}
+.feedback-history summary{cursor:pointer;color:var(--accent);font-family:var(--mono);font-size:.68rem}
+.feedback-history-list{display:flex;flex-direction:column;gap:.45rem;margin-top:.55rem}
+.feedback-history-item{border:1px solid var(--border);border-radius:4px;padding:.55rem;background:rgba(0,0,0,.18)}
+.feedback-history-head{display:flex;justify-content:space-between;gap:.5rem;font-size:.68rem}
+.feedback-history-item p{font-size:.66rem;color:var(--text2);margin-top:.2rem;line-height:1.45}
+.feedback-history-item blockquote{margin-top:.3rem;padding-left:.5rem;border-left:2px solid var(--border2);
+  color:var(--text2);font-size:.68rem;line-height:1.45}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 @media(max-width:1100px){.ids-toolbar{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr}.xai-grid{grid-template-columns:1fr}}
-@media(max-width:900px){.ids-detail-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:620px){.ids-toolbar{grid-template-columns:1fr}.ids-detail-grid{grid-template-columns:1fr}}
+@media(max-width:900px){
+  .ids-detail-grid{grid-template-columns:1fr 1fr}.investigation-grid{grid-template-columns:1fr}
+  .analyst-session{grid-template-columns:1fr}.xai-review-stats{grid-template-columns:1fr 1fr}
+}
+@media(max-width:620px){
+  .ids-toolbar{grid-template-columns:1fr}.ids-detail-grid{grid-template-columns:1fr}
+  .xai-hero{align-items:flex-start;flex-direction:column}.analyst-login-form{grid-template-columns:1fr}
+  .xai-score-grid,.xai-safety-grid,.feedback-verdicts{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -412,11 +533,12 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
             <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="check-circle" width="24" height="24"></i></div>No critical incidents</div>
           </div>
         </div>
-        <div class="card grid-1" style="border-color:rgba(255,204,0,.2);background:rgba(255,204,0,.04)">
-          <div class="card-title" style="color:var(--yellow)"><i data-feather="zap" width="14" height="14"></i> Phase 2 — ML Detection Engine</div>
+        <div class="card grid-1" style="border-color:rgba(0,255,136,.2);background:rgba(0,255,136,.035)">
+          <div class="card-title" style="color:var(--green)"><i data-feather="zap" width="14" height="14"></i> Phase 2 — ML Detection Engine · ACTIVE</div>
           <p style="font-size:.82rem;color:var(--text2);line-height:1.6">
-            Next phase adds a <strong>Random Forest + LSTM classifier</strong> trained on your captured logs.
-            Each event will receive a real-time threat score. Currently running in <strong>rule-based mode</strong>.
+            The live pipeline combines <strong>rule-based detection</strong>, <strong>traditional ML</strong>,
+            and the <strong>LSTM sequence model</strong>. Final decisions include confidence, threat scoring,
+            model source, and privacy-safe XAI evidence.
           </p>
         </div>
       </div>
@@ -425,50 +547,60 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
       <div class="section" id="sec-xai">
         <div class="section-header">
           <h2><i data-feather="cpu" style="color:var(--accent)"></i> Explainable AI</h2>
-          <p>Understand why each threat was detected — Phase 3 of the framework</p>
+          <p>Investigate real hybrid IDS decisions and record authenticated analyst feedback</p>
         </div>
-        <div class="card grid-1" style="margin-bottom:.9rem;border-color:rgba(170,85,255,.25);background:rgba(170,85,255,.05)">
-          <div style="display:flex;align-items:center;gap:.7rem;margin-bottom:.5rem">
-            <span style="color:var(--purple)"><i data-feather="layers" width="24" height="24"></i></span>
+        <div class="card xai-hero">
+          <div class="xai-hero-copy">
+            <span class="xai-hero-icon"><i data-feather="layers" width="22" height="22"></i></span>
             <div>
-              <div style="font-weight:700;font-size:1rem;color:var(--purple)">XAI Layer — Coming in Phase 3</div>
-              <div style="font-size:.78rem;color:var(--text2)">Requires Phase 2 (ML models) to be trained first</div>
+              <h3>Operational XAI Review</h3>
+              <p>Review privacy-safe explanations from the live hybrid IDS. Confidence, threat scoring,
+                model-decision evidence, SHAP scope, and analyst feedback stay separated for auditability.</p>
             </div>
           </div>
-          <p style="font-size:.82rem;color:var(--text2);line-height:1.7">
-            The XAI layer will provide <strong>SHAP value analysis</strong>, <strong>LIME explanations</strong>,
-            and <strong>feature importance rankings</strong> for every detection decision.
-          </p>
+          <span class="xai-live-chip"><span class="dot dot-green"></span> LIVE IDS + XAI</span>
         </div>
-        <div class="xai-grid">
-          <div class="xai-block"><div class="xai-icon"><i data-feather="bar-chart" width="24" height="24"></i></div><div class="xai-title">SHAP Analysis</div><div class="xai-desc">SHapley Additive exPlanations — feature contribution scores per prediction</div><div class="coming-soon">PHASE 3</div></div>
-          <div class="xai-block"><div class="xai-icon"><i data-feather="search" width="24" height="24"></i></div><div class="xai-title">LIME Explainer</div><div class="xai-desc">Local Interpretable Model-agnostic Explanations around each decision</div><div class="coming-soon">PHASE 3</div></div>
-          <div class="xai-block"><div class="xai-icon"><i data-feather="crosshair" width="24" height="24"></i></div><div class="xai-title">Feature Importance</div><div class="xai-desc">Global ranking of which features (IP, port, payload, rate) matter most</div><div class="coming-soon">PHASE 3</div></div>
-          <div class="xai-block"><div class="xai-icon"><i data-feather="aperture" width="24" height="24"></i></div><div class="xai-title">Decision Transparency</div><div class="xai-desc">Visual decision paths and confidence scores for every threat classification</div><div class="coming-soon">PHASE 3</div></div>
+
+        <div class="xai-review-stats" aria-label="Analyst review statistics">
+          <article class="xai-review-stat"><span>Confirmed attacks</span><strong id="xai-confirmed-count">—</strong></article>
+          <article class="xai-review-stat"><span>False positives</span><strong id="xai-false-count">—</strong></article>
+          <article class="xai-review-stat"><span>Awaiting review</span><strong id="xai-awaiting-count">—</strong></article>
+          <article class="xai-review-stat"><span>Severity overrides</span><strong id="xai-override-count">—</strong></article>
         </div>
-        <div class="card grid-1" style="margin-top:.9rem">
-          <div class="card-title">Proposed XAI Pipeline</div>
-          <div style="font-family:var(--mono);font-size:.72rem;color:var(--text2);line-height:2.2;padding:.5rem 0">
-            <span style="color:var(--accent)">Honeypot Logs</span>
-            <span style="color:var(--text3)"> → </span>
-            <span style="color:var(--green)">Feature Extraction</span>
-            <span style="color:var(--text3)"> → </span>
-            <span style="color:var(--yellow)">ML Model (RF + LSTM)</span>
-            <span style="color:var(--text3)"> → </span>
-            <span style="color:var(--purple)">SHAP / LIME</span>
-            <span style="color:var(--text3)"> → </span>
-            <span style="color:var(--orange)">Analyst Dashboard</span>
+
+        <div class="card analyst-session">
+          <div class="analyst-session-copy">
+            <div class="card-title"><i data-feather="user-check" width="14" height="14"></i> Analyst session</div>
+            <p>Sign in with an existing portal account to load review statistics, submit feedback,
+              and view append-only audit history. The authenticated backend supplies the analyst identity.</p>
+          </div>
+          <form id="analyst-login-form" class="analyst-login-form" onsubmit="signInAnalyst(event)">
+            <label>Username
+              <input id="analyst-username" autocomplete="username" required>
+            </label>
+            <label>Password
+              <input id="analyst-password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="btn btn-accent" type="submit">Sign in</button>
+          </form>
+          <div id="analyst-session-state" class="analyst-session-state" hidden>
+            <div><strong id="analyst-session-name">Signed in</strong><span>Authenticated review session</span></div>
+            <button class="btn btn-accent" type="button" onclick="signOutAnalyst()">Sign out</button>
           </div>
         </div>
+
         <div class="card grid-1">
-          <div class="card-title">XAI Alert Reporter</div>
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i data-feather="search" width="14" height="14"></i> Explainable IDS Review Queue &amp; XAI Alert Reporter</span>
+            <span id="xai-result-count" class="ids-result-count">No results loaded</span>
+          </div>
           <div class="btn-row" style="margin-bottom:.75rem;gap:.65rem;flex-wrap:wrap">
-            <button class="btn btn-accent" onclick="loadXaiAlerts()"><i data-feather="refresh-cw" width="14" height="14"></i> Refresh XAI Alerts</button>
+            <button class="btn btn-accent" onclick="loadXAIWorkspace()"><i data-feather="refresh-cw" width="14" height="14"></i> Refresh XAI Workspace</button>
             <button class="btn btn-green" onclick="generateXaiReport()"><i data-feather="send" width="14" height="14"></i> Generate XAI Report</button>
           </div>
-          <div id="xai-status" style="font-family:var(--mono);font-size:.8rem;color:var(--text2);margin-bottom:.9rem">No alerts loaded.</div>
+          <div id="xai-status" style="font-family:var(--mono);font-size:.72rem;color:var(--text2);margin-bottom:.9rem">Loading live IDS results…</div>
           <div id="xai-alert-wrap" class="tbl-wrap">
-            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="alert-circle" width="24" height="24"></i></div>Warning and critical alerts will appear here once loaded.</div>
+            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="cpu" width="24" height="24"></i></div>Explainable IDS results will appear here.</div>
           </div>
         </div>
       </div>
@@ -517,6 +649,10 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 </div>
 
 <script>
+const ANALYST_API_BASE={{ portal_api_url|tojson }};
+const ANALYST_TOKEN_KEY='hp_dashboard_analyst_token';
+const ANALYST_USER_KEY='hp_dashboard_analyst_user';
+
 // Init feather icons
 feather.replace();
 
@@ -610,6 +746,7 @@ function switchSection(name,el){
   if(name==='monitor')loadMonitor();
   if(name==='honeypot')loadHoneypot();
   if(name==='ids')loadIDS();
+  if(name==='xai')loadXAIWorkspace();
   if(name==='report')loadReport();
 }
 
@@ -617,6 +754,8 @@ let liveTotal=0;
 let idsAllResults=[];
 let idsFilteredResults=[];
 let idsCriticalIncidents=[];
+let idsLatestFeedback={};
+let selectedIDSIndex=-1;
 
 // Monitor
 function loadMonitor(){
@@ -726,26 +865,166 @@ function renderSvcTables(svcs){
   }).join('');
 }
 
-function loadXaiAlerts(){
-  const status = document.getElementById('xai-status');
-  status.textContent='Loading XAI alerts…';
-  fetch('/api/xai/alerts').then(r=>r.json()).then(d=>{
-    const alerts = d.alerts||[];
-    renderXaiAlerts(alerts);
-    status.textContent=`Loaded ${alerts.length} warning/critical alerts.`;
-  }).catch(()=>{status.textContent='Unable to load XAI alerts.'});
+function analystToken(){
+  return localStorage.getItem(ANALYST_TOKEN_KEY)||'';
 }
 
-function renderXaiAlerts(alerts){
+function analystUser(){
+  try{return JSON.parse(localStorage.getItem(ANALYST_USER_KEY)||'null')}catch(_error){return null}
+}
+
+async function analystRequest(path,options={}){
+  const headers={'Content-Type':'application/json',...(options.headers||{})};
+  const token=analystToken();
+  if(token)headers.Authorization=`Bearer ${token}`;
+  const response=await fetch(`${ANALYST_API_BASE}${path}`,{...options,headers});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+    const error=new Error(data.error||'Analyst request failed');
+    error.status=response.status;
+    throw error;
+  }
+  return data;
+}
+
+function updateAnalystSessionUI(){
+  const user=analystUser();
+  const signedIn=Boolean(analystToken()&&user);
+  document.getElementById('analyst-login-form').hidden=signedIn;
+  document.getElementById('analyst-session-state').hidden=!signedIn;
+  document.getElementById('analyst-session-name').textContent=
+    signedIn?`Signed in as ${user.username||'analyst'}`:'Signed in';
+}
+
+async function signInAnalyst(event){
+  event.preventDefault();
+  const status=document.getElementById('xai-status');
+  const username=document.getElementById('analyst-username').value.trim();
+  const password=document.getElementById('analyst-password').value;
+  status.textContent='Authenticating analyst session…';
+  try{
+    const data=await analystRequest('/login',{
+      method:'POST',
+      body:JSON.stringify({username,password})
+    });
+    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
+    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{username}));
+    document.getElementById('analyst-password').value='';
+    updateAnalystSessionUI();
+    await refreshAnalystFeedback();
+    renderXaiAlerts(idsAllResults);
+    status.textContent=`Authenticated as ${(data.user||{}).username||username}. Review controls are enabled.`;
+  }catch(error){
+    status.textContent=`Sign-in failed: ${error.message}`;
+  }
+}
+
+function signOutAnalyst(){
+  localStorage.removeItem(ANALYST_TOKEN_KEY);
+  localStorage.removeItem(ANALYST_USER_KEY);
+  idsLatestFeedback={};
+  updateAnalystSessionUI();
+  updateReviewStats(null);
+  renderXaiAlerts(idsAllResults);
+  const status=document.getElementById('xai-status');
+  status.textContent='Signed out. Explanations remain visible; sign in to review events.';
+}
+
+function updateReviewStats(stats){
+  document.getElementById('xai-confirmed-count').textContent=stats?.confirmed_attacks??'—';
+  document.getElementById('xai-false-count').textContent=stats?.false_positives??'—';
+  document.getElementById('xai-awaiting-count').textContent=
+    stats?.awaiting_review??(analystToken()?'—':idsAllResults.length);
+  document.getElementById('xai-override-count').textContent=stats?.severity_overrides??'—';
+}
+
+async function refreshAnalystFeedback(){
+  if(!analystToken()){
+    idsLatestFeedback={};
+    updateReviewStats(null);
+    return;
+  }
+  const eventIds=idsAllResults.map(result=>result.event_id).filter(Boolean).slice(0,100);
+  try{
+    const [stats,latest]=await Promise.all([
+      analystRequest('/api/analyst-feedback/stats'),
+      analystRequest(`/api/analyst-feedback/latest?event_ids=${encodeURIComponent(eventIds.join(','))}`)
+    ]);
+    idsLatestFeedback=latest.latest_by_event||{};
+    updateReviewStats(stats);
+  }catch(error){
+    if(error.status===401){
+      localStorage.removeItem(ANALYST_TOKEN_KEY);
+      localStorage.removeItem(ANALYST_USER_KEY);
+      updateAnalystSessionUI();
+    }
+    idsLatestFeedback={};
+    updateReviewStats(null);
+    throw error;
+  }
+}
+
+async function loadXAIWorkspace(){
+  const status=document.getElementById('xai-status');
+  status.textContent='Loading live IDS explanations…';
+  try{
+    const response=await fetch('/api/ids');
+    if(!response.ok)throw new Error('Dashboard IDS API unavailable');
+    const data=await response.json();
+    idsAllResults=Array.isArray(data.recent_results)?data.recent_results:[];
+    try{
+      await refreshAnalystFeedback();
+    }catch(error){
+      status.textContent=`Loaded IDS results, but analyst feedback is unavailable: ${error.message}`;
+    }
+    renderXaiAlerts(idsAllResults);
+    document.getElementById('xai-result-count').textContent=
+      `${idsAllResults.length} recent results`;
+    if(!status.textContent.includes('unavailable')){
+      status.textContent=analystToken()
+        ?`Loaded ${idsAllResults.length} explainable IDS results with analyst review state.`
+        :`Loaded ${idsAllResults.length} explainable IDS results. Sign in to record feedback.`;
+    }
+  }catch(error){
+    status.textContent=`Unable to load XAI workspace: ${error.message}`;
+  }
+  feather.replace();
+}
+
+function reviewLabel(feedback){
+  if(feedback?.verdict==='confirmed_attack')return 'Confirmed attack';
+  if(feedback?.verdict==='false_positive')return 'False positive';
+  return 'Awaiting review';
+}
+
+function reviewClass(feedback){
+  if(feedback?.verdict==='confirmed_attack')return 'review-confirmed';
+  if(feedback?.verdict==='false_positive')return 'review-false-positive';
+  return 'review-awaiting';
+}
+
+function renderXaiAlerts(results){
   const w=document.getElementById('xai-alert-wrap');
-  if(!alerts||!alerts.length){
-    w.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="alert-circle" width="24" height="24"></i></div>No warning or critical alerts available</div>';
+  if(!results||!results.length){
+    w.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="alert-circle" width="24" height="24"></i></div>No explainable IDS results available</div>';
     feather.replace();
     return;
   }
-  w.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Severity</th></tr></thead><tbody>
-      ${alerts.slice(0,50).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
-      <td>${svcBadge(e.service)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
+  w.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Effective severity</th><th>Confidence</th><th>Model</th><th>Review</th><th>Action</th></tr></thead><tbody>
+      ${results.slice(0,100).map(result=>{
+        const index=idsAllResults.indexOf(result);
+        const feedback=idsLatestFeedback[result.event_id];
+        const effectiveSeverity=feedback?.severity_override||result.threat_level;
+        return `<tr class="xai-review-table-row">
+          <td class="td-mono">${fmtTs(result.processed_at||result.timestamp)}</td>
+          <td class="td-mono">${esc(result.source_ip)}</td><td>${svcBadge(result.service)}</td>
+          <td>${esc(attackLabel(result.attack_type))}</td><td>${threatBadge(effectiveSeverity)}</td>
+          <td class="td-mono c-purple">${fmtConfidence(result.confidence)}</td>
+          <td class="td-mono">${esc(result.model_used||'—')}</td>
+          <td><span class="review-state ${reviewClass(feedback)}">${esc(reviewLabel(feedback))}</span></td>
+          <td><button class="btn btn-accent" type="button" onclick="openIDSDetail(${index})">Investigate</button></td>
+        </tr>`;
+      }).join('')}
       </tbody></table>`;
   feather.replace();
 }
@@ -945,35 +1224,255 @@ function idsDetailItem(label,value,wide=false){
     <div class="ids-detail-label">${esc(label)}</div><div class="ids-detail-value">${value}</div></div>`;
 }
 
+function clampPercent(value,scale=1){
+  const number=Number(value);
+  return Number.isFinite(number)?Math.max(0,Math.min(100,number*scale)):0;
+}
+
+function formatFeatureName(value){
+  return String(value||'unnamed feature')
+    .replace(/^(numeric|categorical)__/, '')
+    .replace(/_/g,' ');
+}
+
+function xaiReasonCard(label,value){
+  return `<article class="xai-reason-card"><span>${esc(label)}</span>
+    <p>${esc(value||'No separate explanation was recorded.')}</p></article>`;
+}
+
+function safetyIndicator(label,value){
+  const protectedState=value===false;
+  return `<span class="${protectedState?'xai-safe':'xai-check'}">${esc(label)}: ${protectedState?'Protected':'Check'}</span>`;
+}
+
+function renderXAIExplanation(result){
+  const xai=result.xai||{};
+  const human=xai.human_reason||{};
+  const shap=xai.shap||{};
+  const features=Array.isArray(shap.top_features)?shap.top_features:[];
+  const largest=Math.max(.000001,...features.map(item=>Math.abs(Number(item.shap_value)||0)));
+  const confidence=clampPercent(result.confidence,100);
+  const threat=clampPercent(result.threat_score);
+  const featureRows=features.length?features.map(item=>{
+    const contribution=Number(item.shap_value)||0;
+    const supports=item.direction==='supports_explained_class'||contribution>=0;
+    const width=Math.abs(contribution)/largest*100;
+    return `<div class="xai-feature-row">
+      <div class="xai-feature-meta"><strong>${esc(formatFeatureName(item.feature))}</strong>
+        <span>${supports?'Supports':'Opposes'} · ${contribution.toFixed(4)}</span></div>
+      <div class="xai-feature-track"><span class="${supports?'xai-feature-support':'xai-feature-oppose'}" style="width:${width}%"></span></div>
+    </div>`;
+  }).join(''):'<div class="ids-detail-value">SHAP feature contributions are unavailable for this stored result.</div>';
+  const supportsFinal=shap.supports_final_decision===true;
+  return `<section class="xai-panel">
+    <div class="xai-panel-heading"><div><div class="xai-eyebrow">Explainable AI</div>
+      <h4>Decision evidence</h4></div><span class="xai-model-chip">${esc(result.model_used||'model unavailable')}</span></div>
+    <div class="xai-score-grid">
+      <article class="xai-score-card"><div class="xai-score-label"><span>Model confidence</span><strong>${fmtConfidence(result.confidence)}</strong></div>
+        <div class="xai-meter" role="progressbar" aria-label="Model confidence" aria-valuenow="${confidence}"><span style="width:${confidence}%"></span></div></article>
+      <article class="xai-score-card"><div class="xai-score-label"><span>Threat score</span><strong>${threat.toFixed(1)}%</strong></div>
+        <div class="xai-meter xai-meter-threat" role="progressbar" aria-label="Threat score" aria-valuenow="${threat}"><span style="width:${threat}%"></span></div></article>
+    </div>
+    <div class="xai-reason-grid">
+      ${xaiReasonCard('Decision explanation',human.decision||human.summary||result.fusion_reason)}
+      ${xaiReasonCard('Threat explanation',human.threat)}
+      ${xaiReasonCard('Feature explanation',human.feature)}
+    </div>
+    <div class="xai-panel-heading" style="margin-top:.75rem;margin-bottom:0">
+      <h4>SHAP feature contributions</h4>
+      <span class="${shap.status==='ready'?'xai-safe':'xai-check'}">${esc(shap.status||'unavailable')}</span>
+    </div>
+    <div class="xai-feature-list">${featureRows}</div>
+    <p class="xai-limitation${supportsFinal?' safe':''}">
+      ${supportsFinal
+        ?'The SHAP component supports the model source used for this final decision.'
+        :'SHAP explains the stored tabular component only; it is not the final decision source for this event.'}
+    </p>
+    <div class="xai-safety-grid" aria-label="XAI privacy and safety status">
+      ${safetyIndicator('Raw payload',xai.privacy?.raw_payload_included)}
+      ${safetyIndicator('XAI source IP',xai.privacy?.source_ip_included)}
+      ${safetyIndicator('Credentials',xai.privacy?.credentials_included)}
+      ${safetyIndicator('Prediction changed',result.safety?.xai_changed_prediction)}
+    </div>
+  </section>`;
+}
+
+function severityOptions(selected){
+  return ['Low','Medium','High','Critical'].map(level=>
+    `<option value="${level}"${selected===level?' selected':''}>${level}</option>`
+  ).join('');
+}
+
+function renderFeedbackPanel(result){
+  const latest=idsLatestFeedback[result.event_id];
+  if(!analystToken()){
+    return `<section class="feedback-panel">
+      <div class="xai-panel-heading"><div><div class="xai-eyebrow">Human in the loop</div>
+        <h4>Analyst review</h4></div><span class="review-state review-awaiting">Sign-in required</span></div>
+      <p class="feedback-original">The XAI evidence is available without signing in. Use the Analyst session
+        in the Explainable AI section to confirm attacks, mark false positives, override severity, and add notes.</p>
+    </section>`;
+  }
+  const verdict=latest?.verdict||'';
+  const severityOverride=latest?.severity_override||'';
+  return `<section class="feedback-panel">
+    <div class="xai-panel-heading"><div><div class="xai-eyebrow">Human in the loop</div>
+      <h4>Analyst review</h4></div>
+      <span class="review-state ${reviewClass(latest)}">${esc(reviewLabel(latest))}</span></div>
+    <p class="feedback-original">Original IDS result: <strong>${esc(result.prediction||'—')}</strong> ·
+      <strong>${esc(result.threat_level||'—')}</strong>. Feedback adds an audit record and never overwrites this model output.</p>
+    <form id="analyst-feedback-form" onsubmit="submitAnalystFeedback(event)">
+      <div class="feedback-verdicts">
+        <label class="feedback-choice${verdict==='confirmed_attack'?' selected':''}">
+          <input type="radio" name="analyst-verdict" value="confirmed_attack"
+            ${verdict==='confirmed_attack'?'checked':''} onchange="updateFeedbackChoiceStyles()">
+          <span><strong>Confirm attack</strong><small>The IDS classification is supported by investigation.</small></span>
+        </label>
+        <label class="feedback-choice${verdict==='false_positive'?' selected':''}">
+          <input type="radio" name="analyst-verdict" value="false_positive"
+            ${verdict==='false_positive'?'checked':''} onchange="updateFeedbackChoiceStyles()">
+          <span><strong>Mark false positive</strong><small>The event is benign or incorrectly classified.</small></span>
+        </label>
+      </div>
+      <label class="feedback-field">Severity override
+        <select id="feedback-severity"><option value="">Keep model severity (${esc(result.threat_level||'—')})</option>
+          ${severityOptions(severityOverride)}</select>
+        <small>The original model severity remains unchanged.</small>
+      </label>
+      <label class="feedback-field">Analyst notes
+        <textarea id="feedback-notes" maxlength="2000" oninput="updateFeedbackNoteCount()"
+          placeholder="Record sanitized investigation evidence or follow-up action. Do not paste credentials or raw payloads."></textarea>
+        <small id="feedback-note-count">0/2000 characters</small>
+      </label>
+      <div id="feedback-message" class="feedback-message"></div>
+      <button class="btn btn-green" id="feedback-submit" type="submit">Save analyst review</button>
+    </form>
+    <details class="feedback-history" open>
+      <summary id="feedback-history-summary">Feedback history</summary>
+      <div id="feedback-history-list" class="feedback-history-list">
+        <div class="ids-detail-value">Loading audit history…</div>
+      </div>
+    </details>
+  </section>`;
+}
+
+function updateFeedbackChoiceStyles(){
+  document.querySelectorAll('.feedback-choice').forEach(label=>{
+    const input=label.querySelector('input');
+    label.classList.toggle('selected',Boolean(input?.checked));
+  });
+}
+
+function updateFeedbackNoteCount(){
+  const notes=document.getElementById('feedback-notes');
+  const count=document.getElementById('feedback-note-count');
+  if(notes&&count)count.textContent=`${notes.value.length}/2000 characters`;
+}
+
+function renderFeedbackHistory(history){
+  const list=document.getElementById('feedback-history-list');
+  const summary=document.getElementById('feedback-history-summary');
+  if(!list||!summary)return;
+  const entries=Array.isArray(history)?history:[];
+  summary.textContent=`Feedback history (${entries.length})`;
+  if(!entries.length){
+    list.innerHTML='<div class="ids-detail-value">No analyst feedback has been recorded for this event.</div>';
+    return;
+  }
+  list.innerHTML=entries.map(entry=>`<article class="feedback-history-item">
+    <div class="feedback-history-head"><strong>${esc(reviewLabel(entry))}</strong>
+      <span>${esc(fmtTs(entry.created_at))}</span></div>
+    <p>Analyst: ${esc(entry.analyst?.username||'unknown')} · Severity:
+      ${esc(entry.severity_override||`unchanged (${entry.original_severity||'unknown'})`)}</p>
+    ${entry.notes?`<blockquote>${esc(entry.notes)}</blockquote>`:''}
+  </article>`).join('');
+}
+
+async function loadFeedbackHistory(eventId){
+  if(!analystToken())return;
+  try{
+    const data=await analystRequest(`/api/analyst-feedback?event_id=${encodeURIComponent(eventId)}&limit=50`);
+    renderFeedbackHistory(data.feedback||[]);
+  }catch(error){
+    const list=document.getElementById('feedback-history-list');
+    if(list)list.innerHTML=`<div class="feedback-message error">${esc(error.message)}</div>`;
+  }
+}
+
+async function submitAnalystFeedback(event){
+  event.preventDefault();
+  const result=idsAllResults[selectedIDSIndex];
+  if(!result)return;
+  const verdict=document.querySelector('input[name="analyst-verdict"]:checked')?.value||'';
+  const severity=document.getElementById('feedback-severity')?.value||'';
+  const notes=document.getElementById('feedback-notes')?.value||'';
+  const message=document.getElementById('feedback-message');
+  const button=document.getElementById('feedback-submit');
+  if(!verdict){
+    message.className='feedback-message error';
+    message.textContent='Select Confirm attack or Mark false positive.';
+    return;
+  }
+  button.disabled=true;
+  message.className='feedback-message';
+  message.textContent='Saving authenticated analyst review…';
+  try{
+    const data=await analystRequest(`/api/analyst-feedback/${encodeURIComponent(result.event_id)}`,{
+      method:'POST',
+      body:JSON.stringify({verdict,severity_override:severity||null,notes})
+    });
+    idsLatestFeedback[result.event_id]=data.feedback;
+    updateReviewStats(data.stats);
+    renderXaiAlerts(idsAllResults);
+    renderFeedbackHistory([
+      data.feedback,
+      ...[]
+    ]);
+    await loadFeedbackHistory(result.event_id);
+    message.className='feedback-message success';
+    message.textContent='Review saved. The original IDS result remains unchanged.';
+    document.getElementById('feedback-notes').value='';
+    updateFeedbackNoteCount();
+  }catch(error){
+    message.className='feedback-message error';
+    message.textContent=error.message;
+  }finally{
+    button.disabled=false;
+  }
+}
+
 function openIDSDetail(index){
   const result=idsAllResults[index];
   if(!result)return;
-  const xai=result.xai||{};
-  const reason=(xai.human_reason||{}).summary||'No explanation available';
-  const shap=xai.shap||{};
+  selectedIDSIndex=index;
   const target=result.request_path||result.destination_port||'—';
-  document.getElementById('ids-detail-title').textContent=`IDS Event · ${result.event_id||'unknown'}`;
-  document.getElementById('ids-detail-content').innerHTML=`<div class="ids-detail-grid">
-    ${idsDetailItem('Processed time (IST)',esc(fmtTs(result.processed_at||result.timestamp)))}
-    ${idsDetailItem('Source IP',esc(result.source_ip||'—'))}
-    ${idsDetailItem('Service',svcBadge(result.service))}
-    ${idsDetailItem('Prediction',predictionBadge(result.prediction))}
-    ${idsDetailItem('Attack type',esc(attackLabel(result.attack_type)))}
-    ${idsDetailItem('Threat',`${threatBadge(result.threat_level)} · score ${esc(result.threat_score??'—')}`)}
-    ${idsDetailItem('Model',esc(result.model_used||'—'))}
-    ${idsDetailItem('Confidence',esc(fmtConfidence(result.confidence)))}
-    ${idsDetailItem('Target',esc(target))}
-    ${idsDetailItem('Event',esc(result.event||'—'))}
-    ${idsDetailItem('Status',esc(result.status||'—'))}
-    ${idsDetailItem('Event ID',esc(result.event_id||'—'))}
-    ${idsDetailItem('Fusion reason',esc(result.fusion_reason||'—'),true)}
-    ${idsDetailItem('XAI human explanation',esc(reason),true)}
-    ${idsDetailItem(`SHAP features (${esc(shap.status||'unknown')})`,idsObjectList(shap.top_features||[]),true)}
-    ${idsDetailItem('Threat factors',idsObjectList(result.threat_factors||[]),true)}
-    ${idsDetailItem('Sanitized model components',`<pre class="report-pre" style="max-height:220px">${esc(JSON.stringify(result.components||{},null,2))}</pre>`,true)}
+  const latest=idsLatestFeedback[result.event_id];
+  const effectiveSeverity=latest?.severity_override||result.threat_level;
+  document.getElementById('ids-detail-title').textContent=`IDS Investigation · ${result.event_id||'unknown'}`;
+  document.getElementById('ids-detail-content').innerHTML=`<div class="investigation-grid">
+    <div class="investigation-column">
+      <div class="ids-detail-grid">
+        ${idsDetailItem('Processed time (IST)',esc(fmtTs(result.processed_at||result.timestamp)))}
+        ${idsDetailItem('Source IP',esc(result.source_ip||'—'))}
+        ${idsDetailItem('Service',svcBadge(result.service))}
+        ${idsDetailItem('Prediction',predictionBadge(result.prediction))}
+        ${idsDetailItem('Attack type',esc(attackLabel(result.attack_type)))}
+        ${idsDetailItem('Effective threat',`${threatBadge(effectiveSeverity)}${latest?.severity_override?' · analyst override':''}`)}
+        ${idsDetailItem('Original threat',`${threatBadge(result.threat_level)} · score ${esc(result.threat_score??'—')}`)}
+        ${idsDetailItem('Target',esc(target))}
+        ${idsDetailItem('Event ID',esc(result.event_id||'—'))}
+      </div>
+      ${renderXAIExplanation(result)}
+    </div>
+    <div class="investigation-column">
+      ${renderFeedbackPanel(result)}
+      ${idsDetailItem('Threat factors',idsObjectList(result.threat_factors||[]),true)}
+      ${idsDetailItem('Sanitized model components',`<pre class="report-pre" style="max-height:220px">${esc(JSON.stringify(result.components||{},null,2))}</pre>`,true)}
+    </div>
   </div>`;
   document.getElementById('ids-detail-modal').classList.add('open');
   feather.replace();
+  loadFeedbackHistory(result.event_id);
 }
 
 function openIDSDetailFromKey(event,index){
@@ -1088,11 +1587,13 @@ window.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('live-counter').textContent=liveTotal;
   }).catch(()=>{});
   connectSSE();
-  loadXaiAlerts();
+  updateAnalystSessionUI();
+  loadXAIWorkspace();
   setInterval(()=>{
     const a=document.querySelector('.section.active')?.id;
     if(a==='sec-monitor')loadMonitor();
     if(a==='sec-ids')loadIDS();
+    if(a==='sec-xai')loadXAIWorkspace();
   },10000);
 });
 document.addEventListener('keydown',event=>{

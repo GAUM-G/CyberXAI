@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api";
+import AnalystFeedbackPanel from "./AnalystFeedbackPanel";
+import XAIExplanationPanel from "./XAIExplanationPanel";
 
 const IDS_REFRESH_MS = 10000;
 
@@ -24,9 +26,21 @@ function uniqueValues(results, field) {
   return [...new Set(results.map((result) => result[field]).filter(Boolean))].sort();
 }
 
+function reviewLabel(feedback) {
+  if (feedback?.verdict === "confirmed_attack") {
+    return "Confirmed";
+  }
+  if (feedback?.verdict === "false_positive") {
+    return "False positive";
+  }
+  return "Awaiting";
+}
+
 export default function IDSInsights() {
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState(null);
+  const [feedbackStats, setFeedbackStats] = useState(null);
+  const [latestFeedback, setLatestFeedback] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
@@ -34,6 +48,7 @@ export default function IDSInsights() {
   const [service, setService] = useState("");
   const [threatLevel, setThreatLevel] = useState("");
   const [prediction, setPrediction] = useState("");
+  const [reviewStatus, setReviewStatus] = useState("");
 
   async function loadResults(showLoading = false) {
     if (showLoading) {
@@ -46,10 +61,27 @@ export default function IDSInsights() {
         apiRequest("/api/ids-results?limit=100"),
         apiRequest("/api/ids-results/stats"),
       ]);
-      setResults(resultData.results || []);
+      const recentResults = resultData.results || [];
+      const eventIds = recentResults.map((result) => result.event_id).join(",");
+      const [latestData, reviewStatsData] = await Promise.all([
+        apiRequest(
+          `/api/analyst-feedback/latest?event_ids=${encodeURIComponent(eventIds)}`
+        ),
+        apiRequest("/api/analyst-feedback/stats"),
+      ]);
+
+      setResults(recentResults);
       setStats(statsData);
-    } catch (err) {
-      setError(err.message || "Could not load final IDS results");
+      setLatestFeedback(latestData.latest_by_event || {});
+      setFeedbackStats(reviewStatsData);
+      setSelected((current) => {
+        if (!current) {
+          return null;
+        }
+        return recentResults.find((result) => result.event_id === current.event_id) || current;
+      });
+    } catch (requestError) {
+      setError(requestError.message || "Could not load final IDS results");
     } finally {
       setLoading(false);
     }
@@ -67,6 +99,7 @@ export default function IDSInsights() {
   const filteredResults = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return results.filter((result) => {
+      const feedback = latestFeedback[result.event_id];
       const matchesSearch =
         !needle ||
         [
@@ -75,16 +108,32 @@ export default function IDSInsights() {
           result.event,
           result.model_used,
           xaiSummary(result),
+          reviewLabel(feedback),
         ].some((value) => String(value || "").toLowerCase().includes(needle));
+
+      const matchesReview =
+        !reviewStatus ||
+        (reviewStatus === "awaiting" && !feedback) ||
+        (reviewStatus === "confirmed" && feedback?.verdict === "confirmed_attack") ||
+        (reviewStatus === "false_positive" && feedback?.verdict === "false_positive");
 
       return (
         matchesSearch &&
+        matchesReview &&
         (!service || result.service === service) &&
         (!threatLevel || result.threat_level === threatLevel) &&
         (!prediction || result.prediction === prediction)
       );
     });
-  }, [results, search, service, threatLevel, prediction]);
+  }, [
+    results,
+    latestFeedback,
+    search,
+    service,
+    threatLevel,
+    prediction,
+    reviewStatus,
+  ]);
 
   const averageConfidence = useMemo(() => {
     const values = results
@@ -95,12 +144,23 @@ export default function IDSInsights() {
 
   const criticalCount = stats?.by_threat_level?.Critical || 0;
 
+  function handleFeedbackSaved(feedback, updatedStats) {
+    setLatestFeedback((current) => ({
+      ...current,
+      [feedback.event_id]: feedback,
+    }));
+    if (updatedStats) {
+      setFeedbackStats(updatedStats);
+    }
+  }
+
   return (
     <section className="card ids-insights" id="ids-insights" aria-labelledby="ids-insights-title">
       <div className="ids-heading">
         <div>
+          <p className="ids-kicker">Explainable security operations</p>
           <h2 id="ids-insights-title">Live Hybrid IDS Details</h2>
-          <p>Final model predictions, confidence, threat level, and privacy-safe XAI reasoning.</p>
+          <p>Final predictions, privacy-safe XAI evidence, and analyst feedback in one review queue.</p>
         </div>
         <button className="ids-refresh" onClick={() => loadResults(true)} disabled={loading}>
           {loading ? "Loading..." : "Refresh"}
@@ -109,7 +169,7 @@ export default function IDSInsights() {
 
       {error ? <p className="msg">{error}</p> : null}
 
-      <div className="ids-summary" aria-label="IDS result summary">
+      <div className="ids-summary ids-summary-primary" aria-label="IDS result summary">
         <article className="kpi">
           <div className="ids-summary-label">Total Results</div>
           <div className="ids-summary-value">{stats?.total_results ?? results.length}</div>
@@ -128,6 +188,25 @@ export default function IDSInsights() {
         </article>
       </div>
 
+      <div className="ids-review-summary" aria-label="Analyst review summary">
+        <article>
+          <span>Confirmed attacks</span>
+          <strong>{feedbackStats?.confirmed_attacks ?? 0}</strong>
+        </article>
+        <article>
+          <span>False positives</span>
+          <strong>{feedbackStats?.false_positives ?? 0}</strong>
+        </article>
+        <article>
+          <span>Awaiting review</span>
+          <strong>{feedbackStats?.awaiting_review ?? results.length}</strong>
+        </article>
+        <article>
+          <span>Severity overrides</span>
+          <strong>{feedbackStats?.severity_overrides ?? 0}</strong>
+        </article>
+      </div>
+
       <div className="ids-filter-bar" aria-label="IDS result filters">
         <label>
           Search
@@ -136,7 +215,7 @@ export default function IDSInsights() {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="IP, attack, event, model, explanation"
+            placeholder="IP, attack, model, explanation, review"
           />
         </label>
         <label>
@@ -181,6 +260,19 @@ export default function IDSInsights() {
             <option value="normal">Normal</option>
           </select>
         </label>
+        <label>
+          Analyst review
+          <select
+            id="ids-review-filter"
+            value={reviewStatus}
+            onChange={(event) => setReviewStatus(event.target.value)}
+          >
+            <option value="">All reviews</option>
+            <option value="awaiting">Awaiting review</option>
+            <option value="confirmed">Confirmed attacks</option>
+            <option value="false_positive">False positives</option>
+          </select>
+        </label>
       </div>
 
       <p className="ids-result-count" aria-live="polite">
@@ -195,33 +287,44 @@ export default function IDSInsights() {
               <th>Service</th>
               <th>Attack Type</th>
               <th>Prediction</th>
-              <th>Threat</th>
+              <th>Effective Threat</th>
               <th>Confidence</th>
               <th>Model</th>
+              <th>Review</th>
               <th>Details</th>
             </tr>
           </thead>
           <tbody>
-            {filteredResults.map((result) => (
-              <tr key={result.event_id}>
-                <td>{formatTime(result.timestamp)}</td>
-                <td>{String(result.service || "n/a").toUpperCase()}</td>
-                <td>{result.attack_type || "unknown"}</td>
-                <td>
-                  <span className={badgeClass(result.prediction)}>{result.prediction}</span>
-                </td>
-                <td>
-                  <span className={badgeClass(result.threat_level)}>{result.threat_level}</span>
-                </td>
-                <td>{formatConfidence(result.confidence)}</td>
-                <td>{result.model_used || "n/a"}</td>
-                <td>
-                  <button type="button" onClick={() => setSelected(result)}>
-                    View
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filteredResults.map((result) => {
+              const feedback = latestFeedback[result.event_id];
+              const effectiveThreat = feedback?.severity_override || result.threat_level;
+              return (
+                <tr key={result.event_id}>
+                  <td>{formatTime(result.timestamp)}</td>
+                  <td>{String(result.service || "n/a").toUpperCase()}</td>
+                  <td>{result.attack_type || "unknown"}</td>
+                  <td>
+                    <span className={badgeClass(result.prediction)}>{result.prediction}</span>
+                  </td>
+                  <td>
+                    <span className={badgeClass(effectiveThreat)}>{effectiveThreat}</span>
+                    {feedback?.severity_override ? <small className="override-label">Override</small> : null}
+                  </td>
+                  <td>{formatConfidence(result.confidence)}</td>
+                  <td>{result.model_used || "n/a"}</td>
+                  <td>
+                    <span className={`review-state review-${feedback?.review_status || "awaiting"}`}>
+                      {reviewLabel(feedback)}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" onClick={() => setSelected(result)}>
+                      Review
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {!loading && filteredResults.length === 0 ? (
@@ -245,14 +348,11 @@ export default function IDSInsights() {
             aria-modal="true"
             aria-labelledby="ids-dialog-title"
           >
-            <div className="topbar">
+            <div className="topbar ids-dialog-heading">
               <div>
-                <h3 id="ids-dialog-title" style={{ margin: 0 }}>
-                  IDS Event Details
-                </h3>
-                <p style={{ margin: "6px 0 0", color: "var(--muted)" }}>
-                  Sanitized final result for event {selected.event_id}
-                </p>
+                <p className="ids-kicker">Investigation workspace</p>
+                <h3 id="ids-dialog-title">IDS Event Review</h3>
+                <p>Sanitized final result for event {selected.event_id}</p>
               </div>
               <button type="button" onClick={() => setSelected(null)}>
                 Close
@@ -288,18 +388,10 @@ export default function IDSInsights() {
                 </strong>
               </div>
               <div className="ids-detail">
-                <span>Threat Score</span>
+                <span>Original Threat Score</span>
                 <strong>
                   {selected.threat_level || "n/a"} / {selected.threat_score ?? "n/a"}
                 </strong>
-              </div>
-              <div className="ids-detail">
-                <span>Confidence</span>
-                <strong>{formatConfidence(selected.confidence)}</strong>
-              </div>
-              <div className="ids-detail">
-                <span>Model</span>
-                <strong>{selected.model_used || "n/a"}</strong>
               </div>
               <div className="ids-detail">
                 <span>Request</span>
@@ -317,19 +409,12 @@ export default function IDSInsights() {
               </div>
             </div>
 
-            <h4>Why the model decided this</h4>
-            <p className="ids-explanation">{xaiSummary(selected)}</p>
-
-            <h4>Threat factors</h4>
-            {selected.threat_factors?.length ? (
-              <ul className="ids-factors">
-                {selected.threat_factors.map((factor, index) => (
-                  <li key={`${String(factor)}-${index}`}>{String(factor)}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="ids-factors">No additional threat factors recorded.</p>
-            )}
+            <XAIExplanationPanel result={selected} />
+            <AnalystFeedbackPanel
+              result={selected}
+              latestFeedback={latestFeedback[selected.event_id]}
+              onSaved={handleFeedbackSaved}
+            />
           </section>
         </div>
       ) : null}

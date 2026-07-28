@@ -42,6 +42,10 @@ IDS_RESULTS_API_URL = os.environ.get(
     "IDS_RESULTS_API_URL",
     "http://127.0.0.1:5000/api/ids-results",
 ).strip()
+PORTAL_API_URL = os.environ.get(
+    "PORTAL_API_URL",
+    "http://127.0.0.1:5000",
+).strip().rstrip("/")
 IDS_ACTIVE_WINDOW_MINUTES = max(
     1,
     int(os.environ.get("IDS_ACTIVE_WINDOW_MINUTES", "15")),
@@ -466,7 +470,10 @@ def create_dashboard_app() -> "Flask":
 
     @app.route("/")
     def index() -> Any:
-        return render_template("index.html")
+        return render_template(
+            "index.html",
+            portal_api_url=PORTAL_API_URL,
+        )
 
     @app.route("/api/monitor")
     def api_monitor() -> Any:

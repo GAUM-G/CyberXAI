@@ -19,6 +19,13 @@ const {
   listIDSResults,
   validateIDSResult,
 } = require("./ids_result_store");
+const {
+  getFeedbackStats,
+  getLatestFeedbackByEvent,
+  insertAnalystFeedback,
+  listAnalystFeedback,
+  validateFeedbackInput,
+} = require("./analyst_feedback_store");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -27,6 +34,8 @@ const PORT = Number(process.env.PORT || 5000);
 const allowedFrontendOrigins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5050",
+  "http://127.0.0.1:5050",
   ...String(process.env.FRONTEND_URL || "")
     .split(",")
     .map((origin) => origin.trim())
@@ -186,7 +195,8 @@ app.use((req, res, next) => {
     if (
       req.path.startsWith("/logs") ||
       req.path.startsWith("/api/events") ||
-      req.path.startsWith("/api/ids-results")
+      req.path.startsWith("/api/ids-results") ||
+      req.path.startsWith("/api/analyst-feedback")
     ) {
       return;
     }
@@ -322,6 +332,87 @@ app.get("/api/ids-results/stats", async (_req, res) => {
   }
 });
 
+app.get("/api/analyst-feedback", requireAuth, async (req, res) => {
+  try {
+    const feedback = await listAnalystFeedback(db, {
+      eventId: req.query.event_id,
+      verdict: req.query.verdict,
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+    return res.json({ source: "sqlite", count: feedback.length, feedback });
+  } catch (error) {
+    console.error("[Analyst Feedback] Query failed:", error.message);
+    return res.status(500).json({ error: "Could not read analyst feedback" });
+  }
+});
+
+app.get("/api/analyst-feedback/latest", requireAuth, async (req, res) => {
+  const eventIds = String(req.query.event_ids || "")
+    .split(",")
+    .map((eventId) => eventId.trim())
+    .filter(Boolean);
+  if (eventIds.length > 100) {
+    return res.status(400).json({ error: "At most 100 event IDs are allowed" });
+  }
+
+  try {
+    const latest_by_event = await getLatestFeedbackByEvent(db, eventIds);
+    return res.json({ source: "sqlite", latest_by_event });
+  } catch (error) {
+    console.error("[Analyst Feedback] Latest query failed:", error.message);
+    return res.status(500).json({ error: "Could not read latest analyst feedback" });
+  }
+});
+
+app.get("/api/analyst-feedback/stats", requireAuth, async (_req, res) => {
+  try {
+    const stats = await getFeedbackStats(db);
+    return res.json({ source: "sqlite", ...stats });
+  } catch (error) {
+    console.error("[Analyst Feedback] Stats failed:", error.message);
+    return res.status(500).json({ error: "Could not calculate feedback statistics" });
+  }
+});
+
+app.post("/api/analyst-feedback/:eventId", requireAuth, async (req, res) => {
+  const errors = validateFeedbackInput(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({
+      stored: false,
+      error: "Invalid analyst feedback",
+      details: errors,
+    });
+  }
+
+  try {
+    const feedback = await insertAnalystFeedback(
+      db,
+      req.params.eventId,
+      req.body,
+      {
+        id: req.user.userId,
+        username: req.user.username,
+      }
+    );
+    const stats = await getFeedbackStats(db);
+    return res.status(201).json({ stored: true, feedback, stats });
+  } catch (error) {
+    if (error.code === "IDS_RESULT_NOT_FOUND") {
+      return res.status(404).json({ stored: false, error: error.message });
+    }
+    if (error.code === "INVALID_ANALYST_FEEDBACK") {
+      return res.status(400).json({
+        stored: false,
+        error: "Invalid analyst feedback",
+        details: String(error.message).split("; "),
+      });
+    }
+    console.error("[Analyst Feedback] Insert failed:", error.message);
+    return res.status(500).json({ stored: false, error: "Could not store feedback" });
+  }
+});
+
 app.get("/", (_req, res) => {
   logEvent("website_index", { type: "web_activity" });
   res.json({
@@ -341,6 +432,9 @@ app.get("/", (_req, res) => {
       "/api/events/stats",
       "/api/ids-results",
       "/api/ids-results/stats",
+      "/api/analyst-feedback",
+      "/api/analyst-feedback/latest",
+      "/api/analyst-feedback/stats",
     ],
   });
 });
