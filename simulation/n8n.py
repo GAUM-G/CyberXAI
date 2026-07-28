@@ -7,20 +7,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
 
 LOCAL_WEBHOOK_URL = "http://localhost:5678/webhook/honeypot-alert"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_FILE = PROJECT_ROOT / "data" / "raw_logs" / "honeypot_events.jsonl"
+DEFAULT_IDS_LOG_FILE = (
+    PROJECT_ROOT / "data" / "detections" / "hybrid_ids_results.jsonl"
+)
 
 
 @dataclass
 class AppConfig:
     webhook_url: str
     log_file: Path
+    source: str
     poll_interval_seconds: float
     critical_only: bool
     timeout_seconds: float
@@ -28,7 +28,76 @@ class AppConfig:
     once: bool
 
 
-def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
+    """Adapt a final Step 16 IDS result to the existing webhook contract."""
+
+    service = record.get("service") or "unknown"
+    threat_level = str(record.get("threat_level", "Low"))
+    severity = {
+        "Critical": "critical",
+        "High": "warning",
+        "Medium": "warning",
+        "Low": "info",
+    }.get(threat_level, "info")
+    target = (
+        record.get("request_path")
+        or (
+            f"port {record.get('destination_port')}"
+            if record.get("destination_port") is not None
+            else None
+        )
+        or record.get("event")
+        or "n/a"
+    )
+    xai = record.get("xai") if isinstance(record.get("xai"), dict) else {}
+    human_reason = (
+        xai.get("human_reason")
+        if isinstance(xai.get("human_reason"), dict)
+        else {}
+    )
+
+    return {
+        "severity": severity,
+        "ip": record.get("source_ip", "unknown"),
+        "type": service,
+        "attack_type": record.get("attack_type", "unknown"),
+        "target": target,
+        "timestamp": record.get("timestamp"),
+        "service": service,
+        "event": record.get("event"),
+        "source": "hybrid_ids_result",
+        "prediction": record.get("prediction"),
+        "confidence": record.get("confidence"),
+        "model_used": record.get("model_used"),
+        "threat_level": threat_level,
+        "threat_score": record.get("threat_score"),
+        "xai_summary": human_reason.get("summary", ""),
+        "record": record,
+        "analysis": {
+            "target": target,
+            "ids": {
+                "prediction": record.get("prediction"),
+                "confidence": record.get("confidence"),
+                "anomaly_score": record.get("anomaly_score"),
+                "model_used": record.get("model_used"),
+                "threat_level": threat_level,
+                "threat_score": record.get("threat_score"),
+            },
+            "explanation": human_reason.get("summary", ""),
+        },
+    }
+
+
+def normalize_record(
+    record: dict[str, Any],
+    *,
+    source: str = "raw",
+) -> dict[str, Any]:
+    if source == "ids":
+        return normalize_ids_result(record)
+    if source != "raw":
+        raise ValueError("source must be raw or ids")
+
     metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
     payload_value = record.get("payload")
     service = record.get("service") or "unknown"
@@ -99,7 +168,11 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def create_session() -> requests.Session:
+def create_session() -> Any:
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
     retry = Retry(
         total=5,
         connect=5,
@@ -117,7 +190,9 @@ def create_session() -> requests.Session:
     return session
 
 
-def send_alert(session: requests.Session, cfg: AppConfig, payload: dict[str, Any]) -> None:
+def send_alert(session: Any, cfg: AppConfig, payload: dict[str, Any]) -> None:
+    import requests
+
     if cfg.critical_only and payload.get("severity") != "critical":
         print(
             f"[SKIP] severity={payload.get('severity')} ip={payload.get('ip')} "
@@ -203,9 +278,15 @@ def parse_args() -> argparse.Namespace:
         help="Optional explicit webhook URL. Overrides mode/ngrok calculation.",
     )
     parser.add_argument(
+        "--source",
+        choices=["raw", "ids"],
+        default="raw",
+        help="Forward raw common events or final Hybrid IDS results",
+    )
+    parser.add_argument(
         "--log-file",
-        default=str(DEFAULT_LOG_FILE),
-        help="Path to honeypot JSONL log file",
+        default=None,
+        help="Optional JSONL path; defaults to the selected source file",
     )
     parser.add_argument(
         "--poll-interval",
@@ -246,12 +327,16 @@ def main() -> None:
     args = parse_args()
 
     webhook_url = args.webhook_url or resolve_webhook_url(args.mode, args.ngrok_url)
-    log_file_arg = Path(args.log_file)
+    default_log_file = (
+        DEFAULT_IDS_LOG_FILE if args.source == "ids" else DEFAULT_LOG_FILE
+    )
+    log_file_arg = Path(args.log_file) if args.log_file else default_log_file
     log_file = log_file_arg if log_file_arg.is_absolute() else (PROJECT_ROOT / log_file_arg)
     log_file = log_file.resolve()
     cfg = AppConfig(
         webhook_url=webhook_url,
         log_file=log_file,
+        source=args.source,
         poll_interval_seconds=max(0.2, args.poll_interval),
         critical_only=args.critical_only and not args.all_severity,
         timeout_seconds=max(1.0, args.timeout),
@@ -261,6 +346,7 @@ def main() -> None:
 
     print("[START] Honeypot log forwarder")
     print(f"[CONFIG] webhook={cfg.webhook_url}")
+    print(f"[CONFIG] source={cfg.source}")
     print(f"[CONFIG] log_file={cfg.log_file}")
     print(f"[CONFIG] poll_interval={cfg.poll_interval_seconds}s timeout={cfg.timeout_seconds}s")
     print(f"[CONFIG] critical_only={cfg.critical_only}")
@@ -271,7 +357,7 @@ def main() -> None:
 
     try:
         for record in iter_new_jsonl_records(cfg.log_file, cfg.from_start, cfg.poll_interval_seconds):
-            payload = normalize_record(record)
+            payload = normalize_record(record, source=cfg.source)
             send_alert(session, cfg, payload)
 
             if cfg.once:

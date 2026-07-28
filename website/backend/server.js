@@ -13,6 +13,12 @@ const {
   listEvents,
   validateEventRecord,
 } = require("./event_store");
+const {
+  getIDSResultStats,
+  insertIDSResult,
+  listIDSResults,
+  validateIDSResult,
+} = require("./ids_result_store");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -177,7 +183,11 @@ app.use((req, res, next) => {
   const startedAt = Date.now();
 
   res.on("finish", () => {
-    if (req.path.startsWith("/logs") || req.path.startsWith("/api/events")) {
+    if (
+      req.path.startsWith("/logs") ||
+      req.path.startsWith("/api/events") ||
+      req.path.startsWith("/api/ids-results")
+    ) {
       return;
     }
 
@@ -255,6 +265,63 @@ app.get("/api/events/stats", async (_req, res) => {
   }
 });
 
+app.post("/api/ids-results", async (req, res) => {
+  const errors = validateIDSResult(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({
+      stored: false,
+      error: "Invalid IDS result",
+      details: errors,
+    });
+  }
+
+  try {
+    const result = await insertIDSResult(db, req.body);
+    return res.status(result.inserted ? 201 : 200).json({
+      stored: true,
+      duplicate: !result.inserted,
+      database_id: result.id,
+      event_id: result.event_id,
+    });
+  } catch (error) {
+    console.error("[IDS Result Store] Insert failed:", error.message);
+    return res.status(500).json({
+      stored: false,
+      error: "Could not store IDS result",
+    });
+  }
+});
+
+app.get("/api/ids-results", async (req, res) => {
+  try {
+    const results = await listIDSResults(db, {
+      limit: req.query.limit,
+      offset: req.query.offset,
+      service: req.query.service,
+      prediction: req.query.prediction,
+      threatLevel: req.query.threat_level,
+      attackType: req.query.attack_type,
+      modelUsed: req.query.model_used,
+    });
+    return res.json({ source: "sqlite", count: results.length, results });
+  } catch (error) {
+    console.error("[IDS Result Store] Query failed:", error.message);
+    return res.status(500).json({ error: "Could not read IDS results" });
+  }
+});
+
+app.get("/api/ids-results/stats", async (_req, res) => {
+  try {
+    const stats = await getIDSResultStats(db);
+    return res.json({ source: "sqlite", ...stats });
+  } catch (error) {
+    console.error("[IDS Result Store] Stats failed:", error.message);
+    return res.status(500).json({
+      error: "Could not calculate IDS result statistics",
+    });
+  }
+});
+
 app.get("/", (_req, res) => {
   logEvent("website_index", { type: "web_activity" });
   res.json({
@@ -272,6 +339,8 @@ app.get("/", (_req, res) => {
       "/logs/frontend",
       "/api/events",
       "/api/events/stats",
+      "/api/ids-results",
+      "/api/ids-results/stats",
     ],
   });
 });

@@ -5,6 +5,7 @@ Dashboard app — serves the multi-section honeypot UI and all API endpoints.
 from __future__ import annotations
 
 import json
+import os
 import platform
 import queue
 import sys
@@ -33,11 +34,50 @@ except ImportError:
     _PSUTIL = False
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+IDS_RESULTS_FILE = PROJECT_ROOT / "data" / "detections" / "hybrid_ids_results.jsonl"
+IDS_RESULTS_API_URL = os.environ.get(
+    "IDS_RESULTS_API_URL",
+    "http://127.0.0.1:5000/api/ids-results",
+).strip()
 _START_TIME = time.time()
 
 
 def _all_events(limit: int = 2000) -> list[dict[str, Any]]:
     return read_recent_events(limit=limit)
+
+
+def _read_ids_results_file(limit: int) -> list[dict[str, Any]]:
+    if not IDS_RESULTS_FILE.is_file():
+        return []
+    records: list[dict[str, Any]] = []
+    lines = IDS_RESULTS_FILE.read_text(encoding="utf-8").splitlines()
+    for line in lines[-limit:]:
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+    return list(reversed(records))
+
+
+def _all_ids_results(limit: int = 2000) -> list[dict[str, Any]]:
+    """Prefer centralized SQLite results and fall back to durable JSONL."""
+
+    if IDS_RESULTS_API_URL:
+        separator = "&" if "?" in IDS_RESULTS_API_URL else "?"
+        url = f"{IDS_RESULTS_API_URL}{separator}limit={max(1, min(limit, 2000))}"
+        try:
+            with urllib.request.urlopen(url, timeout=2.0) as response:
+                value = json.loads(response.read().decode("utf-8"))
+            results = value.get("results") if isinstance(value, dict) else None
+            if isinstance(results, list):
+                return [item for item in results if isinstance(item, dict)]
+        except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+            pass
+
+    return _read_ids_results_file(limit)
 
 
 def _extract_credentials(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -87,6 +127,39 @@ def _compute_stats(events: list[dict[str, Any]]) -> dict[str, Any]:
         "total_events": total,
         "unique_ips": len(unique_ips),
         "threats_detected": threats,
+        "by_service": dict(by_service),
+        "by_attack": dict(by_attack),
+        "by_severity": dict(by_severity),
+    }
+
+
+def _compute_ids_stats(results: list[dict[str, Any]]) -> dict[str, Any]:
+    by_service: dict[str, int] = defaultdict(int)
+    by_attack: dict[str, int] = defaultdict(int)
+    by_severity: dict[str, int] = defaultdict(int)
+    unique_ips: set[str] = set()
+    severity_names = {
+        "Low": "info",
+        "Medium": "warning",
+        "High": "warning",
+        "Critical": "critical",
+    }
+
+    for result in results:
+        by_service[result.get("service", "unknown")] += 1
+        by_attack[result.get("attack_type", "unknown")] += 1
+        level = str(result.get("threat_level", "Low"))
+        by_severity[severity_names.get(level, "info")] += 1
+        source_ip = str(result.get("source_ip", "")).strip()
+        if source_ip:
+            unique_ips.add(source_ip)
+
+    return {
+        "total_events": len(results),
+        "unique_ips": len(unique_ips),
+        "threats_detected": sum(
+            1 for result in results if result.get("prediction") == "attack"
+        ),
         "by_service": dict(by_service),
         "by_attack": dict(by_attack),
         "by_severity": dict(by_severity),
@@ -223,7 +296,15 @@ def _timeline(events: list[dict[str, Any]], buckets: int = 24) -> list[dict[str,
                     bucket_events.append(e)
             except Exception:
                 continue
-        threats = sum(1 for e in bucket_events if e.get("severity") in ("warning", "critical"))
+        threats = sum(
+            1
+            for e in bucket_events
+            if (
+                e.get("prediction") == "attack"
+                if "prediction" in e
+                else e.get("severity") in ("warning", "critical")
+            )
+        )
         result.append({
             "label": datetime.fromtimestamp(t0, tz=timezone.utc).strftime("%H:%M:%S"),
             "total": len(bucket_events),
@@ -283,19 +364,24 @@ def create_dashboard_app() -> "Flask":
 
     @app.route("/api/ids")
     def api_ids() -> Any:
-        events = _all_events(2000)
-        stats = _compute_stats(events)
-        timeline = _timeline(events, buckets=24)
+        results = _all_ids_results(2000)
+        stats = _compute_ids_stats(results)
+        timeline = _timeline(results, buckets=24)
         ip_counts: dict[str, int] = defaultdict(int)
-        for e in events:
-            ip = e.get("source_ip", "")
+        threat_results = [
+            result for result in results if result.get("prediction") == "attack"
+        ]
+        for e in threat_results or results:
+            ip = str(e.get("source_ip", "")).strip()
             if ip:
                 ip_counts[ip] += 1
         top_ips = sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:10]
         return jsonify({
+            "source": "hybrid_ids_results",
             "stats": stats,
             "timeline": timeline,
             "top_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
+            "recent_results": results[:100],
         })
 
     @app.route("/api/xai/alerts")

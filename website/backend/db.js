@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const { initializeEventStore } = require("./event_store");
+const { initializeIDSResultStore } = require("./ids_result_store");
 
 const dbPath = path.join(__dirname, "data", "honeypot.db");
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -19,6 +20,7 @@ db.serialize(() => {
   `);
 
   initializeEventStore(db);
+  initializeIDSResultStore(db);
 });
 
 module.exports = db;

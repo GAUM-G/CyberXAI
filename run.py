@@ -2,8 +2,9 @@
 run.py — Start the entire Honeypot system with one command.
 
 Usage:
-    python run.py                  # starts honeypots + dashboard
+    python run.py                  # starts honeypots + IDS + dashboard
     python run.py --no-dashboard   # honeypots only
+    python run.py --no-ids         # skip automatic IDS integration
     python run.py --simulate       # also runs built-in attack simulation
     python run_website.py          # starts standalone decoy website
 
@@ -39,7 +40,18 @@ def _banner() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Honeypot Framework")
     parser.add_argument("--no-dashboard", action="store_true", help="Skip the web dashboard")
+    parser.add_argument("--no-ids",       action="store_true", help="Skip the automatic real-time Hybrid IDS")
     parser.add_argument("--simulate",     action="store_true", help="Run built-in attack simulation after 5s")
+    parser.add_argument(
+        "--ids-replay-existing",
+        action="store_true",
+        help="Process existing common-event records before following new ones",
+    )
+    parser.add_argument(
+        "--ids-backend-url",
+        default=None,
+        help="Override the IDS result collector URL",
+    )
     parser.add_argument("--ssh-port",     type=int, default=2222)
     parser.add_argument("--ftp-port",     type=int, default=2121)
     parser.add_argument("--http-port",    type=int, default=8080)
@@ -47,6 +59,24 @@ def main() -> None:
     args = parser.parse_args()
 
     _banner()
+
+    # ── Start the protected real-time IDS before producers append events ──
+    ids_service = None
+    if not args.no_ids:
+        from machine_learning.realtime_ids import (
+            DEFAULT_BACKEND_URL,
+            create_realtime_ids_service,
+        )
+
+        ids_service = create_realtime_ids_service(
+            backend_url=args.ids_backend_url or DEFAULT_BACKEND_URL,
+            replay_existing=args.ids_replay_existing,
+        )
+        ids_service.start()
+        print(
+            "[✓] Real-time Hybrid IDS → automatic inference, threat score, "
+            "SHAP and backend delivery"
+        )
 
     # ── Start honeypots ────────────────────────────────────────────────────
     print("[*] Starting honeypot services...")
@@ -99,8 +129,11 @@ def main() -> None:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\n[*] Shutting down. Goodbye.")
-        sys.exit(0)
+        print("\n[*] Shutting down.")
+    finally:
+        if ids_service is not None:
+            ids_service.stop()
+        print("[*] Goodbye.")
 
 
 if __name__ == "__main__":

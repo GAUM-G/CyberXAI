@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test:events": "node --test tests/event_store.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:events": "node --test tests/event_store.test.js",
+    "test:ids": "node --test tests/ids_result_store.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
