@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_FILE = PROJECT_ROOT / "data" / "raw_logs" / "honeypot_events.jsonl"
 DEFAULT_IDS_LOG_FILE = (
     PROJECT_ROOT / "data" / "detections" / "hybrid_ids_results.jsonl"
+)
+IMMEDIATE_THREAT_LEVELS = frozenset({"High", "Critical"})
+SENSITIVE_ALERT_KEYS = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "authorization",
+        "credentials",
+        "metadata",
+        "password",
+        "payload",
+        "secret",
+        "token",
+        "username",
+    }
 )
 
 
@@ -26,6 +42,135 @@ class AppConfig:
     timeout_seconds: float
     from_start: bool
     once: bool
+
+
+@dataclass
+class AlertDeduplicator:
+    """Suppress repeated eligible IDS alerts before concurrent n8n executions."""
+
+    window_seconds: float = 300.0
+    _seen: dict[tuple[str, str, str], float] = field(default_factory=dict)
+
+    @staticmethod
+    def key(payload: dict[str, Any]) -> tuple[str, str, str]:
+        values = (
+            payload.get("source_ip") or payload.get("ip") or "unknown",
+            payload.get("attack_type") or "unknown",
+            payload.get("target_service")
+            or payload.get("service")
+            or payload.get("type")
+            or "unknown",
+        )
+        return tuple(str(value).strip().lower() for value in values)
+
+    def is_duplicate(
+        self,
+        payload: dict[str, Any],
+        *,
+        now: float | None = None,
+    ) -> bool:
+        if payload.get("alert_eligible") is not True:
+            return False
+
+        observed_at = time.monotonic() if now is None else now
+        self._seen = {
+            key: seen_at
+            for key, seen_at in self._seen.items()
+            if observed_at - seen_at < self.window_seconds
+        }
+        return self.key(payload) in self._seen
+
+    def mark_sent(
+        self,
+        payload: dict[str, Any],
+        *,
+        now: float | None = None,
+    ) -> None:
+        if payload.get("alert_eligible") is not True:
+            return
+
+        observed_at = time.monotonic() if now is None else now
+        self._seen[self.key(payload)] = observed_at
+
+
+def _safe_alert_value(value: Any) -> Any:
+    """Copy IDS context while removing raw or credential-bearing fields."""
+
+    if isinstance(value, dict):
+        return {
+            key: _safe_alert_value(item)
+            for key, item in value.items()
+            if str(key).strip().lower() not in SENSITIVE_ALERT_KEYS
+        }
+    if isinstance(value, list):
+        return [_safe_alert_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_safe_alert_value(item) for item in value]
+    return value
+
+
+def _confidence_percent(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+        return None
+    return round(confidence * 100.0, 2)
+
+
+def _recommended_action(attack_type: str, service: str) -> str:
+    attack = attack_type.strip().lower()
+    service_name = service.strip().upper() or "TARGET"
+
+    if attack in {"ssh_bruteforce", "ftp_bruteforce"}:
+        return (
+            f"Temporarily block or rate-limit the source IP and review "
+            f"{service_name} authentication logs."
+        )
+    if attack == "sql_injection":
+        return (
+            "Temporarily block the source IP and review the affected web route "
+            "and database-facing input controls."
+        )
+    if attack == "xss":
+        return (
+            "Temporarily block the source IP and review the affected web route, "
+            "output encoding, and content security policy."
+        )
+    if attack == "directory_scanning":
+        return (
+            "Rate-limit or block the source IP and review requested paths for "
+            "exposed files or directories."
+        )
+    if attack == "port_scanning":
+        return (
+            "Monitor or block the source IP at the perimeter and review the "
+            "probed services and ports."
+        )
+    return (
+        "Contain the source IP according to policy and review the sanitized IDS "
+        "evidence for the affected service."
+    )
+
+
+def _detection_reason(record: dict[str, Any], human_reason: dict[str, Any]) -> str:
+    summary = human_reason.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        return summary.strip()
+
+    fusion_reason = record.get("fusion_reason")
+    if isinstance(fusion_reason, str) and fusion_reason.strip():
+        return fusion_reason.strip()
+
+    prediction = str(record.get("prediction") or "unknown")
+    threat_level = str(record.get("threat_level") or "unknown")
+    return (
+        f"Hybrid IDS classified the event as {prediction} with "
+        f"{threat_level} threat level."
+    )
 
 
 def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
@@ -55,35 +200,60 @@ def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
         if isinstance(xai.get("human_reason"), dict)
         else {}
     )
+    attack_type = str(record.get("attack_type") or "unknown")
+    prediction = str(record.get("prediction") or "unknown")
+    source_ip = record.get("source_ip") or "unknown"
+    confidence = record.get("confidence")
+    detection_reason = _detection_reason(record, human_reason)
+    recommended_action = _recommended_action(attack_type, str(service))
+    alert_eligible = (
+        prediction.strip().lower() == "attack"
+        and threat_level in IMMEDIATE_THREAT_LEVELS
+    )
 
     return {
+        "alert_schema_version": "1.0",
+        "alert_eligible": alert_eligible,
+        "event_id": record.get("event_id"),
         "severity": severity,
-        "ip": record.get("source_ip", "unknown"),
+        "severity_label": threat_level,
+        "ip": source_ip,
+        "source_ip": source_ip,
         "type": service,
-        "attack_type": record.get("attack_type", "unknown"),
+        "target_service": service,
+        "attack_type": attack_type,
         "target": target,
         "timestamp": record.get("timestamp"),
         "service": service,
         "event": record.get("event"),
         "source": "hybrid_ids_result",
-        "prediction": record.get("prediction"),
-        "confidence": record.get("confidence"),
+        "prediction": prediction,
+        "confidence": confidence,
+        "confidence_percent": _confidence_percent(confidence),
         "model_used": record.get("model_used"),
         "threat_level": threat_level,
         "threat_score": record.get("threat_score"),
-        "xai_summary": human_reason.get("summary", ""),
-        "record": record,
+        "xai_summary": detection_reason,
+        "detection_reason": detection_reason,
+        "recommended_action": recommended_action,
+        "record": _safe_alert_value(record),
+        "privacy": {
+            "raw_payload_included": False,
+            "credentials_included": False,
+        },
         "analysis": {
             "target": target,
             "ids": {
-                "prediction": record.get("prediction"),
-                "confidence": record.get("confidence"),
+                "prediction": prediction,
+                "confidence": confidence,
+                "confidence_percent": _confidence_percent(confidence),
                 "anomaly_score": record.get("anomaly_score"),
                 "model_used": record.get("model_used"),
                 "threat_level": threat_level,
                 "threat_score": record.get("threat_score"),
             },
-            "explanation": human_reason.get("summary", ""),
+            "explanation": detection_reason,
+            "recommended_action": recommended_action,
         },
     }
 
@@ -190,7 +360,7 @@ def create_session() -> Any:
     return session
 
 
-def send_alert(session: Any, cfg: AppConfig, payload: dict[str, Any]) -> None:
+def send_alert(session: Any, cfg: AppConfig, payload: dict[str, Any]) -> bool:
     import requests
 
     if cfg.critical_only and payload.get("severity") != "critical":
@@ -198,7 +368,7 @@ def send_alert(session: Any, cfg: AppConfig, payload: dict[str, Any]) -> None:
             f"[SKIP] severity={payload.get('severity')} ip={payload.get('ip')} "
             f"attack={payload.get('attack_type')}"
         )
-        return
+        return False
 
     try:
         response = session.post(cfg.webhook_url, json=payload, timeout=cfg.timeout_seconds)
@@ -208,8 +378,10 @@ def send_alert(session: Any, cfg: AppConfig, payload: dict[str, Any]) -> None:
         )
         if response.text:
             print(f"[POST] response={response.text.strip()[:300]}")
+        return 200 <= response.status_code < 300
     except requests.RequestException as exc:
         print(f"[ERROR] failed to send alert: {exc}")
+        return False
 
 
 def resolve_webhook_url(mode: str, ngrok_url: str | None) -> str:
@@ -353,14 +525,26 @@ def main() -> None:
     print(f"[CONFIG] from_start={cfg.from_start}")
 
     session = create_session()
+    deduplicator = AlertDeduplicator()
     wait_for_log_file(cfg.log_file, cfg.poll_interval_seconds)
 
     try:
         for record in iter_new_jsonl_records(cfg.log_file, cfg.from_start, cfg.poll_interval_seconds):
             payload = normalize_record(record, source=cfg.source)
-            send_alert(session, cfg, payload)
+            if cfg.source == "ids" and deduplicator.is_duplicate(payload):
+                print(
+                    "[SKIP] duplicate_alert window=300s "
+                    f"ip={payload.get('ip')} "
+                    f"attack={payload.get('attack_type')} "
+                    f"service={payload.get('target_service')}"
+                )
+                continue
 
-            if cfg.once:
+            sent = send_alert(session, cfg, payload)
+            if sent and cfg.source == "ids":
+                deduplicator.mark_sent(payload)
+
+            if cfg.once and sent:
                 print("[DONE] Sent one matching event")
                 break
     except KeyboardInterrupt:
