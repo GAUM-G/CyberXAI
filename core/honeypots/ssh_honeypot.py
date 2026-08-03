@@ -21,6 +21,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from core.logger import log_event
+from core.simulated_ips import apply_simulated_rate_limit, get_simulated_response
 
 
 # --------------------------------------------------------------------------- #
@@ -55,6 +56,8 @@ class SSHHoneypotHandler(socketserver.StreamRequestHandler):
         source_port: int = self.client_address[1]
         destination_port: int = self.server.server_address[1]
         session_id = str(uuid4())
+        ips_response = get_simulated_response(source_ip, "ssh", session_id)
+        apply_simulated_rate_limit(ips_response)
         try:
             # Send a realistic-looking SSH banner
             self.wfile.write(b"SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5\r\n")

@@ -313,6 +313,40 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 .feedback-history-item p{font-size:.66rem;color:var(--text2);margin-top:.2rem;line-height:1.45}
 .feedback-history-item blockquote{margin-top:.3rem;padding-left:.5rem;border-left:2px solid var(--border2);
   color:var(--text2);font-size:.68rem;line-height:1.45}
+/* Step 21 simulation-only IPS workspace */
+.ips-safety-banner{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  border:1px solid rgba(0,255,136,.28);background:linear-gradient(120deg,rgba(0,255,136,.075),rgba(0,212,255,.035));
+  border-radius:7px;padding:1rem;margin-bottom:.9rem}
+.ips-safety-banner h3{font-size:1rem;color:var(--green);margin-bottom:.25rem}
+.ips-safety-banner p{font-size:.78rem;color:var(--text2);line-height:1.55;max-width:760px}
+.ips-mode-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .62rem;border-radius:999px;
+  border:1px solid rgba(0,255,136,.28);color:var(--green);background:rgba(0,255,136,.08);
+  font-family:var(--mono);font-size:.64rem;white-space:nowrap}
+.ips-safety-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;margin-top:.75rem}
+.ips-safety-item{padding:.58rem;border:1px solid var(--border);background:rgba(0,0,0,.2);border-radius:5px}
+.ips-safety-item span{display:block;font-family:var(--mono);font-size:.56rem;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.08em}
+.ips-safety-item strong{display:block;margin-top:.2rem;font-family:var(--mono);font-size:.75rem;color:var(--green)}
+.ips-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem;margin-bottom:.9rem}
+.ips-stat{padding:.78rem;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,.2)}
+.ips-stat span{display:block;font-family:var(--mono);font-size:.56rem;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.ips-stat strong{display:block;margin-top:.3rem;font-family:var(--mono);font-size:1.35rem;color:var(--accent)}
+.ips-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-bottom:.7rem}
+.ips-auth-note{padding:.65rem;border:1px solid rgba(255,204,0,.22);background:rgba(255,204,0,.055);
+  color:var(--yellow);border-radius:5px;font-family:var(--mono);font-size:.68rem;line-height:1.5}
+.ips-action-row{display:flex;gap:.35rem;flex-wrap:wrap;min-width:310px}
+.ips-btn{padding:.35rem .5rem;font-size:.62rem}
+.ips-btn-danger{border-color:rgba(255,51,85,.35);color:var(--red)}
+.ips-btn-warn{border-color:rgba(255,204,0,.35);color:var(--yellow)}
+.ips-status{display:inline-flex;padding:.14rem .45rem;border-radius:999px;font-family:var(--mono);font-size:.6rem}
+.ips-status-pending{color:var(--yellow);border:1px solid rgba(255,204,0,.25);background:rgba(255,204,0,.07)}
+.ips-status-active{color:var(--green);border:1px solid rgba(0,255,136,.25);background:rgba(0,255,136,.07)}
+.ips-status-suppressed,.ips-status-dismissed,.ips-status-reversed,.ips-status-expired{
+  color:var(--text2);border:1px solid var(--border2);background:rgba(255,255,255,.035)}
+.ips-status-executed,.ips-status-completed{color:var(--accent);border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.07)}
+.ips-reason{max-width:320px;white-space:normal;line-height:1.45;color:var(--text2)}
+.ips-table-title{display:flex;align-items:center;justify-content:space-between;gap:.7rem;margin-bottom:.65rem}
+.ips-audit-safety{color:var(--green);font-family:var(--mono);font-size:.6rem;white-space:nowrap}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
@@ -321,6 +355,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 @media(max-width:900px){
   .ids-detail-grid{grid-template-columns:1fr 1fr}.investigation-grid{grid-template-columns:1fr}
   .analyst-session{grid-template-columns:1fr}.xai-review-stats{grid-template-columns:1fr 1fr}
+  .ips-stats{grid-template-columns:1fr 1fr}.ips-safety-grid{grid-template-columns:1fr}
 }
 @media(max-width:620px){
   .ids-toolbar{grid-template-columns:1fr}.ids-detail-grid{grid-template-columns:1fr}
@@ -355,6 +390,10 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
       </div>
       <div class="nav-item" onclick="switchSection('xai',this)">
         <span class="nav-icon"><i data-feather="cpu" width="16" height="16"></i></span><span>XAI</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('ips',this)">
+        <span class="nav-icon"><i data-feather="shield-off" width="16" height="16"></i></span><span>IPS Response</span>
+        <span class="nav-badge" id="badge-ips">0</span>
       </div>
       <div class="nav-item" onclick="switchSection('report',this)">
         <span class="nav-icon"><i data-feather="file-text" width="16" height="16"></i></span><span>Report</span>
@@ -605,6 +644,62 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
         </div>
       </div>
 
+      <!-- SIMULATED IPS -->
+      <div class="section" id="sec-ips">
+        <div class="section-header">
+          <h2><i data-feather="shield-off" style="color:var(--green)"></i> Simulated IPS Response</h2>
+          <p>Analyst-controlled prevention inside the honeypot applications, with no host firewall changes</p>
+        </div>
+
+        <div class="ips-safety-banner">
+          <div>
+            <h3>Safe demonstration mode</h3>
+            <p>Recommendations and actions are auditable simulations. Simulated blocks label later telemetry,
+              rate limits affect only honeypot responses, and termination targets only the selected honeypot
+              session. Windows Firewall and host networking are never modified.</p>
+            <div class="ips-safety-grid">
+              <div class="ips-safety-item"><span>IPS mode</span><strong id="ips-mode">SIMULATION</strong></div>
+              <div class="ips-safety-item"><span>Automatic host blocking</span><strong id="ips-auto-block">DISABLED</strong></div>
+              <div class="ips-safety-item"><span>Host firewall changed</span><strong id="ips-firewall-change">NO</strong></div>
+            </div>
+          </div>
+          <span class="ips-mode-chip"><span class="dot dot-green"></span> HOST SAFE</span>
+        </div>
+
+        <div class="ips-stats">
+          <article class="ips-stat"><span>Pending recommendations</span><strong id="ips-pending">—</strong></article>
+          <article class="ips-stat"><span>Simulated blocks</span><strong id="ips-blocks">—</strong></article>
+          <article class="ips-stat"><span>Rate limits</span><strong id="ips-limits">—</strong></article>
+          <article class="ips-stat"><span>Terminated sessions</span><strong id="ips-terminated">—</strong></article>
+          <article class="ips-stat"><span>Audit actions</span><strong id="ips-audit-count">—</strong></article>
+        </div>
+
+        <div id="ips-auth-note" class="ips-auth-note">
+          Sign in through Explainable AI → Analyst session to approve or reverse simulated responses.
+        </div>
+
+        <div class="card grid-1" style="margin-top:.9rem">
+          <div class="ips-toolbar">
+            <div class="card-title"><i data-feather="target" width="14" height="14"></i> Response Recommendations</div>
+            <button class="btn btn-accent" type="button" onclick="loadIPSWorkspace()"><i data-feather="refresh-cw" width="14" height="14"></i> Refresh IPS</button>
+          </div>
+          <div id="ips-status-message" class="feedback-message">Loading the simulation-only response policy…</div>
+          <div id="ips-recommendations-wrap" class="tbl-wrap">
+            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="shield" width="24" height="24"></i></div>No recommendations loaded</div>
+          </div>
+        </div>
+
+        <div class="card grid-1">
+          <div class="ips-table-title">
+            <div class="card-title"><i data-feather="list" width="14" height="14"></i> Response Audit History</div>
+            <span class="ips-audit-safety">FIREWALL CHANGED: NO</span>
+          </div>
+          <div id="ips-actions-wrap" class="tbl-wrap">
+            <div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="clock" width="24" height="24"></i></div>No simulated actions recorded</div>
+          </div>
+        </div>
+      </div>
+
       <!-- REPORT -->
       <div class="section" id="sec-report">
         <div class="section-header">
@@ -747,6 +842,7 @@ function switchSection(name,el){
   if(name==='honeypot')loadHoneypot();
   if(name==='ids')loadIDS();
   if(name==='xai')loadXAIWorkspace();
+  if(name==='ips')loadIPSWorkspace();
   if(name==='report')loadReport();
 }
 
@@ -756,6 +852,8 @@ let idsFilteredResults=[];
 let idsCriticalIncidents=[];
 let idsLatestFeedback={};
 let selectedIDSIndex=-1;
+let ipsRecommendations=[];
+let ipsActions=[];
 
 // Monitor
 function loadMonitor(){
@@ -894,6 +992,13 @@ function updateAnalystSessionUI(){
   document.getElementById('analyst-session-state').hidden=!signedIn;
   document.getElementById('analyst-session-name').textContent=
     signedIn?`Signed in as ${user.username||'analyst'}`:'Signed in';
+  const ipsNote=document.getElementById('ips-auth-note');
+  if(ipsNote){
+    ipsNote.textContent=signedIn
+      ?`Authenticated as ${user.username||'analyst'}. Simulation-only response controls are enabled.`
+      :'Sign in through Explainable AI → Analyst session to approve or reverse simulated responses.';
+    ipsNote.style.color=signedIn?'var(--green)':'var(--yellow)';
+  }
 }
 
 async function signInAnalyst(event){
@@ -913,6 +1018,7 @@ async function signInAnalyst(event){
     updateAnalystSessionUI();
     await refreshAnalystFeedback();
     renderXaiAlerts(idsAllResults);
+    await loadIPSWorkspace();
     status.textContent=`Authenticated as ${(data.user||{}).username||username}. Review controls are enabled.`;
   }catch(error){
     status.textContent=`Sign-in failed: ${error.message}`;
@@ -926,6 +1032,9 @@ function signOutAnalyst(){
   updateAnalystSessionUI();
   updateReviewStats(null);
   renderXaiAlerts(idsAllResults);
+  ipsRecommendations=[];
+  ipsActions=[];
+  loadIPSWorkspace();
   const status=document.getElementById('xai-status');
   status.textContent='Signed out. Explanations remain visible; sign in to review events.';
 }
@@ -1222,6 +1331,182 @@ function idsObjectList(items){
 function idsDetailItem(label,value,wide=false){
   return `<div class="ids-detail-item${wide?' ids-detail-wide':''}">
     <div class="ids-detail-label">${esc(label)}</div><div class="ids-detail-value">${value}</div></div>`;
+}
+
+function ipsActionLabel(value){
+  const labels={
+    continue_monitoring:'Continue monitoring',no_response:'No response',
+    recommend_block:'Recommend block',simulate_block:'Simulate block',
+    rate_limit:'Rate limit',terminate_session:'Terminate session',
+    release:'Release / undo',dismiss:'Dismiss'
+  };
+  return labels[value]||String(value||'unknown').replace(/_/g,' ');
+}
+
+function ipsStatusBadge(status){
+  const safe=String(status||'unknown').toLowerCase().replace(/[^a-z_]/g,'');
+  return `<span class="ips-status ips-status-${safe.replace(/_/g,'-')}">${esc(String(status||'unknown').replace(/_/g,' '))}</span>`;
+}
+
+function updateIPSStats(status){
+  document.getElementById('ips-mode').textContent=String(status?.mode||'simulation').toUpperCase();
+  document.getElementById('ips-auto-block').textContent=status?.automatic_host_blocking===false?'DISABLED':'UNSAFE';
+  document.getElementById('ips-firewall-change').textContent=status?.host_firewall_changed===false?'NO':'UNSAFE';
+  document.getElementById('ips-pending').textContent=status?.pending_recommendations??'—';
+  document.getElementById('ips-blocks').textContent=status?.simulated_blocks??'—';
+  document.getElementById('ips-limits').textContent=status?.rate_limits??'—';
+  document.getElementById('ips-terminated').textContent=status?.terminated_sessions??'—';
+  document.getElementById('ips-audit-count').textContent=status?.total_audit_actions??'—';
+  document.getElementById('badge-ips').textContent=status?.pending_recommendations??0;
+}
+
+function ipsRecommendationButtons(recommendation,index){
+  if(!analystToken())return '<span class="td-muted">Sign in to respond</span>';
+  if(
+    recommendation.feedback_verdict==='false_positive'||
+    ['suppressed','dismissed'].includes(recommendation.status)||
+    recommendation.prediction!=='attack'
+  )return '<span class="td-muted">Response suppressed</span>';
+  const sessionButton=recommendation.session_id
+    ?`<button class="btn ips-btn ips-btn-danger" type="button" onclick="runIPSRecommendationAction('terminate_session',${index})">Terminate Session</button>`
+    :'<button class="btn ips-btn" type="button" disabled title="No session ID on this event">No Session ID</button>';
+  return `<div class="ips-action-row">
+    <button class="btn ips-btn" type="button" onclick="runIPSRecommendationAction('recommend_block',${index})">Recommend Block</button>
+    <button class="btn ips-btn ips-btn-danger" type="button" onclick="runIPSRecommendationAction('simulate_block',${index})">Simulate Block</button>
+    <button class="btn ips-btn ips-btn-warn" type="button" onclick="runIPSRecommendationAction('rate_limit',${index})">Rate Limit</button>
+    ${sessionButton}
+    <button class="btn ips-btn" type="button" onclick="runIPSRecommendationAction('dismiss',${index})">Dismiss</button>
+  </div>`;
+}
+
+function renderIPSRecommendations(items){
+  const wrap=document.getElementById('ips-recommendations-wrap');
+  if(!items?.length){
+    wrap.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="check-circle" width="24" height="24"></i></div>No IDS response recommendations yet</div>';
+    feather.replace();
+    return;
+  }
+  wrap.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>IP</th><th>Service</th><th>Attack</th><th>Severity</th><th>Repeats</th><th>Policy response</th><th>Status</th><th>Reason</th><th>Analyst action</th></tr></thead><tbody>
+    ${items.map((item,index)=>`<tr>
+      <td class="td-mono">${fmtTs(item.updated_at||item.created_at)}</td>
+      <td class="td-mono">${esc(item.source_ip)}</td><td>${svcBadge(item.service)}</td>
+      <td>${esc(attackLabel(item.attack_type))}</td><td>${threatBadge(item.effective_severity)}</td>
+      <td class="td-mono">${esc(item.repeat_count)}</td>
+      <td>${esc(ipsActionLabel(item.recommended_action))}</td><td>${ipsStatusBadge(item.status)}</td>
+      <td class="ips-reason">${esc(item.reason)}</td><td>${ipsRecommendationButtons(item,index)}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  feather.replace();
+}
+
+function renderIPSActions(items){
+  const wrap=document.getElementById('ips-actions-wrap');
+  if(!items?.length){
+    wrap.innerHTML='<div class="empty" style="padding:1.25rem"><div class="empty-icon"><i data-feather="clock" width="24" height="24"></i></div>No simulated actions recorded</div>';
+    feather.replace();
+    return;
+  }
+  wrap.innerHTML=`<table><thead><tr><th>Time (IST)</th><th>Action</th><th>IP / Service</th><th>Session</th><th>Status</th><th>Expires</th><th>Analyst</th><th>Safety</th><th>Control</th></tr></thead><tbody>
+    ${items.map((item,index)=>`<tr>
+      <td class="td-mono">${fmtTs(item.created_at)}</td><td>${esc(ipsActionLabel(item.action_type))}</td>
+      <td class="td-mono">${esc(item.source_ip)} · ${esc(String(item.service||'').toUpperCase())}</td>
+      <td class="td-mono">${esc(item.session_id||'—')}</td><td>${ipsStatusBadge(item.status)}</td>
+      <td class="td-mono">${item.expires_at?fmtTs(item.expires_at):'—'}</td>
+      <td>${esc(item.analyst?.username||'—')}</td><td class="ips-audit-safety">Simulation · firewall NO</td>
+      <td>${item.status==='active'
+        ?`<button class="btn ips-btn" type="button" onclick="releaseIPSAction(${index})">Release / Undo</button>`
+        :'<span class="td-muted">—</span>'}</td>
+    </tr>`).join('')}
+    </tbody></table>`;
+  feather.replace();
+}
+
+async function loadIPSWorkspace(){
+  const message=document.getElementById('ips-status-message');
+  message.className='feedback-message';
+  message.textContent='Loading simulation-only IPS state…';
+  try{
+    const safety=await analystRequest('/api/ips/safety');
+    updateIPSStats(safety);
+    if(!analystToken()){
+      ipsRecommendations=[];
+      ipsActions=[];
+      renderIPSRecommendations([]);
+      renderIPSActions([]);
+      message.textContent='Safety mode verified. Sign in through the XAI analyst session to load response records.';
+      return;
+    }
+    const [status,recommendations,actions]=await Promise.all([
+      analystRequest('/api/ips/status'),
+      analystRequest('/api/ips/recommendations?limit=100'),
+      analystRequest('/api/ips/actions?limit=200')
+    ]);
+    ipsRecommendations=recommendations.recommendations||[];
+    ipsActions=actions.actions||[];
+    updateIPSStats(status);
+    renderIPSRecommendations(ipsRecommendations);
+    renderIPSActions(ipsActions);
+    message.className='feedback-message success';
+    message.textContent=`Loaded ${ipsRecommendations.length} recommendations and ${ipsActions.length} audit actions. Host firewall changed: no.`;
+  }catch(error){
+    if(error.status===401){
+      localStorage.removeItem(ANALYST_TOKEN_KEY);
+      localStorage.removeItem(ANALYST_USER_KEY);
+      updateAnalystSessionUI();
+    }
+    message.className='feedback-message error';
+    message.textContent=`Unable to load IPS workspace: ${error.message}`;
+  }
+  feather.replace();
+}
+
+async function runIPSRecommendationAction(actionType,index){
+  const recommendation=ipsRecommendations[index];
+  if(!recommendation||!analystToken())return;
+  const active=['simulate_block','rate_limit','terminate_session'].includes(actionType);
+  if(active&&!window.confirm(
+    `${ipsActionLabel(actionType)} for ${recommendation.source_ip}?\n\nThis affects only the honeypot application. No Windows Firewall rule will be created.`
+  ))return;
+  const message=document.getElementById('ips-status-message');
+  message.className='feedback-message';
+  message.textContent=`Recording ${ipsActionLabel(actionType)}…`;
+  try{
+    await analystRequest('/api/ips/actions',{
+      method:'POST',
+      body:JSON.stringify({
+        action_type:actionType,
+        recommendation_id:recommendation.recommendation_id,
+        reason:`Analyst selected ${ipsActionLabel(actionType)} from the 5050 Step 21 workspace.`
+      })
+    });
+    await loadIPSWorkspace();
+  }catch(error){
+    message.className='feedback-message error';
+    message.textContent=error.message;
+  }
+}
+
+async function releaseIPSAction(index){
+  const target=ipsActions[index];
+  if(!target||target.status!=='active'||!analystToken())return;
+  if(!window.confirm(
+    `Release simulated action ${target.action_id}?\n\nOnly application-level simulation state will be removed.`
+  ))return;
+  const message=document.getElementById('ips-status-message');
+  try{
+    await analystRequest('/api/ips/actions',{
+      method:'POST',
+      body:JSON.stringify({
+        action_type:'release',
+        related_action_id:target.action_id,
+        reason:'Analyst released the simulated response from the 5050 dashboard.'
+      })
+    });
+    await loadIPSWorkspace();
+  }catch(error){
+    message.className='feedback-message error';
+    message.textContent=error.message;
+  }
 }
 
 function clampPercent(value,scale=1){
@@ -1589,11 +1874,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   connectSSE();
   updateAnalystSessionUI();
   loadXAIWorkspace();
+  loadIPSWorkspace();
   setInterval(()=>{
     const a=document.querySelector('.section.active')?.id;
     if(a==='sec-monitor')loadMonitor();
     if(a==='sec-ids')loadIDS();
     if(a==='sec-xai')loadXAIWorkspace();
+    if(a==='sec-ips')loadIPSWorkspace();
   },10000);
 });
 document.addEventListener('keydown',event=>{

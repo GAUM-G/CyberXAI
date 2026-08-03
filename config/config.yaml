@@ -18,6 +18,17 @@ dashboard:
   host: "127.0.0.1"
   port: 5050
 
+ips:
+  mode: "simulation"
+  automatic_host_blocking: false
+  host_firewall_changed: false
+  state_file: "data/ips/simulated_ips_state.json"
+  repeated_attempt_threshold: 5
+  repeat_window_minutes: 5
+  rate_limit_delay_ms: 750
+  rate_limit_duration_seconds: 300
+  simulated_block_duration_seconds: 900
+
 logging:
   log_file: "data/raw_logs/honeypot_events.jsonl"
   max_queue_size: 500000

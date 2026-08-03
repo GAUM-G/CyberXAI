@@ -26,6 +26,21 @@ const {
   listAnalystFeedback,
   validateFeedbackInput,
 } = require("./analyst_feedback_store");
+const {
+  AUTOMATIC_HOST_BLOCKING,
+  HOST_FIREWALL_CHANGED,
+  IPS_MODE,
+  POLICY_VERSION,
+  applyAnalystFeedbackToIPS,
+  backfillIPSRecommendations,
+  getIPSStatus,
+  listIPSActions,
+  listIPSRecommendations,
+  performIPSAction,
+  syncRuntimeState,
+  upsertIPSRecommendation,
+  validateIPSActionInput,
+} = require("./ips_response_store");
 const { requireAuth } = require("./middleware/auth");
 
 const app = express();
@@ -196,7 +211,8 @@ app.use((req, res, next) => {
       req.path.startsWith("/logs") ||
       req.path.startsWith("/api/events") ||
       req.path.startsWith("/api/ids-results") ||
-      req.path.startsWith("/api/analyst-feedback")
+      req.path.startsWith("/api/analyst-feedback") ||
+      req.path.startsWith("/api/ips")
     ) {
       return;
     }
@@ -287,11 +303,18 @@ app.post("/api/ids-results", async (req, res) => {
 
   try {
     const result = await insertIDSResult(db, req.body);
+    let ipsRecommendation = null;
+    try {
+      ipsRecommendation = await upsertIPSRecommendation(db, result.event_id);
+    } catch (ipsError) {
+      console.error("[Simulated IPS] Recommendation failed:", ipsError.message);
+    }
     return res.status(result.inserted ? 201 : 200).json({
       stored: true,
       duplicate: !result.inserted,
       database_id: result.id,
       event_id: result.event_id,
+      ips_recommendation: ipsRecommendation,
     });
   } catch (error) {
     console.error("[IDS Result Store] Insert failed:", error.message);
@@ -395,8 +418,23 @@ app.post("/api/analyst-feedback/:eventId", requireAuth, async (req, res) => {
         username: req.user.username,
       }
     );
+    let ipsRecommendation = null;
+    try {
+      ipsRecommendation = await applyAnalystFeedbackToIPS(
+        db,
+        req.params.eventId,
+        feedback
+      );
+    } catch (ipsError) {
+      console.error("[Simulated IPS] Feedback recalculation failed:", ipsError.message);
+    }
     const stats = await getFeedbackStats(db);
-    return res.status(201).json({ stored: true, feedback, stats });
+    return res.status(201).json({
+      stored: true,
+      feedback,
+      stats,
+      ips_recommendation: ipsRecommendation,
+    });
   } catch (error) {
     if (error.code === "IDS_RESULT_NOT_FOUND") {
       return res.status(404).json({ stored: false, error: error.message });
@@ -410,6 +448,102 @@ app.post("/api/analyst-feedback/:eventId", requireAuth, async (req, res) => {
     }
     console.error("[Analyst Feedback] Insert failed:", error.message);
     return res.status(500).json({ stored: false, error: "Could not store feedback" });
+  }
+});
+
+app.get("/api/ips/safety", (_req, res) => {
+  return res.json({
+    mode: IPS_MODE,
+    automatic_host_blocking: AUTOMATIC_HOST_BLOCKING,
+    host_firewall_changed: HOST_FIREWALL_CHANGED,
+    policy_version: POLICY_VERSION,
+  });
+});
+
+app.get("/api/ips/status", requireAuth, async (_req, res) => {
+  try {
+    const status = await getIPSStatus(db);
+    return res.json({ source: "sqlite", ...status });
+  } catch (error) {
+    console.error("[Simulated IPS] Status failed:", error.message);
+    return res.status(500).json({ error: "Could not calculate IPS status" });
+  }
+});
+
+app.get("/api/ips/recommendations", requireAuth, async (req, res) => {
+  try {
+    const recommendations = await listIPSRecommendations(db, {
+      status: req.query.status,
+      sourceIp: req.query.source_ip,
+      service: req.query.service,
+      eventId: req.query.event_id,
+      limit: req.query.limit,
+    });
+    return res.json({
+      source: "sqlite",
+      count: recommendations.length,
+      recommendations,
+    });
+  } catch (error) {
+    console.error("[Simulated IPS] Recommendation query failed:", error.message);
+    return res.status(500).json({ error: "Could not read IPS recommendations" });
+  }
+});
+
+app.get("/api/ips/actions", requireAuth, async (req, res) => {
+  try {
+    const actions = await listIPSActions(db, {
+      status: req.query.status,
+      actionType: req.query.action_type,
+      sourceIp: req.query.source_ip,
+      eventId: req.query.event_id,
+      limit: req.query.limit,
+    });
+    return res.json({ source: "sqlite", count: actions.length, actions });
+  } catch (error) {
+    console.error("[Simulated IPS] Action query failed:", error.message);
+    return res.status(500).json({ error: "Could not read IPS audit actions" });
+  }
+});
+
+app.post("/api/ips/actions", requireAuth, async (req, res) => {
+  const errors = validateIPSActionInput(req.body);
+  if (errors.length > 0) {
+    return res.status(400).json({
+      executed: false,
+      error: "Invalid simulated IPS action",
+      details: errors,
+    });
+  }
+
+  try {
+    const action = await performIPSAction(db, req.body, {
+      id: req.user.userId,
+      username: req.user.username,
+    });
+    const status = await getIPSStatus(db);
+    return res.status(201).json({
+      executed: true,
+      action,
+      status,
+      safety: {
+        mode: IPS_MODE,
+        automatic_host_blocking: AUTOMATIC_HOST_BLOCKING,
+        host_firewall_changed: HOST_FIREWALL_CHANGED,
+      },
+    });
+  } catch (error) {
+    if (error.code === "INVALID_IPS_ACTION") {
+      return res.status(400).json({ executed: false, error: error.message });
+    }
+    if (error.code === "IPS_TARGET_NOT_FOUND") {
+      return res.status(404).json({ executed: false, error: error.message });
+    }
+    if (error.code === "IPS_RESPONSE_SUPPRESSED") {
+      return res.status(409).json({ executed: false, error: error.message });
+    }
+    console.error("[Simulated IPS] Action failed:", error.message);
+    return res.status(500).json({ executed: false, error: "Could not execute simulated IPS action" });
   }
 });
 
@@ -435,6 +569,10 @@ app.get("/", (_req, res) => {
       "/api/analyst-feedback",
       "/api/analyst-feedback/latest",
       "/api/analyst-feedback/stats",
+      "/api/ips/safety",
+      "/api/ips/status",
+      "/api/ips/recommendations",
+      "/api/ips/actions",
     ],
   });
 });
@@ -626,4 +764,12 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[Backend] Running on http://localhost:${PORT}`);
+  backfillIPSRecommendations(db)
+    .then((count) => syncRuntimeState(db).then(() => count))
+    .then((count) => {
+      console.log(`[Simulated IPS] Simulation-only policy ready (${count} IDS results evaluated)`);
+    })
+    .catch((error) => {
+      console.error("[Simulated IPS] Runtime-state initialization failed:", error.message);
+    });
 });

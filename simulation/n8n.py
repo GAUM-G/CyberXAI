@@ -156,6 +156,21 @@ def _recommended_action(attack_type: str, service: str) -> str:
     )
 
 
+def _ips_response_recommendation(threat_level: str) -> str:
+    return {
+        "Low": "Continue monitoring; no IPS intervention recommended.",
+        "Medium": "Honeypot-level rate limiting recommended.",
+        "High": "Simulation-only IP block recommended for analyst approval.",
+        "Critical": (
+            "Simulation-only IP block and honeypot-session termination review "
+            "recommended."
+        ),
+    }.get(
+        threat_level,
+        "Review the event before selecting a simulation-only response.",
+    )
+
+
 def _detection_reason(record: dict[str, Any], human_reason: dict[str, Any]) -> str:
     summary = human_reason.get("summary")
     if isinstance(summary, str) and summary.strip():
@@ -206,6 +221,7 @@ def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
     confidence = record.get("confidence")
     detection_reason = _detection_reason(record, human_reason)
     recommended_action = _recommended_action(attack_type, str(service))
+    ips_response_recommendation = _ips_response_recommendation(threat_level)
     alert_eligible = (
         prediction.strip().lower() == "attack"
         and threat_level in IMMEDIATE_THREAT_LEVELS
@@ -236,10 +252,20 @@ def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
         "xai_summary": detection_reason,
         "detection_reason": detection_reason,
         "recommended_action": recommended_action,
+        "response_recommendation": ips_response_recommendation,
+        "ips_mode": "simulation",
+        "automatic_host_blocking": False,
+        "host_firewall_changed": False,
         "record": _safe_alert_value(record),
         "privacy": {
             "raw_payload_included": False,
             "credentials_included": False,
+        },
+        "ips": {
+            "mode": "simulation",
+            "response_recommendation": ips_response_recommendation,
+            "automatic_host_blocking": False,
+            "host_firewall_changed": False,
         },
         "analysis": {
             "target": target,
@@ -254,6 +280,7 @@ def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
             },
             "explanation": detection_reason,
             "recommended_action": recommended_action,
+            "ips_response": ips_response_recommendation,
         },
     }
 

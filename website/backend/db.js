@@ -6,6 +6,9 @@ const { initializeIDSResultStore } = require("./ids_result_store");
 const {
   initializeAnalystFeedbackStore,
 } = require("./analyst_feedback_store");
+const {
+  initializeIPSResponseStore,
+} = require("./ips_response_store");
 
 const dbPath = path.join(__dirname, "data", "honeypot.db");
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -25,6 +28,7 @@ db.serialize(() => {
   initializeEventStore(db);
   initializeIDSResultStore(db);
   initializeAnalystFeedbackStore(db);
+  initializeIPSResponseStore(db);
 });
 
 module.exports = db;
