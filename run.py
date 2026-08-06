@@ -41,6 +41,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Honeypot Framework")
     parser.add_argument("--no-dashboard", action="store_true", help="Skip the web dashboard")
     parser.add_argument("--no-ids",       action="store_true", help="Skip the automatic real-time Hybrid IDS")
+    parser.add_argument("--no-agents",    action="store_true", help="Disable Step 22 intelligent agents")
     parser.add_argument("--simulate",     action="store_true", help="Run built-in attack simulation after 5s")
     parser.add_argument(
         "--ids-replay-existing",
@@ -71,11 +72,12 @@ def main() -> None:
         ids_service = create_realtime_ids_service(
             backend_url=args.ids_backend_url or DEFAULT_BACKEND_URL,
             replay_existing=args.ids_replay_existing,
+            enable_agents=not args.no_agents,
         )
         ids_service.start()
         print(
             "[✓] Real-time Hybrid IDS → automatic inference, threat score, "
-            "SHAP and backend delivery"
+            "SHAP, intelligent agents and backend delivery"
         )
 
     # ── Start honeypots ────────────────────────────────────────────────────

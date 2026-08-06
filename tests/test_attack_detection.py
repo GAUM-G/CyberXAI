@@ -151,9 +151,17 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
         )
 
         old_all_events = dashboard_module._all_events
+        old_validator = dashboard_module._validate_portal_token
         dashboard_module._all_events = lambda limit: events[:limit]
+        dashboard_module._validate_portal_token = (
+            lambda token: {"id": 1, "username": "analyst"}
+            if token == "test-token"
+            else None
+        )
         try:
             client = dashboard_module.create_dashboard_app().test_client()
+            with client.session_transaction() as dashboard_session:
+                dashboard_session["portal_token"] = "test-token"
             monitor_response = client.get("/api/monitor").get_json()
             monitor_events = monitor_response["recent_events"]
             service_events = client.get("/api/honeypot").get_json()["services"]["http"]["recent"]
@@ -180,6 +188,7 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
             self.assertIn("Port Scanning", dashboard_html)
         finally:
             dashboard_module._all_events = old_all_events
+            dashboard_module._validate_portal_token = old_validator
 
 
 if __name__ == "__main__":

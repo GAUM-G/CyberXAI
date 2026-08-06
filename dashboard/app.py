@@ -15,16 +15,25 @@ import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
 from datetime import timedelta
+from functools import wraps
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Callable, Generator
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.logger import get_stream_queue, read_recent_events
+from core.time_utils import IST, now_ist, now_ist_iso, to_ist
 
 try:
-    from flask import Flask, Response, jsonify, render_template
+    from flask import (
+        Flask,
+        Response,
+        jsonify,
+        render_template,
+        request,
+        session,
+    )
     _FLASK_OK = True
 except ImportError:
     _FLASK_OK = False
@@ -46,11 +55,79 @@ PORTAL_API_URL = os.environ.get(
     "PORTAL_API_URL",
     "http://127.0.0.1:5000",
 ).strip().rstrip("/")
+DASHBOARD_SECRET_KEY = os.environ.get(
+    "DASHBOARD_SECRET_KEY",
+    "change-this-local-dashboard-secret",
+).strip()
 IDS_ACTIVE_WINDOW_MINUTES = max(
     1,
     int(os.environ.get("IDS_ACTIVE_WINDOW_MINUTES", "15")),
 )
 _START_TIME = time.time()
+
+
+def _portal_request(
+    path: str,
+    *,
+    method: str = "GET",
+    token: str = "",
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Call the authenticated portal without exposing credentials in logs."""
+
+    headers = {"Accept": "application/json"}
+    body = None
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+        body = json.dumps(payload).encode("utf-8")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    portal_request = urllib.request.Request(
+        f"{PORTAL_API_URL}{path}",
+        data=body,
+        headers=headers,
+        method=method,
+    )
+    with urllib.request.urlopen(portal_request, timeout=3.0) as response:
+        value = json.loads(response.read().decode("utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("portal returned an invalid response")
+    return value
+
+
+def _portal_login(username: str, password: str) -> dict[str, Any]:
+    return _portal_request(
+        "/login",
+        method="POST",
+        payload={"username": username, "password": password},
+    )
+
+
+def _validate_portal_token(token: str) -> dict[str, Any] | None:
+    if not token:
+        return None
+    try:
+        data = _portal_request("/api/auth/session", token=token)
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
+        return None
+    user = data.get("user")
+    return user if isinstance(user, dict) else None
+
+
+def require_dashboard_auth(view: Callable[..., Any]) -> Callable[..., Any]:
+    """Require a currently valid portal JWT stored in the signed session."""
+
+    @wraps(view)
+    def protected(*args: Any, **kwargs: Any) -> Any:
+        token = str(session.get("portal_token") or "")
+        user = _validate_portal_token(token)
+        if user is None:
+            session.clear()
+            return jsonify({"error": "Dashboard login required"}), 401
+        session["portal_user"] = user
+        return view(*args, **kwargs)
+
+    return protected
 
 
 def _all_events(limit: int = 2000) -> list[dict[str, Any]]:
@@ -79,7 +156,10 @@ def _all_ids_results(limit: int = 2000) -> list[dict[str, Any]]:
         separator = "&" if "?" in IDS_RESULTS_API_URL else "?"
         url = f"{IDS_RESULTS_API_URL}{separator}limit={max(1, min(limit, 2000))}"
         try:
-            with urllib.request.urlopen(url, timeout=2.0) as response:
+            token = str(session.get("portal_token") or "")
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            ids_request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(ids_request, timeout=2.0) as response:
                 value = json.loads(response.read().decode("utf-8"))
             results = value.get("results") if isinstance(value, dict) else None
             if isinstance(results, list):
@@ -359,7 +439,7 @@ def _xai_summary(alerts: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _xai_payload(alerts: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": now_ist_iso(),
         "summary": _xai_summary(alerts),
         "alerts": [
             {
@@ -448,7 +528,7 @@ def _timeline(events: list[dict[str, Any]], buckets: int = 24) -> list[dict[str,
             )
         )
         result.append({
-            "label": datetime.fromtimestamp(t0, tz=timezone.utc).strftime("%H:%M:%S"),
+            "label": datetime.fromtimestamp(t0, tz=IST).strftime("%H:%M:%S"),
             "total": len(bucket_events),
             "threats": threats,
         })
@@ -467,6 +547,11 @@ def create_dashboard_app() -> "Flask":
     if not _FLASK_OK:
         raise RuntimeError("Flask required.")
     app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
+    app.config.update(
+        SECRET_KEY=DASHBOARD_SECRET_KEY,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+    )
 
     @app.route("/")
     def index() -> Any:
@@ -475,7 +560,52 @@ def create_dashboard_app() -> "Flask":
             portal_api_url=PORTAL_API_URL,
         )
 
+    @app.route("/api/auth/login", methods=["POST"])
+    def api_auth_login() -> Any:
+        body = request.get_json(silent=True)
+        username = str((body or {}).get("username") or "").strip()
+        password = str((body or {}).get("password") or "")
+        if not username or not password:
+            return jsonify({"error": "Username and password are required"}), 400
+        try:
+            data = _portal_login(username, password)
+        except HTTPError as exc:
+            return jsonify({"error": "Login failed"}), exc.code
+        except (URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
+            return jsonify({"error": "Portal authentication is unavailable"}), 502
+        token = str(data.get("token") or "")
+        user = data.get("user")
+        if not token or not isinstance(user, dict):
+            return jsonify({"error": "Portal returned an invalid login"}), 502
+        session.clear()
+        session["portal_token"] = token
+        session["portal_user"] = user
+        return jsonify({"authenticated": True, "token": token, "user": user})
+
+    @app.route("/api/auth/session")
+    def api_auth_session() -> Any:
+        token = str(session.get("portal_token") or "")
+        user = _validate_portal_token(token)
+        if user is None:
+            session.clear()
+            return jsonify({"authenticated": False}), 401
+        session["portal_user"] = user
+        return jsonify(
+            {
+                "authenticated": True,
+                "token": token,
+                "user": user,
+                "timezone": "Asia/Kolkata",
+            }
+        )
+
+    @app.route("/api/auth/logout", methods=["POST"])
+    def api_auth_logout() -> Any:
+        session.clear()
+        return jsonify({"authenticated": False})
+
     @app.route("/api/monitor")
+    @require_dashboard_auth
     def api_monitor() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
@@ -489,6 +619,7 @@ def create_dashboard_app() -> "Flask":
         })
 
     @app.route("/api/honeypot")
+    @require_dashboard_auth
     def api_honeypot() -> Any:
         events = _all_events(2000)
         services: dict[str, dict] = {}
@@ -503,11 +634,13 @@ def create_dashboard_app() -> "Flask":
         return jsonify({"services": services, "credentials": credentials[:100]})
 
     @app.route("/api/credentials")
+    @require_dashboard_auth
     def api_credentials() -> Any:
         events = _all_events(2000)
         return jsonify(_extract_credentials(events))
 
     @app.route("/api/ids")
+    @require_dashboard_auth
     def api_ids() -> Any:
         results = _all_ids_results(2000)
         stats = _compute_ids_stats(results)
@@ -537,12 +670,57 @@ def create_dashboard_app() -> "Flask":
             "filter_options": _ids_filter_options(results),
         })
 
+    @app.route("/api/agents")
+    @require_dashboard_auth
+    def api_agents() -> Any:
+        results = _all_ids_results(2000)
+        analyzed = [
+            result
+            for result in results
+            if isinstance(result.get("agents"), dict)
+        ]
+        latest = analyzed[0].get("agents") if analyzed else None
+        actions: dict[str, int] = defaultdict(int)
+        correlated_campaigns: set[str] = set()
+        escalations = 0
+        for result in analyzed:
+            agents = result["agents"]
+            response_agent = agents.get("response")
+            correlation_agent = agents.get("correlation")
+            severity_agent = agents.get("severity")
+            if isinstance(response_agent, dict):
+                actions[str(response_agent.get("recommended_action") or "unknown")] += 1
+            if isinstance(correlation_agent, dict) and correlation_agent.get("correlated"):
+                correlation_id = str(correlation_agent.get("correlation_id") or "")
+                if correlation_id:
+                    correlated_campaigns.add(correlation_id)
+            if isinstance(severity_agent, dict) and severity_agent.get("escalated"):
+                escalations += 1
+        return jsonify(
+            {
+                "source": "step22_intelligent_agents",
+                "agent_pipeline_version": (
+                    latest.get("agent_pipeline_version")
+                    if isinstance(latest, dict)
+                    else None
+                ),
+                "analyzed_results": len(analyzed),
+                "correlated_campaigns": len(correlated_campaigns),
+                "severity_escalations": escalations,
+                "response_recommendations": dict(sorted(actions.items())),
+                "latest": latest,
+                "generated_at": now_ist_iso(),
+            }
+        )
+
     @app.route("/api/xai/alerts")
+    @require_dashboard_auth
     def api_xai_alerts() -> Any:
         events = _all_events(2000)
         return jsonify({"alerts": _xai_alerts(events, limit=50)})
 
     @app.route("/api/xai/report", methods=["POST"])
+    @require_dashboard_auth
     def api_xai_report() -> Any:
         events = _all_events(2000)
         alerts = _xai_alerts(events, limit=30)
@@ -567,23 +745,26 @@ def create_dashboard_app() -> "Flask":
             return jsonify({"status": "error", "message": "Unexpected error sending XAI report.", "detail": str(exc)}), 500
 
     @app.route("/api/report")
+    @require_dashboard_auth
     def api_report() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
         credentials = _extract_credentials(events)
         return jsonify({
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": now_ist_iso(),
             "summary": stats,
             "credentials_captured": credentials,
             "recent_threats": [e for e in events if e.get("severity") in ("warning", "critical")][:50],
         })
 
     @app.route("/api/report/download")
+    @require_dashboard_auth
     def api_report_download() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
         credentials = _extract_credentials(events)
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        current_ist = now_ist()
+        now = current_ist.strftime("%Y-%m-%d %H:%M:%S IST")
         lines = [
             "=" * 62,
             "  HONEYPOT SECURITY FRAMEWORK — THREAT REPORT",
@@ -607,20 +788,27 @@ def create_dashboard_app() -> "Flask":
             lines.append(f"  {'Timestamp':20s} {'IP':15s} {'Svc':5s} {'Username':20s} {'Password'}")
             lines.append("  " + "─" * 75)
             for c in credentials:
-                ts = c["timestamp"][:19].replace("T", " ")
+                try:
+                    ts = to_ist(c["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+                except (TypeError, ValueError):
+                    ts = str(c.get("timestamp", ""))[:19].replace("T", " ")
                 lines.append(f"  {ts:20s} {c['source_ip']:15s} {c['service']:5s} {c['username']:20s} {c['password']}")
         else:
             lines.append("  No credentials captured yet.")
         lines += ["", "── RECENT THREATS ───────────────────────────────────────"]
         for e in [x for x in events if x.get("severity") in ("warning", "critical")][:30]:
-            ts = e.get("timestamp", "")[:19].replace("T", " ")
+            try:
+                ts = to_ist(e.get("timestamp")).strftime("%Y-%m-%d %H:%M:%S")
+            except (TypeError, ValueError):
+                ts = str(e.get("timestamp", ""))[:19].replace("T", " ")
             lines.append(f"  [{ts}] [{e.get('service','?'):4s}] {e.get('attack_type','?')}")
         lines += ["", "=" * 62, "  END OF REPORT", "=" * 62]
-        fname = f"honeypot_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        fname = f"honeypot_report_{current_ist.strftime('%Y%m%d_%H%M%S')}.txt"
         return Response("\n".join(lines), mimetype="text/plain",
                         headers={"Content-Disposition": f"attachment; filename={fname}"})
 
     @app.route("/stream")
+    @require_dashboard_auth
     def stream() -> Any:
         def _gen() -> Generator[str, None, None]:
             q = get_stream_queue()

@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/feather-icons"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
 :root{
   --bg:#05080f;--surface:#0d1117;--surface2:#131a24;--surface3:#192231;
   --surface-glass:rgba(13, 17, 23, 0.4);
@@ -362,11 +363,48 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
   .xai-hero{align-items:flex-start;flex-direction:column}.analyst-login-form{grid-template-columns:1fr}
   .xai-score-grid,.xai-safety-grid,.feedback-verdicts{grid-template-columns:1fr}
 }
+.dashboard-auth-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;
+  padding:1.25rem;background:rgba(2,4,8,.94);backdrop-filter:blur(12px)}
+.dashboard-auth-card{width:min(440px,100%);padding:1.35rem;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.dashboard-auth-card h1{font-family:var(--sans);font-size:1.2rem;color:var(--text);margin:.7rem 0 .3rem}
+.dashboard-auth-card p{font-size:.8rem;line-height:1.55;color:var(--text2);margin-bottom:1rem}
+.dashboard-auth-card label{display:flex;flex-direction:column;gap:.3rem;margin:.65rem 0;
+  font-family:var(--mono);font-size:.68rem;color:var(--text2)}
+.dashboard-auth-card input{height:40px;border:1px solid var(--border);border-radius:5px;
+  background:rgba(0,0,0,.28);color:var(--text);padding:0 .7rem;outline:none}
+.dashboard-auth-card input:focus{border-color:var(--accent)}
+.dashboard-auth-card button{width:100%;justify-content:center;margin-top:.45rem}
+.dashboard-auth-status{min-height:1.2rem;margin-top:.7rem;font-family:var(--mono);
+  font-size:.68rem;color:var(--yellow)}
+.agent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+.agent-card{border:1px solid var(--border);border-radius:7px;padding:.85rem;background:rgba(0,0,0,.18)}
+.agent-card h3{font-size:.82rem;color:var(--text);margin-bottom:.35rem}
+.agent-card p{font-size:.72rem;color:var(--text2);line-height:1.5}
+.agent-value{font-family:var(--mono);font-size:1rem;color:var(--accent);margin:.35rem 0}
+@media(max-width:900px){.agent-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.agent-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <canvas id="starfield"></canvas>
-<div class="app">
+<div class="dashboard-auth-gate" id="dashboard-auth-gate">
+  <form class="dashboard-auth-card" id="dashboard-login-form" onsubmit="signInDashboard(event)">
+    <div class="logo-icon"><i data-feather="shield" width="18" height="18"></i></div>
+    <h1>Honeypot Analyst Login</h1>
+    <p>Sign in before accessing live attacks, IDS predictions, XAI explanations,
+      simulated IPS controls, intelligent agents, captured data, and reports.</p>
+    <label>Username
+      <input id="dashboard-username" autocomplete="username" required>
+    </label>
+    <label>Password
+      <input id="dashboard-password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-accent" type="submit">Sign in securely</button>
+    <div class="dashboard-auth-status" id="dashboard-auth-status">Authentication required</div>
+  </form>
+</div>
+<div class="app" id="dashboard-app" hidden>
   <aside class="sidebar">
     <div class="logo">
       <div class="logo-icon"><i data-feather="hexagon" width="18" height="18"></i></div>
@@ -390,6 +428,10 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
       </div>
       <div class="nav-item" onclick="switchSection('xai',this)">
         <span class="nav-icon"><i data-feather="cpu" width="16" height="16"></i></span><span>XAI</span>
+      </div>
+      <div class="nav-item" onclick="switchSection('agents',this)">
+        <span class="nav-icon"><i data-feather="git-merge" width="16" height="16"></i></span><span>AI Agents</span>
+        <span class="nav-badge" id="badge-agents">0</span>
       </div>
       <div class="nav-item" onclick="switchSection('ips',this)">
         <span class="nav-icon"><i data-feather="shield-off" width="16" height="16"></i></span><span>IPS Response</span>
@@ -417,6 +459,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
           LIVE · <span id="live-counter">0</span>
         </div>
         <div class="clock" id="top-clock">--:--:--</div>
+        <button class="btn btn-accent" type="button" onclick="signOutAnalyst()">Logout</button>
       </div>
     </div>
 
@@ -644,6 +687,41 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
         </div>
       </div>
 
+      <!-- INTELLIGENT AGENTS -->
+      <div class="section" id="sec-agents">
+        <div class="section-header">
+          <h2><i data-feather="git-merge" style="color:var(--accent)"></i> Intelligent Agents</h2>
+          <p>Six ordered agents automate post-detection analysis without changing the protected IDS result</p>
+        </div>
+        <div class="card xai-hero">
+          <div class="xai-hero-copy">
+            <span class="xai-hero-icon"><i data-feather="cpu" width="22" height="22"></i></span>
+            <div>
+              <h3>Step 22 Agent Orchestrator</h3>
+              <p>Detection → event correlation → severity review → safe explanation →
+                simulation-only response recommendation → IST daily report.</p>
+            </div>
+          </div>
+          <span class="xai-live-chip"><span class="dot dot-green"></span> ANALYST-GATED</span>
+        </div>
+        <div class="grid-4">
+          <div class="card"><div class="card-title">Analyzed Results</div><div class="stat-val c-accent" id="agent-total">—</div></div>
+          <div class="card"><div class="card-title">Campaigns</div><div class="stat-val c-yellow" id="agent-campaigns">—</div></div>
+          <div class="card"><div class="card-title">Escalations</div><div class="stat-val c-red" id="agent-escalations">—</div></div>
+          <div class="card"><div class="card-title">Report Date (IST)</div><div class="stat-val c-green" id="agent-report-date" style="font-size:1rem">—</div></div>
+        </div>
+        <div class="card grid-1">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i data-feather="layers" width="14" height="14"></i> Latest Agent Run</span>
+            <button class="btn btn-accent" type="button" onclick="loadAgents()">Refresh Agents</button>
+          </div>
+          <div id="agent-status" class="feedback-message">Waiting for authenticated agent data…</div>
+          <div id="agent-grid" class="agent-grid">
+            <div class="empty">No Step 22 agent result loaded</div>
+          </div>
+        </div>
+      </div>
+
       <!-- SIMULATED IPS -->
       <div class="section" id="sec-ips">
         <div class="section-header">
@@ -747,6 +825,10 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 const ANALYST_API_BASE={{ portal_api_url|tojson }};
 const ANALYST_TOKEN_KEY='hp_dashboard_analyst_token';
 const ANALYST_USER_KEY='hp_dashboard_analyst_user';
+let dashboardInitialized=false;
+let dashboardRefreshTimer=null;
+let dashboardAuthTimer=null;
+let dashboardEventSource=null;
 
 // Init feather icons
 feather.replace();
@@ -842,6 +924,7 @@ function switchSection(name,el){
   if(name==='honeypot')loadHoneypot();
   if(name==='ids')loadIDS();
   if(name==='xai')loadXAIWorkspace();
+  if(name==='agents')loadAgents();
   if(name==='ips')loadIPSWorkspace();
   if(name==='report')loadReport();
 }
@@ -854,6 +937,61 @@ let idsLatestFeedback={};
 let selectedIDSIndex=-1;
 let ipsRecommendations=[];
 let ipsActions=[];
+
+function lockDashboard(message){
+  document.getElementById('dashboard-app').hidden=true;
+  document.getElementById('dashboard-auth-gate').hidden=false;
+  document.getElementById('dashboard-auth-status').textContent=message||'Authentication required';
+  if(dashboardEventSource){dashboardEventSource.close();dashboardEventSource=null}
+}
+
+function unlockDashboard(){
+  document.getElementById('dashboard-auth-gate').hidden=true;
+  document.getElementById('dashboard-app').hidden=false;
+  updateAnalystSessionUI();
+  if(dashboardInitialized)connectSSE();
+  else initializeDashboard();
+}
+
+async function signInDashboard(event){
+  event.preventDefault();
+  const status=document.getElementById('dashboard-auth-status');
+  const username=document.getElementById('dashboard-username').value.trim();
+  const password=document.getElementById('dashboard-password').value;
+  status.textContent='Authenticating…';
+  try{
+    const response=await fetch('/api/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'Login failed');
+    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
+    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{username}));
+    document.getElementById('dashboard-password').value='';
+    unlockDashboard();
+  }catch(error){
+    localStorage.removeItem(ANALYST_TOKEN_KEY);
+    localStorage.removeItem(ANALYST_USER_KEY);
+    status.textContent='Sign-in failed: '+error.message;
+  }
+}
+
+async function resumeDashboardSession(){
+  try{
+    const response=await fetch('/api/auth/session');
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data.authenticated)throw new Error('Authentication required');
+    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
+    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{}));
+    unlockDashboard();
+  }catch(_error){
+    localStorage.removeItem(ANALYST_TOKEN_KEY);
+    localStorage.removeItem(ANALYST_USER_KEY);
+    lockDashboard('Authentication required');
+  }
+}
 
 // Monitor
 function loadMonitor(){
@@ -1008,10 +1146,13 @@ async function signInAnalyst(event){
   const password=document.getElementById('analyst-password').value;
   status.textContent='Authenticating analyst session…';
   try{
-    const data=await analystRequest('/login',{
+    const response=await fetch('/api/auth/login',{
       method:'POST',
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username,password})
     });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'Login failed');
     localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
     localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{username}));
     document.getElementById('analyst-password').value='';
@@ -1025,7 +1166,8 @@ async function signInAnalyst(event){
   }
 }
 
-function signOutAnalyst(){
+async function signOutAnalyst(){
+  await fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});
   localStorage.removeItem(ANALYST_TOKEN_KEY);
   localStorage.removeItem(ANALYST_USER_KEY);
   idsLatestFeedback={};
@@ -1034,9 +1176,7 @@ function signOutAnalyst(){
   renderXaiAlerts(idsAllResults);
   ipsRecommendations=[];
   ipsActions=[];
-  loadIPSWorkspace();
-  const status=document.getElementById('xai-status');
-  status.textContent='Signed out. Explanations remain visible; sign in to review events.';
+  lockDashboard('Signed out. Authentication required.');
 }
 
 function updateReviewStats(stats){
@@ -1096,6 +1236,50 @@ async function loadXAIWorkspace(){
     }
   }catch(error){
     status.textContent=`Unable to load XAI workspace: ${error.message}`;
+  }
+  feather.replace();
+}
+
+function agentCard(title,value,description){
+  return '<article class="agent-card"><h3>'+esc(title)+'</h3>'+
+    '<div class="agent-value">'+esc(value||'—')+'</div><p>'+
+    esc(description||'No result available')+'</p></article>';
+}
+
+async function loadAgents(){
+  const status=document.getElementById('agent-status');
+  status.textContent='Loading intelligent-agent results…';
+  try{
+    const response=await fetch('/api/agents');
+    if(response.status===401){lockDashboard('Session expired. Sign in again.');return}
+    if(!response.ok)throw new Error('Agent API unavailable');
+    const data=await response.json();
+    const latest=data.latest||{};
+    const daily=latest.daily_report||{};
+    document.getElementById('agent-total').textContent=data.analyzed_results??0;
+    document.getElementById('agent-campaigns').textContent=data.correlated_campaigns??0;
+    document.getElementById('agent-escalations').textContent=data.severity_escalations??0;
+    document.getElementById('agent-report-date').textContent=daily.report_date_ist||'—';
+    document.getElementById('badge-agents').textContent=data.analyzed_results??0;
+    const detection=latest.detection||{};
+    const correlation=latest.correlation||{};
+    const severity=latest.severity||{};
+    const explanation=latest.explanation||{};
+    const responseAgent=latest.response||{};
+    document.getElementById('agent-grid').innerHTML=[
+      agentCard('Detection Agent',detection.decision,detection.reason),
+      agentCard('Event-Correlation Agent',correlation.related_event_count?correlation.related_event_count+' related':null,correlation.reason),
+      agentCard('Severity Agent',severity.recommended_level,severity.reason),
+      agentCard('Explanation Agent','XAI summary',explanation.summary),
+      agentCard('Response Agent',String(responseAgent.recommended_action||'').replace(/_/g,' '),responseAgent.reason),
+      agentCard('Daily-Report Agent',daily.total_events!==undefined?daily.total_events+' events':null,
+        (daily.attacks_detected||0)+' attacks · '+(daily.critical_incidents||0)+' critical · IST')
+    ].join('');
+    status.textContent=latest.agent_pipeline_version
+      ?'Agent pipeline v'+latest.agent_pipeline_version+' completed in the required order.'
+      :'No Step 22 agent results are available yet.';
+  }catch(error){
+    status.textContent='Unable to load agents: '+error.message;
   }
   feather.replace();
 }
@@ -1594,8 +1778,8 @@ function renderFeedbackPanel(result){
     return `<section class="feedback-panel">
       <div class="xai-panel-heading"><div><div class="xai-eyebrow">Human in the loop</div>
         <h4>Analyst review</h4></div><span class="review-state review-awaiting">Sign-in required</span></div>
-      <p class="feedback-original">The XAI evidence is available without signing in. Use the Analyst session
-        in the Explainable AI section to confirm attacks, mark false positives, override severity, and add notes.</p>
+      <p class="feedback-original">XAI evidence is available only inside an authenticated dashboard session.
+        Sign in again to confirm attacks, mark false positives, override severity, and add notes.</p>
     </section>`;
   }
   const verdict=latest?.verdict||'';
@@ -1838,7 +2022,9 @@ function buildReportText(d){
 
 // SSE
 function connectSSE(){
+  if(dashboardEventSource)return;
   const es=new EventSource('/stream');
+  dashboardEventSource=es;
   es.onmessage=ev=>{
     try{
       const e=JSON.parse(ev.data);
@@ -1848,11 +2034,13 @@ function connectSSE(){
       document.getElementById('badge-hp').textContent=liveTotal;
     }catch{}
   };
-  es.onerror=()=>{es.close();setTimeout(connectSSE,3000)};
+  es.onerror=()=>{es.close();dashboardEventSource=null;
+    if(!document.getElementById('dashboard-app').hidden)setTimeout(connectSSE,3000)};
 }
 
-// Init
-window.addEventListener('DOMContentLoaded',()=>{
+function initializeDashboard(){
+  if(dashboardInitialized)return;
+  dashboardInitialized=true;
   fetch('/api/monitor').then(r=>r.json()).then(d=>{
     document.getElementById('m-total').textContent=d.total_events??'—';
     document.getElementById('m-threats').textContent=d.threats_detected??'—';
@@ -1874,14 +2062,26 @@ window.addEventListener('DOMContentLoaded',()=>{
   connectSSE();
   updateAnalystSessionUI();
   loadXAIWorkspace();
+  loadAgents();
   loadIPSWorkspace();
-  setInterval(()=>{
+  dashboardRefreshTimer=setInterval(()=>{
     const a=document.querySelector('.section.active')?.id;
     if(a==='sec-monitor')loadMonitor();
     if(a==='sec-ids')loadIDS();
     if(a==='sec-xai')loadXAIWorkspace();
+    if(a==='sec-agents')loadAgents();
     if(a==='sec-ips')loadIPSWorkspace();
   },10000);
+  dashboardAuthTimer=setInterval(async()=>{
+    const response=await fetch('/api/auth/session').catch(()=>null);
+    if(!response||response.status===401)lockDashboard('Session expired. Sign in again.');
+  },60000);
+}
+
+// Init
+window.addEventListener('DOMContentLoaded',()=>{
+  feather.replace();
+  resumeDashboardSession();
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape')closeIDSDetail();

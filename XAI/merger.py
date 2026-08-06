@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from datetime import datetime
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -16,7 +16,15 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from attack_analyzer import AttackAnalyzer, AttackerProfile
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+if __package__:
+    from .attack_analyzer import AttackAnalyzer, AttackerProfile
+else:
+    from attack_analyzer import AttackAnalyzer, AttackerProfile
+from core.time_utils import now_ist_iso
 
 
 # Configure logging
@@ -116,7 +124,7 @@ class XAIMerger:
 
         report = {
             "report_metadata": {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": now_ist_iso(),
                 "total_attackers": len(profiles),
                 "high_risk_attackers": len(high_risk_attackers),
                 "analyzer_version": "1.0",

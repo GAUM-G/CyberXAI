@@ -218,8 +218,16 @@ class Step16IntegrationTests(unittest.TestCase):
         dashboard_module._all_ids_results = lambda limit=2000: [integrated][
             :limit
         ]
+        original_validator = dashboard_module._validate_portal_token
+        dashboard_module._validate_portal_token = (
+            lambda token: {"id": 1, "username": "analyst"}
+            if token == "test-token"
+            else None
+        )
         try:
             client = dashboard_module.create_dashboard_app().test_client()
+            with client.session_transaction() as dashboard_session:
+                dashboard_session["portal_token"] = "test-token"
             response = client.get("/api/ids")
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()
@@ -237,6 +245,7 @@ class Step16IntegrationTests(unittest.TestCase):
             )
         finally:
             dashboard_module._all_ids_results = original
+            dashboard_module._validate_portal_token = original_validator
 
     def test_n8n_ids_adapter_preserves_existing_webhook_fields(self) -> None:
         event = sample_event()

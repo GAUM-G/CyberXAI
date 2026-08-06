@@ -142,11 +142,18 @@ class Step17SummaryTests(unittest.TestCase):
 class Step17EndpointTests(unittest.TestCase):
     def test_ids_endpoint_preserves_old_fields_and_adds_step17_fields(self) -> None:
         original = dashboard_module._all_ids_results
+        original_validator = dashboard_module._validate_portal_token
         dashboard_module._all_ids_results = lambda limit=2000: _results()[:limit]
+        dashboard_module._validate_portal_token = (
+            lambda token: {"id": 1, "username": "analyst"}
+            if token == "test-token"
+            else None
+        )
         try:
-            response = dashboard_module.create_dashboard_app().test_client().get(
-                "/api/ids"
-            )
+            client = dashboard_module.create_dashboard_app().test_client()
+            with client.session_transaction() as dashboard_session:
+                dashboard_session["portal_token"] = "test-token"
+            response = client.get("/api/ids")
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()
 
@@ -170,6 +177,7 @@ class Step17EndpointTests(unittest.TestCase):
             self.assertEqual(len(payload["critical_incidents"]), 1)
         finally:
             dashboard_module._all_ids_results = original
+            dashboard_module._validate_portal_token = original_validator
 
 
 class Step17TemplateProtectionTests(unittest.TestCase):

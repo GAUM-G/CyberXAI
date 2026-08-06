@@ -29,6 +29,7 @@ const REQUIRED_IDS_RESULT_FIELDS = [
 const ALLOWED_SERVICES = new Set(["ssh", "ftp", "http"]);
 const ALLOWED_PREDICTIONS = new Set(["normal", "attack"]);
 const ALLOWED_THREAT_LEVELS = new Set(["Low", "Medium", "High", "Critical"]);
+const { toISTISOString } = require("./time");
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -180,6 +181,21 @@ function validateIDSResult(record) {
   ) {
     errors.push("integration safety flags must remain false");
   }
+  if (Object.prototype.hasOwnProperty.call(record, "agents")) {
+    if (!isObject(record.agents)) {
+      errors.push("agents must be a JSON object");
+    } else if (
+      !isObject(record.agents.safety) ||
+      record.agents.safety.original_prediction_changed !== false ||
+      record.agents.safety.original_threat_level_changed !== false ||
+      record.agents.safety.original_xai_changed !== false ||
+      record.agents.safety.host_firewall_changed !== false ||
+      record.agents.safety.raw_payload_included !== false ||
+      record.agents.safety.credentials_included !== false
+    ) {
+      errors.push("intelligent-agent safety flags must remain false");
+    }
+  }
 
   return errors;
 }
@@ -216,9 +232,15 @@ function initializeIDSResultStore(database) {
         xai_json TEXT NOT NULL,
         safety_json TEXT NOT NULL,
         integration_json TEXT NOT NULL,
-        received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        agents_json TEXT NOT NULL DEFAULT '{}',
+        received_at TEXT NOT NULL
       )
     `);
+
+    database.run(
+      "ALTER TABLE ids_results ADD COLUMN agents_json TEXT NOT NULL DEFAULT '{}'",
+      () => {}
+    );
 
     database.run(
       "CREATE INDEX IF NOT EXISTS idx_ids_results_timestamp ON ids_results(timestamp DESC)"
@@ -253,9 +275,10 @@ function insertIDSResult(database, record) {
       status, request_method, request_path, attack_type, prediction,
       confidence, anomaly_score, model_used, threat_reporting_version,
       threat_level, threat_score, threat_factors_json, components_json,
-      fusion_reason, xai_json, safety_json, integration_json
+      fusion_reason, xai_json, safety_json, integration_json, agents_json,
+      received_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-              ?, ?, ?, ?, ?, ?)
+              ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const params = [
@@ -286,6 +309,8 @@ function insertIDSResult(database, record) {
     JSON.stringify(record.xai),
     JSON.stringify(record.safety),
     JSON.stringify(record.integration),
+    JSON.stringify(record.agents || {}),
+    toISTISOString(),
   ];
 
   return new Promise((resolve, reject) => {
@@ -356,6 +381,7 @@ function rowToIDSResult(row) {
     xai: parseJson(row.xai_json, {}),
     safety: parseJson(row.safety_json, {}),
     integration: parseJson(row.integration_json, {}),
+    agents: parseJson(row.agents_json, {}),
     received_at: row.received_at,
   };
 }
@@ -391,7 +417,7 @@ function listIDSResults(database, filters = {}) {
   const sql = `
     SELECT * FROM ids_results
     ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
-    ORDER BY timestamp DESC, id DESC
+    ORDER BY datetime(timestamp) DESC, id DESC
     LIMIT ? OFFSET ?
   `;
   return new Promise((resolve, reject) => {

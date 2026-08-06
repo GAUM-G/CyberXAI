@@ -85,6 +85,26 @@ function sampleIDSResult(overrides = {}) {
       credentials_included: false,
       producer_attack_type_used_as_prediction: false,
     },
+    agents: {
+      agent_pipeline_version: "1.0",
+      run_order: [
+        "detection",
+        "correlation",
+        "severity",
+        "explanation",
+        "response",
+        "daily_report",
+      ],
+      safety: {
+        original_prediction_changed: false,
+        original_threat_level_changed: false,
+        original_xai_changed: false,
+        model_fit_called: false,
+        host_firewall_changed: false,
+        raw_payload_included: false,
+        credentials_included: false,
+      },
+    },
     ...overrides,
   };
 }
@@ -139,6 +159,8 @@ test("IDS store validates, deduplicates, filters and summarizes results", async 
     assert.equal(httpResults.length, 1);
     assert.equal(httpResults[0].event_id, result.event_id);
     assert.equal(httpResults[0].xai.shap.status, "ready");
+    assert.equal(httpResults[0].agents.agent_pipeline_version, "1.0");
+    assert.match(httpResults[0].received_at, /\+05:30$/);
     assert.deepEqual(httpResults[0].threat_factors, result.threat_factors);
 
     const stats = await getIDSResultStats(database);

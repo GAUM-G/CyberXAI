@@ -17,6 +17,26 @@ honeypots:
 dashboard:
   host: "127.0.0.1"
   port: 5050
+  authentication_required: true
+
+time:
+  timezone: "Asia/Kolkata"
+  utc_offset: "+05:30"
+  record_runtime_timestamps_in_ist: true
+
+intelligent_agents:
+  enabled: true
+  correlation_window_seconds: 300
+  daily_report_directory: "data/reports/agents"
+  run_order:
+    - "detection"
+    - "correlation"
+    - "severity"
+    - "explanation"
+    - "response"
+    - "daily_report"
+  response_mode: "simulation"
+  automatic_host_blocking: false
 
 ips:
   mode: "simulation"

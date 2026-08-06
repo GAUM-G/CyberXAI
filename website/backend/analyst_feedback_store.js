@@ -1,6 +1,7 @@
 const ALLOWED_VERDICTS = new Set(["confirmed_attack", "false_positive"]);
 const ALLOWED_SEVERITIES = new Set(["Low", "Medium", "High", "Critical"]);
 const MAX_NOTES_LENGTH = 2000;
+const { toISTISOString } = require("./time");
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -58,7 +59,7 @@ function initializeAnalystFeedbackStore(database) {
         original_prediction TEXT NOT NULL,
         original_severity TEXT NOT NULL,
         original_attack_type TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL
       )
     `);
 
@@ -157,6 +158,7 @@ async function insertAnalystFeedback(database, eventId, input, analyst) {
     idsResult.prediction,
     idsResult.threat_level,
     idsResult.attack_type,
+    toISTISOString(),
   ];
 
   const feedbackId = await new Promise((resolve, reject) => {
@@ -165,8 +167,8 @@ async function insertAnalystFeedback(database, eventId, input, analyst) {
         INSERT INTO analyst_feedback (
           event_id, analyst_id, analyst_username, verdict,
           severity_override, notes, original_prediction,
-          original_severity, original_attack_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          original_severity, original_attack_type, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       params,
       function onInsert(error) {

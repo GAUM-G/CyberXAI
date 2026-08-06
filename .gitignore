@@ -45,3 +45,5 @@ Thumbs.db
 # Cloudflare local credentials
 .cloudflared/
 data/detections/
+data/ips/
+data/reports/

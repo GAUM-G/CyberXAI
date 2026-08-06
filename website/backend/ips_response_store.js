@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { toISTISOString } = require("./time");
 
 const IPS_MODE = "simulation";
 const AUTOMATIC_HOST_BLOCKING = false;
@@ -113,8 +114,8 @@ function initializeIPSResponseStore(database) {
         feedback_verdict TEXT,
         policy_version TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       )
     `);
 
@@ -136,8 +137,8 @@ function initializeIPSResponseStore(database) {
         analyst_username TEXT NOT NULL,
         related_action_id INTEGER,
         expires_at TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       )
     `);
 
@@ -290,7 +291,7 @@ async function loadRecommendationContext(database, eventId) {
           WHERE repeated.source_ip = ids.source_ip
             AND repeated.service = ids.service
             AND repeated.attack_type = events.attack_type
-            AND repeated.received_at >= datetime('now', '-5 minutes')
+            AND datetime(repeated.received_at) >= datetime('now', '-5 minutes')
         ) AS repeat_count
       FROM ids_results AS ids
       LEFT JOIN honeypot_events AS events ON events.event_id = ids.event_id
@@ -316,6 +317,7 @@ async function loadRecommendationContext(database, eventId) {
 async function upsertIPSRecommendation(database, eventId) {
   const context = await loadRecommendationContext(database, eventId);
   const decision = policyDecision(context);
+  const istTimestamp = toISTISOString();
   const params = [
     context.event_id,
     context.source_ip,
@@ -333,6 +335,8 @@ async function upsertIPSRecommendation(database, eventId) {
     context.feedback_verdict || null,
     POLICY_VERSION,
     decision.status,
+    istTimestamp,
+    istTimestamp,
   ];
 
   await run(
@@ -342,8 +346,8 @@ async function upsertIPSRecommendation(database, eventId) {
         event_id, source_ip, service, session_id, attack_type, prediction,
         original_severity, effective_severity, confidence, repeat_count,
         recommended_action, recommended_duration_seconds, reason,
-        feedback_verdict, policy_version, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        feedback_verdict, policy_version, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(event_id) DO UPDATE SET
         source_ip = excluded.source_ip,
         service = excluded.service,
@@ -365,7 +369,7 @@ async function upsertIPSRecommendation(database, eventId) {
           THEN ips_recommendations.status
           ELSE excluded.status
         END,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = excluded.updated_at
     `,
     params
   );
@@ -397,11 +401,12 @@ async function expireIPSActions(database) {
     database,
     `
       UPDATE ips_actions
-      SET status = 'expired', updated_at = CURRENT_TIMESTAMP
+      SET status = 'expired', updated_at = ?
       WHERE status = 'active'
         AND expires_at IS NOT NULL
         AND datetime(expires_at) <= datetime('now')
-    `
+    `,
+    [toISTISOString()]
   );
 }
 
@@ -605,7 +610,7 @@ async function syncRuntimeState(database, stateFile = DEFAULT_STATE_FILE) {
     mode: IPS_MODE,
     automatic_host_blocking: AUTOMATIC_HOST_BLOCKING,
     host_firewall_changed: HOST_FIREWALL_CHANGED,
-    generated_at: new Date().toISOString(),
+    generated_at: toISTISOString(),
     simulated_blocks: [],
     rate_limits: [],
     terminated_sessions: [],
@@ -664,16 +669,16 @@ async function performIPSAction(
   if (actionType === "dismiss") {
     await run(
       database,
-      "UPDATE ips_recommendations SET status = 'dismissed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [recommendation.id]
+      "UPDATE ips_recommendations SET status = 'dismissed', updated_at = ? WHERE id = ?",
+      [toISTISOString(), recommendation.id]
     );
   }
 
   if (actionType === "release") {
     await run(
       database,
-      "UPDATE ips_actions SET status = 'reversed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [targetAction.id]
+      "UPDATE ips_actions SET status = 'reversed', updated_at = ? WHERE id = ?",
+      [toISTISOString(), targetAction.id]
     );
   }
 
@@ -693,7 +698,7 @@ async function performIPSAction(
     ? normalizeDuration(input.duration_seconds, DEFAULT_DURATIONS[actionType])
     : null;
   const expiresAt = duration
-    ? new Date(Date.now() + duration * 1000).toISOString()
+    ? toISTISOString(new Date(Date.now() + duration * 1000))
     : null;
   const status = ACTIVE_ACTION_TYPES.has(actionType)
     ? "active"
@@ -706,7 +711,7 @@ async function performIPSAction(
       database,
       `
         UPDATE ips_actions
-        SET status = 'reversed', updated_at = CURRENT_TIMESTAMP
+        SET status = 'reversed', updated_at = ?
         WHERE status = 'active'
           AND action_type = ?
           AND source_ip = ?
@@ -715,7 +720,7 @@ async function performIPSAction(
             ? != 'terminate_session' OR session_id = ?
           )
       `,
-      [actionType, target.source_ip, target.service, actionType, target.session_id]
+      [toISTISOString(), actionType, target.source_ip, target.service, actionType, target.session_id]
     );
   }
 
@@ -725,8 +730,9 @@ async function performIPSAction(
       INSERT INTO ips_actions (
         recommendation_id, event_id, source_ip, service, session_id,
         action_type, status, mode, duration_seconds, rate_limit_delay_ms,
-        reason, analyst_id, analyst_username, related_action_id, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        reason, analyst_id, analyst_username, related_action_id, expires_at,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       recommendation?.id || targetAction?.recommendation_id || null,
@@ -744,14 +750,16 @@ async function performIPSAction(
       analyst.username.trim(),
       targetAction?.id || null,
       expiresAt,
+      toISTISOString(),
+      toISTISOString(),
     ]
   );
 
   if (recommendation && ACTIVE_ACTION_TYPES.has(actionType)) {
     await run(
       database,
-      "UPDATE ips_recommendations SET status = 'executed', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [recommendation.id]
+      "UPDATE ips_recommendations SET status = 'executed', updated_at = ? WHERE id = ?",
+      [toISTISOString(), recommendation.id]
     );
   }
 
@@ -772,10 +780,10 @@ async function applyAnalystFeedbackToIPS(
       database,
       `
         UPDATE ips_actions
-        SET status = 'reversed', updated_at = CURRENT_TIMESTAMP
+        SET status = 'reversed', updated_at = ?
         WHERE event_id = ? AND status = 'active'
       `,
-      [eventId]
+      [toISTISOString(), eventId]
     );
   }
   await syncRuntimeState(database, stateFile);

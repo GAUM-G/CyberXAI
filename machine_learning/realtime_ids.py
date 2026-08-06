@@ -21,7 +21,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
@@ -30,6 +29,9 @@ if __package__ in (None, ""):
 
 if TYPE_CHECKING:
     from machine_learning.hybrid_ids import HybridIDSEngine
+    from intelligent_agents.orchestrator import IntelligentAgentOrchestrator
+
+from core.time_utils import now_ist_iso, to_ist_iso
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +39,7 @@ DEFAULT_LOG_PATH = PROJECT_ROOT / "data" / "raw_logs" / "honeypot_events.jsonl"
 DEFAULT_OUTPUT_PATH = (
     PROJECT_ROOT / "data" / "detections" / "hybrid_ids_results.jsonl"
 )
+DEFAULT_AGENT_REPORT_DIR = PROJECT_ROOT / "data" / "reports" / "agents"
 DEFAULT_INPUT_DIR = PROJECT_ROOT / "data" / "ml_ready"
 DEFAULT_MODEL_DIR = DEFAULT_INPUT_DIR / "models"
 DEFAULT_SELECTION_PATH = (
@@ -51,8 +54,8 @@ IDS_RESULT_SCHEMA_VERSION = "1.0"
 DeliveryFunction = Callable[[dict[str, Any]], str]
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _ist_now() -> str:
+    return now_ist_iso()
 
 
 def build_integrated_result(
@@ -75,7 +78,11 @@ def build_integrated_result(
     result.update(
         {
             "ids_result_schema_version": IDS_RESULT_SCHEMA_VERSION,
-            "processed_at": processed_at or _utc_now(),
+            "processed_at": (
+                to_ist_iso(processed_at)
+                if processed_at
+                else _ist_now()
+            ),
             "source_ip": str(event.get("source_ip", "unknown")),
             "destination_port": event.get("destination_port"),
             "event_type": str(event.get("event_type", "unknown")),
@@ -96,6 +103,7 @@ def build_integrated_result(
     result.pop("payload", None)
     result.pop("metadata", None)
     result.pop("username", None)
+    result["timestamp"] = to_ist_iso(result.get("timestamp"))
     return result
 
 
@@ -157,6 +165,8 @@ class RealtimeIDSService:
         backend_retry_seconds: float = 2.0,
         delivery_queue_size: int = 5000,
         delivery_function: DeliveryFunction | None = None,
+        agent_orchestrator: "IntelligentAgentOrchestrator | None" = None,
+        enable_agents: bool = True,
     ) -> None:
         if poll_seconds <= 0:
             raise ValueError("poll_seconds must be positive")
@@ -174,6 +184,14 @@ class RealtimeIDSService:
         self.backend_timeout_seconds = float(backend_timeout_seconds)
         self.backend_retry_seconds = float(backend_retry_seconds)
         self._delivery_function = delivery_function
+        self.enable_agents = bool(enable_agents)
+        if self.enable_agents and agent_orchestrator is None:
+            from intelligent_agents.orchestrator import IntelligentAgentOrchestrator
+
+            agent_orchestrator = IntelligentAgentOrchestrator(
+                daily_report_directory=self.output_path.parent / "agent_reports"
+            )
+        self.agent_orchestrator = agent_orchestrator
         self._delivery_queue: queue.Queue[dict[str, Any]] = queue.Queue(
             maxsize=delivery_queue_size
         )
@@ -241,6 +259,13 @@ class RealtimeIDSService:
     def process_event(self, event: Mapping[str, Any]) -> dict[str, Any]:
         ids_result = self.engine.process_event(event)
         integrated = build_integrated_result(event, ids_result)
+        if self.enable_agents:
+            if self.agent_orchestrator is None:
+                raise RuntimeError("intelligent-agent orchestrator is unavailable")
+            integrated["agents"] = self.agent_orchestrator.process(
+                event,
+                integrated,
+            )
         _append_jsonl(
             self.output_path,
             integrated,
@@ -275,7 +300,8 @@ class RealtimeIDSService:
             f"{result['service']} | {result['attack_type']} | "
             f"{result['prediction']} | "
             f"threat={result['threat_level']}({result['threat_score']}) | "
-            f"xai={result['xai']['shap']['status']}"
+            f"xai={result['xai']['shap']['status']} | "
+            f"agents={'complete' if result.get('agents') else 'disabled'}"
         )
         return True
 
@@ -346,6 +372,8 @@ def create_realtime_ids_service(
     model_dir: Path = DEFAULT_MODEL_DIR,
     selection_path: Path = DEFAULT_SELECTION_PATH,
     device_name: str = "cpu",
+    enable_agents: bool = True,
+    agent_report_directory: Path = DEFAULT_AGENT_REPORT_DIR,
 ) -> RealtimeIDSService:
     """Load protected artifacts once and construct the Step 16 service."""
 
@@ -372,6 +400,17 @@ def create_realtime_ids_service(
         f"{len(artifacts.feature_names)}/{artifacts.sequence_length}"
     )
     print(f"[REALTIME IDS] SHAP: {engine.xai_explainer.status}")
+    agent_orchestrator = None
+    if enable_agents:
+        from intelligent_agents.orchestrator import IntelligentAgentOrchestrator
+
+        agent_orchestrator = IntelligentAgentOrchestrator(
+            daily_report_directory=agent_report_directory,
+        )
+        print(
+            "[REALTIME IDS] Agents: detection -> correlation -> severity -> "
+            "explanation -> response -> daily report"
+        )
     return RealtimeIDSService(
         engine,
         log_path=log_path,
@@ -379,6 +418,8 @@ def create_realtime_ids_service(
         backend_url=backend_url,
         replay_existing=replay_existing,
         poll_seconds=poll_seconds,
+        agent_orchestrator=agent_orchestrator,
+        enable_agents=enable_agents,
     )
 
 
@@ -402,6 +443,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--replay-existing", action="store_true")
     parser.add_argument("--poll-seconds", type=float, default=0.25)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument(
+        "--no-agents",
+        action="store_true",
+        help="disable Step 22 intelligent-agent orchestration",
+    )
+    parser.add_argument(
+        "--agent-report-directory",
+        type=Path,
+        default=DEFAULT_AGENT_REPORT_DIR,
+    )
     return parser
 
 
@@ -414,6 +465,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         replay_existing=args.replay_existing,
         poll_seconds=args.poll_seconds,
         device_name=args.device,
+        enable_agents=not args.no_agents,
+        agent_report_directory=args.agent_report_directory,
     )
     if args.check:
         service.engine.artifacts.verify_unchanged()

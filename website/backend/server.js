@@ -7,6 +7,7 @@ const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("./db");
+const { toISTISOString } = require("./time");
 const {
   getEventStats,
   insertEvent,
@@ -83,7 +84,7 @@ if (!fs.existsSync(honeypotLogDir)) {
 }
 
 function appendJsonLog(filePath, event, details) {
-  const line = JSON.stringify({ timestamp: new Date().toISOString(), event, details });
+  const line = JSON.stringify({ timestamp: toISTISOString(), event, details });
   fs.appendFile(filePath, `${line}\n`, () => {});
 }
 
@@ -114,7 +115,7 @@ function pickRequestHeaders(req) {
 
 function writeHoneypotEvent({ sourceIp, event, attackType, payload, metadata, severity = "info" }) {
   const record = {
-    timestamp: new Date().toISOString(),
+    timestamp: toISTISOString(),
     source_ip: sourceIp || "127.0.0.1",
     service: "website",
     event,
@@ -212,7 +213,8 @@ app.use((req, res, next) => {
       req.path.startsWith("/api/events") ||
       req.path.startsWith("/api/ids-results") ||
       req.path.startsWith("/api/analyst-feedback") ||
-      req.path.startsWith("/api/ips")
+      req.path.startsWith("/api/ips") ||
+      req.path.startsWith("/api/auth")
     ) {
       return;
     }
@@ -264,7 +266,7 @@ app.post("/api/events", async (req, res) => {
   }
 });
 
-app.get("/api/events", async (req, res) => {
+app.get("/api/events", requireAuth, async (req, res) => {
   try {
     const events = await listEvents(db, {
       limit: req.query.limit,
@@ -281,7 +283,7 @@ app.get("/api/events", async (req, res) => {
   }
 });
 
-app.get("/api/events/stats", async (_req, res) => {
+app.get("/api/events/stats", requireAuth, async (_req, res) => {
   try {
     const stats = await getEventStats(db);
     return res.json({ source: "sqlite", ...stats });
@@ -325,7 +327,7 @@ app.post("/api/ids-results", async (req, res) => {
   }
 });
 
-app.get("/api/ids-results", async (req, res) => {
+app.get("/api/ids-results", requireAuth, async (req, res) => {
   try {
     const results = await listIDSResults(db, {
       limit: req.query.limit,
@@ -343,7 +345,7 @@ app.get("/api/ids-results", async (req, res) => {
   }
 });
 
-app.get("/api/ids-results/stats", async (_req, res) => {
+app.get("/api/ids-results/stats", requireAuth, async (_req, res) => {
   try {
     const stats = await getIDSResultStats(db);
     return res.json({ source: "sqlite", ...stats });
@@ -555,6 +557,7 @@ app.get("/", (_req, res) => {
     routes: [
       "/signup",
       "/login",
+      "/api/auth/session",
       "/dashboard",
       "/search",
       "/files",
@@ -606,8 +609,8 @@ app.post("/signup", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     db.run(
-      "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
-      [username.trim(), email.trim().toLowerCase(), passwordHash],
+      "INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+      [username.trim(), email.trim().toLowerCase(), passwordHash, toISTISOString()],
       function onInsert(err) {
         if (err) {
           if (String(err.message || "").includes("UNIQUE")) {
@@ -673,6 +676,13 @@ app.post("/login", (req, res) => {
       });
     }
   );
+});
+
+app.get("/api/auth/session", requireAuth, (req, res) => {
+  return res.json({
+    authenticated: true,
+    user: req.user,
+  });
 });
 
 app.get("/dashboard", requireAuth, (req, res) => {
