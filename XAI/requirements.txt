@@ -1,12 +1,11 @@
 # XAI Module Requirements
 
-# Core Dependencies
+# Existing report/webhook dependencies
 requests>=2.28.0
 urllib3>=1.26.0
 
-# Optional Dependencies (for enhanced functionality)
-# Uncomment if needed:
-# pydantic>=1.9.0  # For advanced data validation
-# python-dotenv>=0.20.0  # For environment variable management
-# colorama>=0.4.4  # For colored console output
-# tabulate>=0.9.0  # For formatted tables
+# Step 15: Python 3.12-compatible Tree SHAP explanations
+shap==0.52.0
+
+# LIME is intentionally not required. SHAP already provides the agreed
+# individual per-event feature contributions without a second surrogate model.

@@ -44,7 +44,7 @@ else:
     )
 
 
-PREPROCESSING_VERSION = "1.0"
+PREPROCESSING_VERSION = "1.1"
 
 # Safe non-behavioural inputs retained from the Step 7 baseline.
 BASE_NUMERICAL_FEATURES = (
@@ -61,8 +61,6 @@ CATEGORICAL_FEATURES = (
     "source_ip_scope",
     "service",
     "protocol",
-    "severity",
-    "status",
     "request_method",
 )
 
@@ -78,6 +76,8 @@ EXCLUDED_MODEL_FIELDS = (
     "source_ip_hash",
     "event_type",
     "event",
+    "severity",
+    "status",
     "request_path",
     "payload_json",
     "metadata_json",
@@ -299,8 +299,16 @@ def create_sequences(
     rows: Sequence[Mapping[str, str]],
     *,
     sequence_length: int,
+    target_event_ids: frozenset[str] | None = None,
+    pad_short_history: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Create sliding windows within each pseudonymous source/service group."""
+    """Create grouped windows, optionally restricted to selected targets.
+
+    Restricting targets does not restrict historical context. This permits a
+    chronological test target to use earlier training or test-row features
+    from the same source/service group without using future events. When
+    requested, short histories are left-padded with all-zero timesteps.
+    """
 
     if sequence_length < 2:
         raise ValueError("sequence_length must be at least 2")
@@ -321,13 +329,33 @@ def create_sequences(
                 str(rows[index]["event_id"]),
             )
         )
-        for end in range(sequence_length, len(indexes) + 1):
-            window_indexes = indexes[end - sequence_length : end]
+        first_end = 1 if pad_short_history else sequence_length
+        for end in range(first_end, len(indexes) + 1):
+            window_indexes = indexes[max(0, end - sequence_length) : end]
             target_index = window_indexes[-1]
+            target_event_id = str(rows[target_index]["event_id"]).strip().lower()
+            if (
+                target_event_ids is not None
+                and target_event_id not in target_event_ids
+            ):
+                continue
+            window_features = features[window_indexes]
+            if len(window_indexes) < sequence_length:
+                padding = np.zeros(
+                    (
+                        sequence_length - len(window_indexes),
+                        features.shape[1],
+                    ),
+                    dtype=np.float32,
+                )
+                window_features = np.concatenate(
+                    (padding, window_features),
+                    axis=0,
+                )
             windows.append(
                 (
                     _parse_timestamp(rows[target_index]["_timestamp"]),
-                    features[window_indexes],
+                    window_features,
                     int(labels[target_index]),
                 )
             )
@@ -410,12 +438,19 @@ def preprocess_dataset(
         y_train,
         train_rows,
         sequence_length=sequence_length,
+        pad_short_history=True,
     )
+    all_features = np.concatenate((X_train, X_test), axis=0)
+    all_labels = np.concatenate((y_train, y_test), axis=0)
+    all_rows = [*train_rows, *test_rows]
+    test_event_ids = frozenset(row["event_id"] for row in test_rows)
     X_test_sequences, y_test_sequences = create_sequences(
-        X_test,
-        y_test,
-        test_rows,
+        all_features,
+        all_labels,
+        all_rows,
         sequence_length=sequence_length,
+        target_event_ids=test_event_ids,
+        pad_short_history=True,
     )
 
     feature_names = [
@@ -507,7 +542,19 @@ def preprocess_dataset(
                 "length": sequence_length,
                 "grouping": ["source_ip_hash", "service"],
                 "target": "last event label",
-                "crosses_train_test_boundary": False,
+                "train_context": "training rows only",
+                "test_context": (
+                    "past training rows and chronologically earlier test "
+                    "rows from the same group"
+                ),
+                "test_target_scope": "test rows only",
+                "future_context_used": False,
+                "context_labels_used": False,
+                "short_history_policy": "left zero padding",
+                "padding_mask_value": 0.0,
+                "model_requirement": (
+                    "mask all-zero padded timesteps before recurrent layers"
+                ),
                 "train_sequences": len(X_train_sequences),
                 "test_sequences": len(X_test_sequences),
                 "train_label_counts": _sequence_label_counts(y_train_sequences),
@@ -536,6 +583,9 @@ def preprocess_dataset(
                 "direct_identifiers_used_as_model_inputs": False,
                 "labels_used_for_feature_engineering": False,
                 "future_events_used_for_feature_engineering": False,
+                "test_sequence_targets_outside_test_split": False,
+                "future_events_used_for_test_sequences": False,
+                "context_labels_used_for_test_sequences": False,
             },
         }
         _write_json(staging / "preprocessing_manifest.json", manifest)

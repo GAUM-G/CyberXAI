@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from core.time_utils import now_ist_iso, to_ist_iso
+
 
 SCHEMA_VERSION = "1.0"
 
@@ -82,13 +84,18 @@ def _payload_username(payload: Any) -> str | None:
 
 def _timestamp_value(value: str | datetime | None) -> str:
     if value is None:
-        return datetime.now(timezone.utc).isoformat()
+        return now_ist_iso()
     if isinstance(value, datetime):
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
-        return value.astimezone(timezone.utc).isoformat()
+        return to_ist_iso(value)
     text = str(value).strip()
-    return text or datetime.now(timezone.utc).isoformat()
+    if not text:
+        return now_ist_iso()
+    try:
+        return to_ist_iso(text)
+    except ValueError:
+        return text
 
 
 def build_common_event(

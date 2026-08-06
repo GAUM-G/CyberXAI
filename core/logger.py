@@ -17,6 +17,7 @@ from typing import Any
 
 from core.attack_detection import PortScanDetector
 from core.event_schema import build_common_event
+from core.simulated_ips import annotate_event_with_simulated_ips
 
 
 LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "raw_logs" / "honeypot_events.jsonl"
@@ -330,6 +331,7 @@ def log_event(
         request_path=request_path,
         status=status,
     )
+    annotate_event_with_simulated_ips(record)
 
     _publish_record(record)
 

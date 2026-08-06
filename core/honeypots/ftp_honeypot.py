@@ -18,6 +18,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from core.logger import log_event
+from core.simulated_ips import apply_simulated_rate_limit, get_simulated_response
 
 try:
     from pyftpdlib.authorizers import DummyAuthorizer
@@ -62,6 +63,9 @@ class _LoggingFTPHandler(FTPHandler):
     def on_connect(self) -> None:
         session_id = self._session_id()
         destination_port = self._destination_port()
+        apply_simulated_rate_limit(
+            get_simulated_response(self.remote_ip, "ftp", session_id)
+        )
         log_event(
             source_ip=self.remote_ip,
             service="ftp",
@@ -133,6 +137,36 @@ class _LoggingFTPHandler(FTPHandler):
         )
 
     def pre_process_command(self, line: str, cmd: str, arg: str | None) -> None:
+        ips_response = get_simulated_response(
+            self.remote_ip,
+            "ftp",
+            self._session_id(),
+        )
+        apply_simulated_rate_limit(ips_response)
+        if ips_response.get("session_terminated"):
+            log_event(
+                source_ip=self.remote_ip,
+                service="ftp",
+                event="ftp_session_terminated_by_simulated_ips",
+                attack_type="command_activity",
+                payload="Session closed by simulation-only IPS",
+                metadata={
+                    "command": cmd,
+                    "source_port": self.remote_port,
+                    "destination_port": self._destination_port(),
+                    "session_id": self._session_id(),
+                },
+                severity="warning",
+                event_type="response",
+                protocol="ftp",
+                source_port=self.remote_port,
+                destination_port=self._destination_port(),
+                session_id=self._session_id(),
+                status="simulated_termination",
+            )
+            self.respond("421 Session closed by server policy simulation.")
+            self.close_when_done()
+            return
         log_event(
             source_ip=self.remote_ip,
             service="ftp",

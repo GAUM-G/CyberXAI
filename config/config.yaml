@@ -17,6 +17,51 @@ honeypots:
 dashboard:
   host: "127.0.0.1"
   port: 5050
+  authentication_required: true
+
+time:
+  timezone: "Asia/Kolkata"
+  utc_offset: "+05:30"
+  record_runtime_timestamps_in_ist: true
+
+intelligent_agents:
+  enabled: true
+  correlation_window_seconds: 300
+  daily_report_directory: "data/reports/agents"
+  run_order:
+    - "detection"
+    - "correlation"
+    - "severity"
+    - "explanation"
+    - "response"
+    - "daily_report"
+  response_mode: "simulation"
+  automatic_host_blocking: false
+
+continuous_learning:
+  enabled: true
+  mode: "offline_analyst_approved"
+  registry_directory: "data/continuous_learning"
+  active_model_directory: "data/ml_ready"
+  minimum_training_events: 20
+  minimum_test_rows: 10
+  max_macro_f1_regression: 0.005
+  max_macro_recall_regression: 0.01
+  max_false_positive_rate_increase: 0.01
+  automatic_promotion: false
+  require_services_stopped_for_promotion: true
+  retain_rollback: true
+
+ips:
+  mode: "simulation"
+  automatic_host_blocking: false
+  host_firewall_changed: false
+  state_file: "data/ips/simulated_ips_state.json"
+  repeated_attempt_threshold: 5
+  repeat_window_minutes: 5
+  rate_limit_delay_ms: 750
+  rate_limit_duration_seconds: 300
+  simulated_block_duration_seconds: 900
 
 logging:
   log_file: "data/raw_logs/honeypot_events.jsonl"

@@ -22,6 +22,7 @@ const REQUIRED_EVENT_FIELDS = [
 
 const ALLOWED_SERVICES = new Set(["ssh", "ftp", "http"]);
 const ALLOWED_SEVERITIES = new Set(["info", "warning", "critical"]);
+const { toISTISOString } = require("./time");
 
 function validateEventRecord(record) {
   const errors = [];
@@ -130,7 +131,7 @@ function initializeEventStore(database) {
         request_path TEXT,
         payload_json TEXT NOT NULL,
         metadata_json TEXT NOT NULL,
-        received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        received_at TEXT NOT NULL
       )
     `);
 
@@ -162,8 +163,8 @@ function insertEvent(database, record) {
       event_id, schema_version, timestamp, source_ip, source_port,
       destination_port, service, protocol, event_type, event,
       attack_type, severity, status, username, session_id,
-      request_method, request_path, payload_json, metadata_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      request_method, request_path, payload_json, metadata_json, received_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const params = [
@@ -186,6 +187,7 @@ function insertEvent(database, record) {
     record.request_path,
     JSON.stringify(record.payload ?? null),
     JSON.stringify(record.metadata),
+    toISTISOString(),
   ];
 
   return new Promise((resolve, reject) => {
@@ -276,7 +278,7 @@ function listEvents(database, filters = {}) {
   const sql = `
     SELECT * FROM honeypot_events
     ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
-    ORDER BY timestamp DESC, id DESC
+    ORDER BY datetime(timestamp) DESC, id DESC
     LIMIT ? OFFSET ?
   `;
 

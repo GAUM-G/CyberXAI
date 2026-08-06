@@ -26,6 +26,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from core.logger import log_event
+from core.simulated_ips import get_simulated_response
 
 try:
     from flask import Flask, g, jsonify, render_template_string, request
@@ -160,9 +161,72 @@ def create_http_honeypot() -> "Flask":
     app = Flask(__name__)
 
     @app.before_request
-    def _assign_event_session() -> None:
+    def _assign_event_session() -> Any:
         # One ID links all records generated while handling the same HTTP request.
         g.honeypot_session_id = str(uuid4())
+        response = get_simulated_response(
+            request.headers.get("X-Forwarded-For", request.remote_addr or "unknown"),
+            "http",
+            g.honeypot_session_id,
+        )
+        g.simulated_ips_response = response
+        if response.get("rate_limited"):
+            log_event(
+                source_ip=request.headers.get(
+                    "X-Forwarded-For", request.remote_addr or "unknown"
+                ),
+                service="http",
+                event="http_rate_limited_by_simulated_ips",
+                attack_type="web_activity",
+                payload=request.path,
+                metadata={
+                    "path": request.path,
+                    "rate_limit_delay_ms": response.get("rate_limit_delay_ms", 0),
+                },
+                severity="warning",
+                event_type="response",
+                protocol="http",
+                source_port=request.environ.get("REMOTE_PORT"),
+                destination_port=request.environ.get("SERVER_PORT", 8080),
+                session_id=g.honeypot_session_id,
+                request_method=request.method,
+                request_path=request.path,
+                status="rate_limited",
+            )
+            reply = jsonify({
+                "error": "Too many requests",
+                "ips_mode": "simulation",
+                "host_firewall_changed": False,
+            })
+            reply.status_code = 429
+            reply.headers["Retry-After"] = "1"
+            return reply
+        if response.get("session_terminated"):
+            log_event(
+                source_ip=request.headers.get(
+                    "X-Forwarded-For", request.remote_addr or "unknown"
+                ),
+                service="http",
+                event="http_session_termination_simulated",
+                attack_type="web_activity",
+                payload=request.path,
+                metadata={"path": request.path},
+                severity="warning",
+                event_type="response",
+                protocol="http",
+                source_port=request.environ.get("REMOTE_PORT"),
+                destination_port=request.environ.get("SERVER_PORT", 8080),
+                session_id=g.honeypot_session_id,
+                request_method=request.method,
+                request_path=request.path,
+                status="simulated_termination",
+            )
+            return jsonify({
+                "error": "Session terminated by policy simulation",
+                "ips_mode": "simulation",
+                "host_firewall_changed": False,
+            }), 403
+        return None
 
     def _ip() -> str:
         return request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
