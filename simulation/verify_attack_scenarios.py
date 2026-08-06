@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -50,9 +52,40 @@ def _parse_timestamp(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def _get_events(collector_base_url: str) -> list[dict[str, Any]]:
+def _login(
+    collector_base_url: str,
+    username: str,
+    password: str,
+) -> tuple[str, str]:
+    url = f"{collector_base_url.rstrip('/')}/login"
+    request = urllib.request.Request(
+        url,
+        data=json.dumps({"username": username, "password": password}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=4) as response:
+        body = json.loads(response.read().decode("utf-8"))
+
+    token = body.get("token")
+    if not isinstance(token, str) or not token.strip():
+        raise ValueError("Login response did not contain an authentication token")
+
+    user = body.get("user", {})
+    authenticated_username = user.get("username", username)
+    return token, str(authenticated_username)
+
+
+def _get_events(
+    collector_base_url: str,
+    token: str,
+) -> list[dict[str, Any]]:
     url = f"{collector_base_url.rstrip('/')}/api/events?limit=1000"
-    with urllib.request.urlopen(url, timeout=4) as response:
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(request, timeout=4) as response:
         body = json.loads(response.read().decode("utf-8"))
     events = body.get("events", [])
     return events if isinstance(events, list) else []
@@ -112,6 +145,7 @@ def verify_step5(
     http_port: int,
     delay: float,
     delivery_timeout: float,
+    token: str,
 ) -> bool:
     started_at = datetime.now(timezone.utc)
     run_all(
@@ -127,7 +161,16 @@ def verify_step5(
     }
     while time.monotonic() < deadline:
         try:
-            results = _matches(_get_events(collector_base_url), started_at)
+            results = _matches(_get_events(collector_base_url, token), started_at)
+        except urllib.error.HTTPError as error:
+            if error.code in {401, 403}:
+                print(
+                    "[AUTH] The collector rejected the login token. "
+                    "Sign in again and rerun the verifier."
+                )
+                return False
+            time.sleep(0.5)
+            continue
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError):
             time.sleep(0.5)
             continue
@@ -146,7 +189,44 @@ def main() -> None:
     parser.add_argument("--http-port", type=int, default=8080)
     parser.add_argument("--delay", type=float, default=0.2)
     parser.add_argument("--delivery-timeout", type=float, default=20.0)
+    parser.add_argument(
+        "--username",
+        default=os.getenv("HONEYPOT_API_USERNAME", ""),
+        help="Existing portal username; prompted when omitted",
+    )
+    parser.add_argument(
+        "--token",
+        default=os.getenv("HONEYPOT_API_TOKEN", ""),
+        help="Existing API token; defaults to HONEYPOT_API_TOKEN",
+    )
     args = parser.parse_args()
+
+    token = args.token.strip()
+    if token:
+        print("[AUTH] Using the supplied API token.")
+    else:
+        username = args.username.strip() or input("Portal username: ").strip()
+        if not username:
+            parser.error("A portal username is required")
+        password = getpass.getpass("Portal password: ")
+        if not password:
+            parser.error("A portal password is required")
+
+        try:
+            token, authenticated_username = _login(
+                args.collector,
+                username,
+                password,
+            )
+        except urllib.error.HTTPError as error:
+            message = error.read().decode("utf-8", errors="replace")
+            print(f"[AUTH] Login failed (HTTP {error.code}): {message}")
+            raise SystemExit(2) from error
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as error:
+            print(f"[AUTH] Could not authenticate with the collector: {error}")
+            raise SystemExit(2) from error
+
+        print(f"[AUTH] Authenticated as {authenticated_username}.")
 
     passed = verify_step5(
         args.collector,
@@ -155,6 +235,7 @@ def main() -> None:
         http_port=args.http_port,
         delay=args.delay,
         delivery_timeout=args.delivery_timeout,
+        token=token,
     )
     raise SystemExit(0 if passed else 1)
 
