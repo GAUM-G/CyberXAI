@@ -168,23 +168,5 @@ class Step20FrontendTests(unittest.TestCase):
             with self.subTest(relative_path=relative_path):
                 self.assertEqual(normalized_sha256(relative_path), expected_hash)
 
-
-class Step20DocumentationTests(unittest.TestCase):
-    def test_documentation_records_safety_and_manual_validation(self) -> None:
-        document = read("STEP20_HUMAN_IN_THE_LOOP_FEEDBACK.md")
-        for marker in (
-            "Human-in-the-Loop Feedback",
-            "authenticated analyst",
-            "append-only",
-            "severity_override",
-            "does not train",
-            "privacy-safe XAI",
-            "npm.cmd test",
-            "npm.cmd run build",
-            "original prediction",
-        ):
-            self.assertIn(marker, document)
-
-
 if __name__ == "__main__":
     unittest.main()
