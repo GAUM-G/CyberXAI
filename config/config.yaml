@@ -38,6 +38,20 @@ intelligent_agents:
   response_mode: "simulation"
   automatic_host_blocking: false
 
+continuous_learning:
+  enabled: true
+  mode: "offline_analyst_approved"
+  registry_directory: "data/continuous_learning"
+  active_model_directory: "data/ml_ready"
+  minimum_training_events: 20
+  minimum_test_rows: 10
+  max_macro_f1_regression: 0.005
+  max_macro_recall_regression: 0.01
+  max_false_positive_rate_increase: 0.01
+  automatic_promotion: false
+  require_services_stopped_for_promotion: true
+  retain_rollback: true
+
 ips:
   mode: "simulation"
   automatic_host_blocking: false

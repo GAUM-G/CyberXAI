@@ -1,240 +1,222 @@
-# Honeypot Security Framework
+# A Secure and Intelligent Framework for Detecting and Understanding Malicious Digital Activities
 
-This project is a modular honeypot lab for observing common attack patterns against SSH, FTP, and HTTP services. It captures login attempts, brute-force activity, web probing, command usage, and suspicious payloads, then stores everything in structured logs and exposes it in a live dashboard.
+This project is a Windows-based cybersecurity research prototype that combines multi-service honeypots, centralized event collection, a hybrid IDS [Intrusion Detection System], XAI [Explainable Artificial Intelligence], analyst feedback, simulated IPS [Intrusion Prevention System] actions, intelligent agents, continuous learning, dashboards, and Telegram alerts.
 
-The goal is to provide a realistic security research and demo environment on Windows without needing privileged ports or complex infrastructure.
+It is designed for authorized local demonstrations and academic research. It does not modify the Windows firewall, automatically block real hosts, or replace a production security platform.
 
-## What It Includes
+## Current implementation
 
-- A fake SSH service that records usernames and passwords from login attempts.
-- A fake FTP service with decoy files and logging for failed logins, successful logins, and commands.
-- A fake HTTP login portal that detects SQL injection, XSS, directory scanning, and brute-force activity.
-- A live Flask dashboard for viewing events, stats, captured credentials, and system status.
-- A standalone decoy website for isolated testing and mobile/LAN access.
-- Built-in simulations for generating safe test traffic against each service.
-- JSONL logging plus optional n8n webhook alerts for critical events.
+The complete roadmap is implemented through the final demonstration stage:
 
+- SSH, FTP, and HTTP honeypots with one versioned event schema.
+- SQLite-backed centralized events, IDS results, analyst feedback, and IPS audit records.
+- Controlled scenarios for SSH brute force, FTP brute force, SQL injection, XSS, directory scanning, port scanning, and normal traffic.
+- Sanitized dataset preparation, preprocessing, and causal feature engineering.
+- Rule detection, Decision Tree, Random Forest, Isolation Forest, and LSTM models.
+- Hybrid fusion, four-level threat reporting, SHAP-based supporting explanations, and human-readable reasons.
+- Authenticated Flask and React dashboards with filters, event details, XAI, feedback, and simulated response actions.
+- High/Critical enriched IDS alerts through n8n and Telegram.
+- Six bounded intelligent agents for detection, correlation, severity, explanation, response recommendation, and daily reporting.
+- Offline analyst-guided continuous learning with candidate versioning, quality gates, explicit promotion, and rollback.
+- Automated offline and live end-to-end system verification.
 
-## Project Layout
+## Architecture
+
+```mermaid
+flowchart TD
+    A["SSH :2222 / FTP :2121 / HTTP :8080"] --> B["Common event JSONL"]
+    B --> C["Central Express API + SQLite :5000"]
+    B --> D["Preprocessing + Hybrid IDS"]
+    D --> E["Severity + XAI + Agents"]
+    E --> C
+    C --> F["Flask dashboard :5050"]
+    C --> G["React portal :5173"]
+    E --> H["n8n :5678"]
+    H --> I["Telegram"]
+    G --> J["Analyst feedback + simulated IPS"]
+    J --> K["Versioned continuous learning"]
+    K --> D
+```
+
+### Live event flow
 
 ```text
-honeypot_v2/
-├── core/
-│   ├── honeypots/
-│   │   ├── ssh_honeypot.py     fake SSH server on port 2222
-│   │   ├── ftp_honeypot.py     fake FTP server on port 2121
-│   │   └── http_honeypot.py    fake login portal on port 8080
-│   ├── launcher.py             starts all honeypots in threads
-│   └── logger.py               central JSONL logger and SSE queue
-├── dashboard/
-│   ├── app.py                  live monitoring dashboard
-│   └── templates/index.html    dashboard UI
-├── website/
-│   ├── app.py                  standalone decoy website
-│   ├── templates/index.html    website UI
-│   ├── decoy_files/            bait files exposed by the site
-│   ├── frontend/               optional React/Vite frontend
-│   └── backend/                optional Express/SQLite backend
-├── simulation/
-│   ├── sim_ssh.py              SSH attack simulation
-│   ├── sim_ftp.py              FTP attack simulation
-│   ├── sim_http.py             HTTP attack simulation
-│   └── simulate_attacks.py     runs all simulations together
-├── config/
-│   └── config.yaml             ports and thresholds
-├── data/
-│   ├── raw_logs/               generated honeypot events
-│   └── ftp_decoy/              bait files for the FTP service
-├── scripts/
-│   └── start_website_tunnel.ps1
-├── requirements.txt
-├── run.py                      starts honeypots and dashboard
-└── run_website.py              starts the standalone website only
+Controlled activity
+-> honeypot capture
+-> common JSON event
+-> sanitized preprocessing
+-> rules + selected tabular model + Isolation Forest + LSTM
+-> hybrid prediction and confidence
+-> Low / Medium / High / Critical severity
+-> SHAP support and human-readable explanation
+-> six intelligent agents
+-> JSONL and SQLite persistence
+-> dashboards
+-> High/Critical n8n and Telegram alert
+-> analyst feedback and simulated response
 ```
 
-## Requirements
+## Services and ports
 
+| Component | Port | Purpose |
+|---|---:|---|
+| SSH honeypot | 2222 | Captures repeated authentication attempts |
+| FTP honeypot | 2121 | Captures logins, commands, and decoy-file activity |
+| HTTP honeypot | 8080 | Captures login attacks, SQLi, XSS, and scanning |
+| Flask dashboard | 5050 | Authenticated security operations dashboard |
+| Express backend | 5000 | Authentication, APIs, SQLite persistence, feedback, and IPS audit |
+| React frontend | 5173 | Portal, IDS dashboard, feedback, and attack details |
+| n8n | 5678 | Alert workflow and Telegram delivery |
 
-- Windows 11 or Windows 10
-- Python 3.10+
-- PowerShell
+## Detection and model roles
 
-Optional dependencies:
-- `psutil` for richer dashboard system stats
-- `pyftpdlib` for the FTP honeypot
-- `flask` for the web apps
+| Component | Role |
+|---|---|
+| Rules | Deterministic SQLi, XSS, scanning, and repeated-login detection |
+| Decision Tree | Interpretable known-attack classification baseline |
+| Random Forest | Ensemble known-attack classification candidate |
+| Isolation Forest | Label-free unusual-behaviour detection trained on normal rows |
+| LSTM | Causal sequence classification for time-based activity such as brute force |
+| Hybrid IDS | Fuses rules, tabular classification, anomaly detection, and sequences |
+| SHAP | Reports supporting feature contributions for tree-model decisions |
+| Human reasoning | Explains the final decision without exposing credentials or raw payloads |
 
+CNN and LIME are not presented as implemented components because the available data and final architecture use LSTM and SHAP.
 
-## Quick Start
-
-
-1. Open PowerShell in the project folder.
-2. Create and activate a virtual environment:
-
-``powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-``
-
-If PowerShell blocks script execution, run this once in the same session:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-```
-
-3. Install dependencies:
-
-```powershell
-pip install -r requirements.txt
-```
-
-4. Start the full honeypot stack:
-
-```powershell
-python run.py
-```
-
-5. Open the dashboard:
+## Supported labels
 
 ```text
-http://127.0.0.1:5050
+normal
+ssh_bruteforce
+ftp_bruteforce
+sql_injection
+xss
+directory_scanning
+port_scanning
+other_anomaly
 ```
 
-## Running Individual Components
+## Quick start
 
-Start only the standalone decoy website:
-
-```powershell
-python run_website.py
-```
-
-The default website port is `8090`.
-
-You can also change the bind address and port:
-
-```powershell
-python run_website.py --host 127.0.0.1 --port 8090
-```
-
-Start the full stack without the dashboard:
-
-```powershell
-python run.py --no-dashboard
-```
-
-Run the full stack and launch the built-in simulation after startup:
-
-```powershell
-python run.py --simulate
-```
-
-## Built-In Simulations
-
-Use the simulation scripts to generate safe test traffic and verify logging:
-
-```powershell
-python simulation\simulate_attacks.py
-python simulation\simulate_attacks.py --ssh-only
-python simulation\simulate_attacks.py --ftp-only
-python simulation\simulate_attacks.py --http-only
-python simulation\sim_http.py --port 8090
-```
-
-## What Each Service Detects
-
-SSH on port `2222`:
-
-- Captures every username/password pair entered.
-- Escalates to `ssh_bruteforce` after repeated failures from the same IP.
-- The current brute-force threshold in code is 3 attempts.
-
-FTP on port `2121`:
-
-- Logs connection probes and failed logins.
-- Logs successful logins as credential access events.
-- Logs FTP commands issued after login.
-- Serves decoy files such as fake finance, employee, and config data.
-
-HTTP on port `8080`:
-
-- Logs login attempts as authentication probes.
-- Detects SQL injection payloads.
-- Detects XSS payloads.
-- Detects directory traversal and common scanning patterns.
-- Flags rapid login attempts as brute force.
-
-## Logging and Alerts
-
-All events are written to:
+The tested Windows project path is:
 
 ```text
-data/raw_logs/honeypot_events.jsonl
+D:\honeypot_v2
 ```
 
-Each line is a JSON event containing fields like timestamp, source IP, service, attack type, severity, payload, and metadata.
+Complete first-time installation is in `SETUP.md`. The short five-terminal startup sequence is in `howtostart.md`.
 
-Critical events can also be forwarded to n8n by setting these environment variables before launching the app:
+The most important alert command is:
 
 ```powershell
-$env:N8N_WEBHOOK_URL = "http://localhost:5678/webhook/honeypot-alert"
-$env:N8N_WEBHOOK_TIMEOUT = "2.0"
+python .\simulation\n8n.py --mode local --source ids
 ```
 
-Install N8N in your local and then run it on your host
+`--source ids` is required for intelligent Telegram alerts because raw events do not contain final severity, confidence, XAI, agent, or IPS fields.
 
+## Final validation
 
-## Dashboardd
-
-The dashboard at `http://127.0.0.1:5050` provides:
-
-- Live event summaries
-- Per-service counts
-- Threat and severity breakdowns
-- Captured credentials
-- IDS-style timeline and top source IPs
-- System stats such as uptime, CPU, RAM, and active connections
-
-
-It also exposes API endpoints under `/api/*` for monitoring and reporting.
-
-## Configuration
-
-Default settings live in `config/config.yaml`.
-
-Main defaults:
-
-| Service | Port | Purpose |
-| --- | ---: | --- |
-| SSH honeypot | 2222 | Fake SSH login trap |
-| FTP honeypot | 2121 | Fake FTP server and decoy files |
-| HTTP honeypot | 8080 | Fake web login portal |
-| Dashboard | 5050 | Real-time monitoring UI |
-
-The HTTP login threshold in `config.yaml` is `10` attempts in `60` seconds.
-
-## Standalone Website and Tunnel
-
-The `website/` folder contains a separate decoy website that can be run independently for local testing or shared over a tunnel.
-
-For a temporary Cloudflare tunnel:
+Run the offline test, backend test, and frontend production build together:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_website_tunnel.ps1
+cd D:\honeypot_v2
+.\.venv\Scripts\Activate.ps1
+python .\scripts\final_system_test.py
 ```
 
-For a named tunnel with a fixed hostname:
+With all seven services already running, verify the live services:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start_website_tunnel.ps1 -UseNamedTunnel -TunnelName honeypot-site -Hostname honeypot.yourdomain.com
+python .\scripts\final_system_test.py --runtime
 ```
 
-## Notes
+In an authorized local lab, run every controlled scenario end to end:
 
-- SSH uses port `2222` instead of `22` so it can run without admin privileges.
-- The project is designed for research, demos, and local security testing.
-- The `website/frontend` and `website/backend` folders contain an alternate React/Express/SQLite setup described in `website/README_MERN_SETUP.md`.
+```powershell
+python .\scripts\final_system_test.py --runtime --simulate-attacks --n8n-check
+```
 
-## Roadmap
+The report is written to:
 
-- Phase 2: add IDS-style classification on top of collected logs
-- Phase 3: add explainability for flagged events
+```text
+data/reports/final_system_test.json
+```
+
+The n8n check confirms webhook acceptance. Telegram receipt must still be visually confirmed because the Telegram chat is outside the repository.
+
+## Continuous learning
+
+Continuous learning is offline and analyst-controlled. It never retrains inside the live IDS process.
+
+Check the registry:
+
+```powershell
+python -m continuous_learning.pipeline status
+```
+
+Prepare a sanitized feedback-corrected dataset without training:
+
+```powershell
+python -m continuous_learning.pipeline prepare `
+  --output-dir data\continuous_learning\preview_dataset
+```
+
+Build and evaluate a versioned candidate:
+
+```powershell
+python -m continuous_learning.pipeline retrain --epochs 20
+```
+
+The candidate is compared with the active evaluation using macro F1, macro recall, false-positive rate, and minimum test-row gates. Promotion is never automatic.
+
+After stopping `run.py` and every process using the active model, promote only a candidate whose manifest says `decision: promote`:
+
+```powershell
+python -m continuous_learning.pipeline promote VERSION_ID `
+  --confirm-services-stopped
+```
+
+Restore a retained model tree if required:
+
+```powershell
+python -m continuous_learning.pipeline rollback ROLLBACK_ID `
+  --confirm-services-stopped
+```
+
+## Main directories
+
+```text
+core/                  honeypots, schema, logger, simulated IPS
+dataset/               sanitization and labeling
+preprocessing/         missing values, encoding, scaling, sequences
+feature_engineering/   causal behavioural and security features
+rule_based_detection/  deterministic IDS rules
+machine_learning/      training, evaluation, hybrid and real-time IDS
+XAI/                   SHAP support and human-readable explanations
+intelligent_agents/    six ordered analysis/reporting agents
+continuous_learning/   versioning, comparison, promotion and rollback
+dashboard/             Flask monitoring dashboard
+website/backend/       Express API and SQLite stores
+website/frontend/      React/Vite portal
+simulation/            controlled attacks and n8n forwarder
+scripts/               final verification and startup helpers
+tests/                 Python integration and safety tests
+```
+
+Generated logs, databases, model artifacts, reports, credentials, `.venv`, `node_modules`, n8n state, and continuous-learning versions are intentionally ignored by Git.
+
+## Safety and limitations
+
+- Use only on localhost or an explicitly authorized isolated lab network.
+- Submit only fake credentials and synthetic test data.
+- Automatic host blocking is hard-disabled; all IPS behaviour is simulated or recommendation-only.
+- Stop live model consumers before promotion or rollback.
+- SHAP explains supporting tree-model contributions; it does not prove causation.
+- Model metrics are dataset-specific and do not prove production generalization.
+- The SSH honeypot is a controlled decoy protocol simulation, not a production OpenSSH server.
+- Telegram and n8n credentials stay outside Git and must never appear in screenshots or exports.
+- This is an academic prototype, not a production SOC [Security Operations Center] product.
+
+## Demonstration
+
+Use `FINAL_DEMO_GUIDE.md` for the exact presentation order, expected outputs, fallback plan, and honest completion statement.
