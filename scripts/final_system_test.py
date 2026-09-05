@@ -109,8 +109,10 @@ def _check_project_contract() -> str:
         "simulation/n8n.py",
         "dashboard/app.py",
         "website/backend/server.js",
-        "website/frontend/src/pages/DashboardPage.jsx",
-        "website/frontend/src/components/IDSInsights.jsx",
+        "website/backend/common_event.js",
+        "website/backend/decoy_simulation.js",
+        "website/frontend/src/pages/HomePage.jsx",
+        "website/frontend/src/components/ExposurePanel.jsx",
     ]
     missing = [name for name in required if not (PROJECT_ROOT / name).is_file()]
     if missing:

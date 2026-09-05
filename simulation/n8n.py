@@ -16,6 +16,10 @@ DEFAULT_IDS_LOG_FILE = (
     PROJECT_ROOT / "data" / "detections" / "hybrid_ids_results.jsonl"
 )
 IMMEDIATE_THREAT_LEVELS = frozenset({"High", "Critical"})
+PORTAL_DESTINATION_PORT = 5173
+PORTAL_IMMEDIATE_ATTACK_TYPES = frozenset(
+    {"sql_injection", "xss", "directory_scanning", "http_bruteforce"}
+)
 SENSITIVE_ALERT_KEYS = frozenset(
     {
         "api_key",
@@ -49,10 +53,10 @@ class AlertDeduplicator:
     """Suppress repeated eligible IDS alerts before concurrent n8n executions."""
 
     window_seconds: float = 300.0
-    _seen: dict[tuple[str, str, str], float] = field(default_factory=dict)
+    _seen: dict[tuple[str, str, str, str], float] = field(default_factory=dict)
 
     @staticmethod
-    def key(payload: dict[str, Any]) -> tuple[str, str, str]:
+    def key(payload: dict[str, Any]) -> tuple[str, str, str, str]:
         values = (
             payload.get("source_ip") or payload.get("ip") or "unknown",
             payload.get("attack_type") or "unknown",
@@ -60,6 +64,7 @@ class AlertDeduplicator:
             or payload.get("service")
             or payload.get("type")
             or "unknown",
+            payload.get("target") or "n/a",
         )
         return tuple(str(value).strip().lower() for value in values)
 
@@ -226,6 +231,21 @@ def normalize_ids_result(record: dict[str, Any]) -> dict[str, Any]:
         prediction.strip().lower() == "attack"
         and threat_level in IMMEDIATE_THREAT_LEVELS
     )
+    try:
+        destination_port = int(record.get("destination_port"))
+    except (TypeError, ValueError):
+        destination_port = None
+    if destination_port == PORTAL_DESTINATION_PORT:
+        event_name = str(record.get("event") or "").strip().lower()
+        model_used = str(record.get("model_used") or "").strip().lower()
+        portal_evidence = (
+            attack_type in PORTAL_IMMEDIATE_ATTACK_TYPES
+            and (
+                model_used == "rules"
+                or event_name.endswith(f"_{attack_type}")
+            )
+        )
+        alert_eligible = alert_eligible and portal_evidence
 
     return {
         "alert_schema_version": "1.0",
@@ -558,6 +578,14 @@ def main() -> None:
     try:
         for record in iter_new_jsonl_records(cfg.log_file, cfg.from_start, cfg.poll_interval_seconds):
             payload = normalize_record(record, source=cfg.source)
+            if cfg.source == "ids" and payload.get("alert_eligible") is not True:
+                print(
+                    "[SKIP] not_alert_eligible "
+                    f"ip={payload.get('ip')} "
+                    f"attack={payload.get('attack_type')} "
+                    f"target={payload.get('target')}"
+                )
+                continue
             if cfg.source == "ids" and deduplicator.is_duplicate(payload):
                 print(
                     "[SKIP] duplicate_alert window=300s "

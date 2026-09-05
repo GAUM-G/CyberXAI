@@ -831,6 +831,8 @@ let dashboardAuthTimer=null;
 let dashboardEventSource=null;
 
 // Init feather icons
+// Icons are decorative; a blocked CDN must not stop dashboard data loading.
+window.feather=window.feather||{replace:()=>{}};
 feather.replace();
 
 // Canvas Starfield Background

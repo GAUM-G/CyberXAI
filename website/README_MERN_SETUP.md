@@ -1,28 +1,27 @@
-# Honeypot Website (React + Express + SQL)
+# Attacker-facing company portal (React + Express)
 
-This setup adds separate frontend and backend folders while keeping familiar routes for honeypot behavior.
+The React service is a fictional employee portal. It is intentionally separated from the Flask analyst dashboard and uses controlled simulations to demonstrate SQL injection and XSS outcomes.
 
 ## Structure
 
 - `frontend/` -> React app (Vite)
-- `backend/` -> Express API with SQLite DB
+- `backend/` -> Express collector, analyst API, and safe decoy-response API
 - `decoy_files/` -> Shared decoy files served from backend route `/files/:filename`
 
-## Kept Routes
+## Portal Routes
 
 - `GET /` (backend health/info)
-- `POST /signup`
-- `POST /login`
-- `GET /dashboard` (protected, JWT)
-- `GET /search?q=...`
+- `POST /api/decoy/login`
+- `GET /api/decoy/search?q=...`
 - `GET /files`
 - `GET /files/:filename`
 
 Frontend routes:
 
-- `/` -> Home + Login
-- `/signup` -> Sign Up
-- `/dashboard` -> Dashboard panel after login
+- `/` -> Fake company home, employee login, resource search, and decoy files
+- All other frontend paths redirect to `/`
+
+The protected analyst login and security APIs remain on the backend for the Flask dashboard at `http://127.0.0.1:5050`; they are not linked or called by the React application.
 
 ## Run Backend
 
@@ -44,10 +43,11 @@ npm run dev
 Frontend: `http://localhost:5173`
 Backend: `http://localhost:5000`
 
-## SQL Database
+## Controlled attack outcomes
 
-SQLite DB is auto-created at:
+- Recognized SQL injection input returns fictional rows from `northstar_hr.employee_directory`.
+- Recognized XSS input returns fictional browser-cache records and a fake session value.
+- React renders every value as text and never executes submitted scripts.
+- Attempts continue through the existing honeypot event, IDS, XAI, alert, and simulated-IPS pipeline.
 
-- `backend/data/honeypot.db`
-
-No MongoDB required.
+All returned identities use the reserved `.example` domain and are synthetic.

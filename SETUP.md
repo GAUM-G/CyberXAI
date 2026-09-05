@@ -183,9 +183,16 @@ Expected forwarder configuration:
 [CONFIG] log_file=D:\honeypot_v2\data\detections\hybrid_ids_results.jsonl
 ```
 
-## 9. First account and dashboard login
+## 9. First analyst account and dashboard login
 
-Open `http://localhost:5173`, create one local test account, and sign in. Use the same portal username and password on `http://127.0.0.1:5050`. The Flask dashboard validates the login through the Express backend and stores only the session token in its signed local session.
+The React portal on `http://localhost:5173` is attacker-facing and does not create analyst accounts. Create a local analyst account directly through the backend once:
+
+```powershell
+$analyst = @{username="analyst"; email="analyst@localhost"; password="replace-with-a-strong-local-password"} | ConvertTo-Json
+Invoke-RestMethod -Uri http://127.0.0.1:5000/signup -Method Post -ContentType "application/json" -Body $analyst
+```
+
+Then sign in at `http://127.0.0.1:5050`. The Flask dashboard validates the login through the Express backend and stores only the session token in its signed local session.
 
 ## 10. Verification
 
@@ -232,7 +239,7 @@ Use `npm.cmd` and `n8n.cmd` exactly as shown.
 
 ### Frontend cannot connect
 
-Confirm ports 5000 and 5173, `FRONTEND_URL=http://localhost:5173`, and that both use the same hostname style (`localhost` in the React flow).
+Confirm ports 5000 and 5173, `FRONTEND_URL=http://localhost:5173`, and that both use the same hostname style (`localhost` in the React flow). The React portal should expose no IDS, IPS, XAI, analyst-feedback, signup, or security-dashboard navigation.
 
 ### Dashboard login fails
 

@@ -35,7 +35,7 @@ Open the architecture in `README.md` or the final PPT. Briefly identify:
 - Common event schema and centralized storage.
 - Rules, Decision Tree/Random Forest, Isolation Forest, and LSTM.
 - Severity, SHAP, human explanation, and six intelligent agents.
-- Flask/React dashboards, n8n/Telegram, feedback, simulated IPS, and continuous learning.
+- Separate React decoy portal and Flask analyst dashboard, n8n/Telegram, feedback, simulated IPS, and continuous learning.
 
 ### 3. Show that services are healthy
 
@@ -43,10 +43,10 @@ Display the port table from PowerShell. Mention ports 2222, 2121, 8080, 5050, 50
 
 ### 4. Generate one controlled attack
 
-Open:
+Open the attacker-facing company portal:
 
 ```text
-http://127.0.0.1:8080
+http://localhost:5173
 ```
 
 Submit:
@@ -56,7 +56,7 @@ Username: admin' OR '1'='1
 Password: test
 ```
 
-This is fake local test input.
+This is fake local test input. First show the fictional employee rows returned in the portal response console, then continue to the defender view.
 
 ### 5. Show real-time analysis
 

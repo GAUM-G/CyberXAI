@@ -16,7 +16,8 @@ flowchart TD
     S --> X["SHAP support + human explanation"]
     X --> A["Six intelligent agents"]
     A --> B
-    B --> D["Flask and React dashboards"]
+    B --> D["Authenticated Flask analyst dashboard"]
+    R["React company decoy portal"] --> B
     A --> N["n8n enriched alert"]
     N --> T["Telegram"]
     D --> F["Analyst feedback + simulated IPS"]
@@ -35,7 +36,7 @@ flowchart TD
 7. XAI adds supporting SHAP feature contributions and a privacy-safe human explanation.
 8. Detection, correlation, severity, explanation, response, and daily-report agents run in a fixed order without changing the protected IDS decision.
 9. The final record is appended to `data/detections/hybrid_ids_results.jsonl` and delivered to SQLite.
-10. Authenticated dashboards display totals, distributions, source/service views, confidence, XAI, agent analysis, feedback, and simulated response history.
+10. The authenticated Flask dashboard displays totals, distributions, source/service views, confidence, XAI, agent analysis, feedback, and simulated response history. The separate React portal shows only fictional company content and controlled decoy responses.
 11. `simulation/n8n.py --source ids` forwards only new enriched IDS records. High/Critical attacks pass the alert filter and reach Telegram.
 12. An analyst can confirm the incident, mark a false positive, override severity, add notes, and choose a safe simulated response.
 
@@ -109,9 +110,11 @@ host_firewall_changed = false
 
 No code path invokes `netsh`, PowerShell firewall commands, `iptables`, or shell-based host blocking.
 
-## 8. Authentication
+## 8. Portal separation and authentication
 
-The React portal owns local signup/login through Express, bcrypt, JWT, and SQLite. The Flask dashboard uses the same portal login and validates its session through the backend. Event, IDS, feedback, and IPS analyst APIs require authentication; ingestion and the public simulated-IPS safety statement remain available to the local pipeline.
+The React service on port 5173 is an attacker-facing company decoy. Its login and search forms call only `/api/decoy/*` routes, never store an analyst JWT, and never expose IDS, IPS, XAI, feedback, or dashboard navigation. Detected SQLi and XSS inputs receive deterministic fictional data so the attack effect can be demonstrated without executing arbitrary SQL or browser scripts.
+
+The Flask dashboard on port 5050 retains analyst authentication through the Express backend. Event, IDS, feedback, and IPS analyst APIs remain protected; ingestion and the public simulated-IPS safety statement remain available to the local pipeline.
 
 ## 9. Startup order
 

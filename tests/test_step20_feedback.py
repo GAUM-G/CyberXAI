@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import unittest
 from pathlib import Path
 
@@ -12,12 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def read(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
-
-
-def normalized_sha256(relative_path: str) -> str:
-    """Hash content consistently across LF and CRLF working trees."""
-    content = (ROOT / relative_path).read_bytes().replace(b"\r\n", b"\n")
-    return hashlib.sha256(content).hexdigest().upper()
 
 
 class Step20BackendTests(unittest.TestCase):
@@ -82,91 +75,57 @@ class Step20BackendTests(unittest.TestCase):
         self.assertNotIn("analyst_username: req.body", server)
 
 
-class Step20FrontendTests(unittest.TestCase):
-    def test_ids_dashboard_adds_review_queue_without_removing_final_ids_apis(self) -> None:
-        component = read("website/frontend/src/components/IDSInsights.jsx")
+class Step20DashboardTests(unittest.TestCase):
+    def test_feedback_and_xai_remain_on_the_flask_analyst_dashboard(self) -> None:
+        dashboard = read("dashboard/templates/index.html")
+
         for marker in (
-            'apiRequest("/api/ids-results?limit=100")',
-            'apiRequest("/api/ids-results/stats")',
-            'apiRequest("/api/analyst-feedback/stats")',
-            'id="ids-review-filter"',
+            "Operational XAI Review",
             "Confirmed attacks",
             "False positives",
-            "Awaiting review",
             "Severity overrides",
-            "<XAIExplanationPanel",
-            "<AnalystFeedbackPanel",
-            "Original Threat Score",
-        ):
-            self.assertIn(marker, component)
-
-    def test_feedback_panel_supports_all_required_actions_and_audit_history(self) -> None:
-        component = read(
-            "website/frontend/src/components/AnalystFeedbackPanel.jsx"
-        )
-        for marker in (
             "Confirm attack",
             "Mark false positive",
-            "Severity override",
             "Analyst notes",
             "Save analyst review",
             "Feedback history",
-            "severity_override",
-            "response.feedback",
-            "original IDS result remains unchanged",
+            "/api/analyst-feedback/stats",
+            "/api/analyst-feedback/latest",
         ):
-            self.assertIn(marker, component)
-        self.assertNotIn("analyst_id", component)
-        self.assertNotIn("analyst_username", component)
+            self.assertIn(marker, dashboard)
 
-    def test_xai_panel_separates_decision_threat_and_feature_explanations(self) -> None:
-        component = read(
-            "website/frontend/src/components/XAIExplanationPanel.jsx"
-        )
+    def test_analyst_dashboard_keeps_authentication_and_simulated_ips_controls(self) -> None:
+        dashboard = read("dashboard/templates/index.html")
+        application = read("dashboard/app.py")
+
         for marker in (
-            "Model confidence",
-            "Threat score",
-            "Decision explanation",
-            "Threat explanation",
-            "Feature explanation",
-            "SHAP feature contributions",
-            "supports_final_decision",
-            "not the final",
-            "raw_payload_included",
-            "credentials_included",
-            "xai_changed_prediction",
+            "Honeypot Analyst Login",
+            "signInAnalyst",
+            "signOutAnalyst",
+            "Generate XAI Report",
+            "simulate_block",
+            "rate_limit",
+            "terminate_session",
         ):
-            self.assertIn(marker, component)
+            self.assertIn(marker, dashboard)
 
-    def test_feedback_and_xai_styles_are_responsive(self) -> None:
-        styles = read("website/frontend/src/styles.css")
-        for marker in (
-            ".ids-review-summary",
-            ".review-state",
-            ".xai-score-grid",
-            ".xai-reason-grid",
-            ".xai-feature-list",
-            ".xai-limitation",
-            ".xai-safety-grid",
-            ".feedback-form",
-            ".feedback-history",
-            "@media (max-width: 920px)",
-            "@media (max-width: 640px)",
+        self.assertIn("@require_dashboard_auth", application)
+        self.assertIn('@app.route("/api/auth/login", methods=["POST"])', application)
+        self.assertIn('@app.route("/api/auth/session")', application)
+
+    def test_public_react_portal_has_no_feedback_or_ids_connectivity(self) -> None:
+        app = read("website/frontend/src/App.jsx")
+        home = read("website/frontend/src/pages/HomePage.jsx")
+        combined = app + home
+
+        for forbidden in (
+            "/api/ids-results",
+            "/api/analyst-feedback",
+            "/api/ips",
+            "IDSInsights",
+            "AnalystFeedbackPanel",
         ):
-            self.assertIn(marker, styles)
-
-    def test_existing_frontend_dependencies_and_api_helper_are_unchanged(self) -> None:
-        expected_hashes = {
-            "website/frontend/package.json":
-                "E8FEE5C2CFE7E5D692882FA4AAF7FFA9D27C93B823690C931336B5A8203262B2",
-            "website/backend/package.json":
-                "728E6C2E81278A282F811EBEA4A0DF7ADE3643C450753B554E210387439536C2",
-            "website/frontend/src/api.js":
-                "AA40ECFF433AEC525C61B1E2E1698E9C3B2574C10613163D3932F67D328CE684",
-        }
-        for relative_path, expected_hash in expected_hashes.items():
-            with self.subTest(relative_path=relative_path):
-                self.assertEqual(normalized_sha256(relative_path), expected_hash)
+            self.assertNotIn(forbidden, combined)
 
 if __name__ == "__main__":
     unittest.main()

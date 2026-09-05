@@ -14,7 +14,8 @@ The complete roadmap is implemented through the final demonstration stage:
 - Sanitized dataset preparation, preprocessing, and causal feature engineering.
 - Rule detection, Decision Tree, Random Forest, Isolation Forest, and LSTM models.
 - Hybrid fusion, four-level threat reporting, SHAP-based supporting explanations, and human-readable reasons.
-- Authenticated Flask and React dashboards with filters, event details, XAI, feedback, and simulated response actions.
+- An authenticated Flask analyst dashboard with filters, IDS/IPS, XAI, feedback, and simulated response actions.
+- A separate attacker-facing React company portal with tracked decoy files and controlled SQLi/XSS data-exposure simulations.
 - High/Critical enriched IDS alerts through n8n and Telegram.
 - Six bounded intelligent agents for detection, correlation, severity, explanation, response recommendation, and daily reporting.
 - Offline analyst-guided continuous learning with candidate versioning, quality gates, explicit promotion, and rollback.
@@ -30,10 +31,10 @@ flowchart TD
     D --> E["Severity + XAI + Agents"]
     E --> C
     C --> F["Flask dashboard :5050"]
-    C --> G["React portal :5173"]
+    G["React decoy portal :5173"] --> C
     E --> H["n8n :5678"]
     H --> I["Telegram"]
-    G --> J["Analyst feedback + simulated IPS"]
+    F --> J["Analyst feedback + simulated IPS"]
     J --> K["Versioned continuous learning"]
     K --> D
 ```
@@ -51,7 +52,7 @@ Controlled activity
 -> SHAP support and human-readable explanation
 -> six intelligent agents
 -> JSONL and SQLite persistence
--> dashboards
+-> authenticated analyst dashboard and decoy portal response
 -> High/Critical n8n and Telegram alert
 -> analyst feedback and simulated response
 ```
@@ -65,7 +66,7 @@ Controlled activity
 | HTTP honeypot | 8080 | Captures login attacks, SQLi, XSS, and scanning |
 | Flask dashboard | 5050 | Authenticated security operations dashboard |
 | Express backend | 5000 | Authentication, APIs, SQLite persistence, feedback, and IPS audit |
-| React frontend | 5173 | Portal, IDS dashboard, feedback, and attack details |
+| React frontend | 5173 | Attacker-facing company portal, decoy files, and safe SQLi/XSS demonstrations |
 | n8n | 5678 | Alert workflow and Telegram delivery |
 
 ## Detection and model roles
@@ -197,7 +198,7 @@ intelligent_agents/    six ordered analysis/reporting agents
 continuous_learning/   versioning, comparison, promotion and rollback
 dashboard/             Flask monitoring dashboard
 website/backend/       Express API and SQLite stores
-website/frontend/      React/Vite portal
+website/frontend/      attacker-facing React/Vite decoy portal
 simulation/            controlled attacks and n8n forwarder
 scripts/               final verification and startup helpers
 tests/                 Python integration and safety tests

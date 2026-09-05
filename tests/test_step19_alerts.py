@@ -15,6 +15,10 @@ def sample_ids_result(
     prediction: str = "attack",
     attack_type: str = "sql_injection",
     confidence: object = 0.93,
+    destination_port: int = 8080,
+    event: str = "http_search_sql_injection",
+    model_used: str = "rules",
+    request_path: str = "/search",
 ) -> dict[str, object]:
     return {
         "ids_result_schema_version": "1.0",
@@ -22,17 +26,17 @@ def sample_ids_result(
         "event_id": "5a9d7628-8cec-482a-98f2-0a88a53ebf6d",
         "timestamp": "2026-07-28T08:15:00+00:00",
         "source_ip": "127.0.0.1",
-        "destination_port": 8080,
+        "destination_port": destination_port,
         "service": "http",
-        "event": "http_search_sql_injection",
+        "event": event,
         "attack_type": attack_type,
         "prediction": prediction,
         "confidence": confidence,
         "anomaly_score": 0.04,
-        "model_used": "rules",
+        "model_used": model_used,
         "threat_level": threat_level,
         "threat_score": 91,
-        "request_path": "/search",
+        "request_path": request_path,
         "fusion_reason": "deterministic rule matched",
         "xai": {
             "human_reason": {
@@ -187,12 +191,56 @@ class Step19AlertTests(unittest.TestCase):
         first = normalize_record(sample_ids_result(), source="ids")
         repeated_record = sample_ids_result()
         repeated_record["event_id"] = "different-event-id"
-        repeated_record["request_path"] = "/login"
+        repeated_record["request_path"] = "/search"
         repeated = normalize_record(repeated_record, source="ids")
 
         self.assertFalse(deduplicator.is_duplicate(first, now=100.0))
         deduplicator.mark_sent(first, now=100.0)
         self.assertTrue(deduplicator.is_duplicate(repeated, now=100.001))
+
+    def test_same_attack_on_a_different_target_is_not_suppressed(self) -> None:
+        deduplicator = AlertDeduplicator()
+        first = normalize_record(sample_ids_result(), source="ids")
+        deduplicator.mark_sent(first, now=100.0)
+        login = normalize_record(
+            sample_ids_result(request_path="/api/decoy/login"),
+            source="ids",
+        )
+
+        self.assertFalse(deduplicator.is_duplicate(login, now=101.0))
+
+    def test_portal_background_predictions_are_not_immediate_alerts(self) -> None:
+        background = normalize_record(
+            sample_ids_result(
+                destination_port=5173,
+                event="route_visit",
+                model_used="lstm_classifier",
+                request_path="/",
+            ),
+            source="ids",
+        )
+        real_sql = normalize_record(
+            sample_ids_result(
+                destination_port=5173,
+                event="website_decoy_login_sql_injection",
+                request_path="/api/decoy/login",
+            ),
+            source="ids",
+        )
+        real_directory_scan = normalize_record(
+            sample_ids_result(
+                destination_port=5173,
+                event="website_decoy_search_directory_scanning",
+                attack_type="directory_scanning",
+                model_used="lstm_classifier",
+                request_path="/api/decoy/search",
+            ),
+            source="ids",
+        )
+
+        self.assertFalse(background["alert_eligible"])
+        self.assertTrue(real_sql["alert_eligible"])
+        self.assertTrue(real_directory_scan["alert_eligible"])
 
     def test_different_attack_type_or_service_is_not_suppressed(self) -> None:
         deduplicator = AlertDeduplicator()

@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import PortalShell from "../components/PortalShell";
+import ExposurePanel from "../components/ExposurePanel";
 import { API_BASE, apiRequest } from "../api";
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [query, setQuery] = useState("");
-  const [message, setMessage] = useState("");
+  const [loginMessage, setLoginMessage] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [exposure, setExposure] = useState(null);
 
   useEffect(() => {
     apiRequest("/files")
@@ -19,47 +21,66 @@ export default function HomePage() {
 
   async function onLogin(event) {
     event.preventDefault();
-    setMessage("");
+    setLoginMessage("");
+    setExposure(null);
 
     try {
-      const data = await apiRequest("/login", {
+      const data = await apiRequest("/api/decoy/login", {
         method: "POST",
         body: JSON.stringify({ username, password }),
       });
-      localStorage.setItem("hp_token", data.token);
-      localStorage.setItem("hp_user", JSON.stringify(data.user));
-      navigate("/dashboard");
+      setExposure(data.exposure || null);
+      setLoginMessage(data.message || "Authentication response received");
     } catch (err) {
-      setMessage(err.message || "Login failed");
+      setLoginMessage(err.message || "Login failed");
     }
   }
 
   async function onSearch(event) {
     event.preventDefault();
+    setSearchMessage("");
+    setExposure(null);
+
     try {
-      await apiRequest(`/search?q=${encodeURIComponent(query)}`);
-      setMessage("Search submitted");
+      const data = await apiRequest(`/api/decoy/search?q=${encodeURIComponent(query)}`);
+      setSearchResults(data.results || []);
+      setExposure(data.exposure || null);
+      setSearchMessage(
+        data.exposure
+          ? data.exposure.title
+          : `${data.results?.length || 0} resource${data.results?.length === 1 ? "" : "s"} found`
+      );
     } catch (err) {
-      setMessage(err.message || "Search failed");
+      setSearchResults([]);
+      setSearchMessage(err.message || "Search failed");
     }
   }
 
   return (
     <PortalShell
-      title="Employee Service Portal"
-      subtitle="Internal HR, security, and decoy resources for monitoring suspicious activity."
+      title="Everything your workday needs."
+      subtitle="Access company resources, search internal documents, and sign in to employee services."
     >
-      <section className="grid">
-        <article className="card">
-          <h2>Sign In</h2>
+      <section className="company-strip" id="company" aria-label="Company overview">
+        <article><strong>24</strong><span>Global offices</span></article>
+        <article><strong>4,800+</strong><span>Team members</span></article>
+        <article><strong>99.9%</strong><span>Service availability</span></article>
+      </section>
+
+      <section className="portal-grid">
+        <article className="card access-card" id="employee-access">
+          <p className="section-kicker">Secure workspace</p>
+          <h2>Employee sign in</h2>
+          <p className="card-copy">Use your employee ID to continue to internal services.</p>
           <form onSubmit={onLogin}>
             <div className="field">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="username">Employee ID</label>
               <input
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="employee id"
+                placeholder="e.g. NS-1042"
+                autoComplete="username"
               />
             </div>
             <div className="field">
@@ -69,19 +90,19 @@ export default function HomePage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="password"
+                placeholder="Enter your password"
+                autoComplete="current-password"
               />
             </div>
-            <button type="submit">Login</button>
+            <button type="submit">Sign in</button>
           </form>
-          <p>
-            New user? <Link to="/signup">Create account</Link>
-          </p>
-          {message ? <div className="msg">{message}</div> : null}
+          {loginMessage ? <div className="msg">{loginMessage}</div> : null}
         </article>
 
-        <article className="card">
-          <h2>Resource Search</h2>
+        <article className="card search-card" id="resources">
+          <p className="section-kicker">Knowledge center</p>
+          <h2>Search company resources</h2>
+          <p className="card-copy">Find policies, benefit information, technical guides, and forms.</p>
           <form onSubmit={onSearch}>
             <div className="field">
               <label htmlFor="q">Keyword</label>
@@ -89,22 +110,39 @@ export default function HomePage() {
                 id="q"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="policy, payroll, handbook"
+                placeholder="Try policy, payroll, VPN..."
               />
             </div>
-            <button type="submit">Search</button>
+            <button type="submit">Search resources</button>
           </form>
-          <p>Search route is kept as /search.</p>
+          {searchMessage ? <div className="search-status">{searchMessage}</div> : null}
+          {searchResults.length > 0 ? (
+            <ul className="search-results">
+              {searchResults.map((result) => (
+                <li key={result.title}>
+                  <strong>{result.title}</strong>
+                  <span>{result.category} / {result.classification}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </article>
       </section>
 
-      <section className="card">
-        <h2>Shared Files</h2>
+      <ExposurePanel exposure={exposure} onClose={() => setExposure(null)} />
+
+      <section className="card files-card">
+        <div>
+          <p className="section-kicker">Quick access</p>
+          <h2>Shared company files</h2>
+          <p className="card-copy">Frequently requested internal documents.</p>
+        </div>
         <ul className="file-list">
           {files.map((file) => (
             <li key={file}>
               <a href={`${API_BASE}/files/${encodeURIComponent(file)}`} target="_blank" rel="noreferrer">
-                {file}
+                <span className="file-icon" aria-hidden="true">DOC</span>
+                <span>{file}</span>
               </a>
             </li>
           ))}

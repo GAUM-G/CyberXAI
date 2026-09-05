@@ -43,6 +43,12 @@ const {
   validateIPSActionInput,
 } = require("./ips_response_store");
 const { requireAuth } = require("./middleware/auth");
+const { buildCommonEvent } = require("./common_event");
+const {
+  buildDecoyExposure,
+  detectAttack,
+  searchDecoyRecords,
+} = require("./decoy_simulation");
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
@@ -114,17 +120,18 @@ function pickRequestHeaders(req) {
 }
 
 function writeHoneypotEvent({ sourceIp, event, attackType, payload, metadata, severity = "info" }) {
-  const record = {
-    timestamp: toISTISOString(),
-    source_ip: sourceIp || "127.0.0.1",
-    service: "website",
+  const record = buildCommonEvent({
+    sourceIp,
     event,
-    attack_type: attackType || "web_activity",
-    payload: payload ?? null,
+    attackType,
+    payload,
+    metadata,
     severity,
-    metadata: metadata || {},
-  };
+  });
   fs.appendFile(honeypotLogFile, `${JSON.stringify(record)}\n`, () => {});
+  insertEvent(db, record).catch((error) => {
+    console.error("[Event Store] Portal telemetry insert failed:", error.message);
+  });
 }
 
 function logEvent(event, details) {
@@ -187,23 +194,6 @@ function readRecentLogEntries(filePath, limit) {
     .reverse();
 }
 
-function detectAttack(payload) {
-  const text = String(payload || "").toLowerCase();
-  const findings = [];
-
-  if (/union\s+select|or\s+1\s*=\s*1|drop\s+table|--|information_schema/.test(text)) {
-    findings.push("sql_injection");
-  }
-  if (/<script|javascript:|onerror\s*=|onload\s*=|alert\s*\(/.test(text)) {
-    findings.push("xss");
-  }
-  if (/\.\.\/|etc\/passwd|\.git|phpmyadmin|\.env|wp-admin/.test(text)) {
-    findings.push("directory_scanning");
-  }
-
-  return findings;
-}
-
 app.use((req, res, next) => {
   const startedAt = Date.now();
 
@@ -214,7 +204,13 @@ app.use((req, res, next) => {
       req.path.startsWith("/api/ids-results") ||
       req.path.startsWith("/api/analyst-feedback") ||
       req.path.startsWith("/api/ips") ||
-      req.path.startsWith("/api/auth")
+      req.path.startsWith("/api/auth") ||
+      req.path.startsWith("/api/decoy") ||
+      req.path === "/frontend/log" ||
+      req.path === "/search" ||
+      req.path === "/login" ||
+      req.path === "/signup" ||
+      req.path.startsWith("/files/")
     ) {
       return;
     }
@@ -559,6 +555,8 @@ app.get("/", (_req, res) => {
       "/login",
       "/api/auth/session",
       "/dashboard",
+      "/api/decoy/login",
+      "/api/decoy/search",
       "/search",
       "/files",
       "/files/:filename",
@@ -696,6 +694,80 @@ app.get("/dashboard", requireAuth, (req, res) => {
     },
     user: req.user,
   });
+});
+
+app.post("/api/decoy/login", (req, res) => {
+  const { username = "", password = "" } = req.body || {};
+  const payload = `username=${username}&password=${password}`;
+  const findings = detectAttack(payload);
+  const exposureAttack = findings.find((finding) =>
+    ["sql_injection", "xss"].includes(finding)
+  );
+  const attackType = findings[0] || "authentication_probe";
+  const exposure = buildDecoyExposure(exposureAttack, "employee_login");
+
+  const eventName = exposureAttack
+    ? `website_decoy_login_${exposureAttack}`
+    : "website_decoy_login_attempt";
+  logEvent(eventName, {
+    attackType,
+    payload,
+    findings,
+    username,
+    status: exposure ? "simulated_exposure" : "failed",
+    simulation: Boolean(exposure),
+    exposedRecordCount: exposure?.rows.length || 0,
+    ip: req.ip,
+    sourcePort: req.socket?.remotePort,
+    destinationPort: 5173,
+    method: req.method,
+    path: req.path,
+  });
+
+  if (exposure) {
+    return res.json({
+      authenticated: false,
+      message: exposure.title,
+      exposure,
+    });
+  }
+
+  return res.status(401).json({
+    authenticated: false,
+    error: "Employee ID or password was not recognized",
+  });
+});
+
+app.get("/api/decoy/search", (req, res) => {
+  const query = String(req.query.q || "");
+  const findings = detectAttack(query);
+  const exposureAttack = findings.find((finding) =>
+    ["sql_injection", "xss"].includes(finding)
+  );
+  const attackType = findings[0] || "web_activity";
+  const exposure = buildDecoyExposure(exposureAttack, "resource_search");
+  const results = exposure ? [] : searchDecoyRecords(query);
+
+  const eventName = attackType === "web_activity"
+    ? "website_decoy_search"
+    : `website_decoy_search_${attackType}`;
+  logEvent(eventName, {
+    attackType,
+    query,
+    findings,
+    queryLength: query.length,
+    status: exposure ? "simulated_exposure" : "search_complete",
+    simulation: Boolean(exposure),
+    exposedRecordCount: exposure?.rows.length || 0,
+    resultCount: results.length,
+    ip: req.ip,
+    sourcePort: req.socket?.remotePort,
+    destinationPort: 5173,
+    method: req.method,
+    path: req.path,
+  });
+
+  return res.json({ query, results, exposure });
 });
 
 app.get("/search", (req, res) => {
