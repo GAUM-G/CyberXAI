@@ -9,15 +9,16 @@ import math
 import os
 import platform
 import queue
+import secrets
 import sys
 import time
+import urllib.parse
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
 from datetime import timedelta
-from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Generator
+from typing import Any, Generator
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -32,7 +33,6 @@ try:
         jsonify,
         render_template,
         request,
-        session,
     )
     _FLASK_OK = True
 except ImportError:
@@ -55,10 +55,13 @@ PORTAL_API_URL = os.environ.get(
     "PORTAL_API_URL",
     "http://127.0.0.1:5000",
 ).strip().rstrip("/")
-DASHBOARD_SECRET_KEY = os.environ.get(
-    "DASHBOARD_SECRET_KEY",
-    "change-this-local-dashboard-secret",
-).strip()
+EVENT_STATS_API_URL = f"{PORTAL_API_URL}/api/events/stats"
+DASHBOARD_TOKEN_FILE = Path(
+    os.environ.get(
+        "DASHBOARD_INTERNAL_TOKEN_FILE",
+        str(PROJECT_ROOT / "data" / "runtime" / "dashboard_internal.token"),
+    )
+).resolve()
 IDS_ACTIVE_WINDOW_MINUTES = max(
     1,
     int(os.environ.get("IDS_ACTIVE_WINDOW_MINUTES", "15")),
@@ -66,72 +69,54 @@ IDS_ACTIVE_WINDOW_MINUTES = max(
 _START_TIME = time.time()
 
 
-def _portal_request(
-    path: str,
-    *,
-    method: str = "GET",
-    token: str = "",
-    payload: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Call the authenticated portal without exposing credentials in logs."""
-
-    headers = {"Accept": "application/json"}
-    body = None
-    if payload is not None:
-        headers["Content-Type"] = "application/json"
-        body = json.dumps(payload).encode("utf-8")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    portal_request = urllib.request.Request(
-        f"{PORTAL_API_URL}{path}",
-        data=body,
-        headers=headers,
-        method=method,
-    )
-    with urllib.request.urlopen(portal_request, timeout=3.0) as response:
-        value = json.loads(response.read().decode("utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError("portal returned an invalid response")
-    return value
+_DASHBOARD_INTERNAL_TOKEN: str | None = None
 
 
-def _portal_login(username: str, password: str) -> dict[str, Any]:
-    return _portal_request(
-        "/login",
-        method="POST",
-        payload={"username": username, "password": password},
-    )
+def _dashboard_internal_token() -> str:
+    """Load the credential shared only by the local dashboard and backend."""
 
+    global _DASHBOARD_INTERNAL_TOKEN
+    configured = os.environ.get("DASHBOARD_INTERNAL_TOKEN", "").strip()
+    if configured:
+        return configured
+    if _DASHBOARD_INTERNAL_TOKEN:
+        return _DASHBOARD_INTERNAL_TOKEN
 
-def _validate_portal_token(token: str) -> dict[str, Any] | None:
-    if not token:
-        return None
+    DASHBOARD_TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    generated = secrets.token_urlsafe(32)
     try:
-        data = _portal_request("/api/auth/session", token=token)
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
-        return None
-    user = data.get("user")
-    return user if isinstance(user, dict) else None
+        descriptor = os.open(
+            DASHBOARD_TOKEN_FILE,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+        )
+    except FileExistsError:
+        pass
+    else:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as token_file:
+            token_file.write(f"{generated}\n")
 
-
-def require_dashboard_auth(view: Callable[..., Any]) -> Callable[..., Any]:
-    """Require a currently valid portal JWT stored in the signed session."""
-
-    @wraps(view)
-    def protected(*args: Any, **kwargs: Any) -> Any:
-        token = str(session.get("portal_token") or "")
-        user = _validate_portal_token(token)
-        if user is None:
-            session.clear()
-            return jsonify({"error": "Dashboard login required"}), 401
-        session["portal_user"] = user
-        return view(*args, **kwargs)
-
-    return protected
+    _DASHBOARD_INTERNAL_TOKEN = DASHBOARD_TOKEN_FILE.read_text(encoding="utf-8").strip()
+    if len(_DASHBOARD_INTERNAL_TOKEN) < 32:
+        raise RuntimeError("Dashboard internal token is missing or invalid")
+    return _DASHBOARD_INTERNAL_TOKEN
 
 
 def _all_events(limit: int = 2000) -> list[dict[str, Any]]:
     return read_recent_events(limit=limit)
+
+
+def _central_event_stats() -> dict[str, Any] | None:
+    """Read uncapped all-time counters from the centralized event store."""
+
+    try:
+        headers = {"X-Dashboard-Internal-Token": _dashboard_internal_token()}
+        stats_request = urllib.request.Request(EVENT_STATS_API_URL, headers=headers)
+        with urllib.request.urlopen(stats_request, timeout=2.0) as response:
+            value = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def _read_ids_results_file(limit: int) -> list[dict[str, Any]]:
@@ -156,8 +141,7 @@ def _all_ids_results(limit: int = 2000) -> list[dict[str, Any]]:
         separator = "&" if "?" in IDS_RESULTS_API_URL else "?"
         url = f"{IDS_RESULTS_API_URL}{separator}limit={max(1, min(limit, 2000))}"
         try:
-            token = str(session.get("portal_token") or "")
-            headers = {"Authorization": f"Bearer {token}"} if token else {}
+            headers = {"X-Dashboard-Internal-Token": _dashboard_internal_token()}
             ids_request = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(ids_request, timeout=2.0) as response:
                 value = json.loads(response.read().decode("utf-8"))
@@ -547,68 +531,88 @@ def create_dashboard_app() -> "Flask":
     if not _FLASK_OK:
         raise RuntimeError("Flask required.")
     app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
-    app.config.update(
-        SECRET_KEY=DASHBOARD_SECRET_KEY,
-        SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
-    )
 
     @app.route("/")
     def index() -> Any:
-        return render_template(
-            "index.html",
-            portal_api_url=PORTAL_API_URL,
-        )
+        return render_template("index.html")
 
-    @app.route("/api/auth/login", methods=["POST"])
-    def api_auth_login() -> Any:
-        body = request.get_json(silent=True)
-        username = str((body or {}).get("username") or "").strip()
-        password = str((body or {}).get("password") or "")
-        if not username or not password:
-            return jsonify({"error": "Username and password are required"}), 400
+    def proxy_backend(path: str) -> Response:
+        """Relay allow-listed analyst calls through the localhost dashboard."""
+
+        query = request.query_string.decode("ascii", errors="ignore")
+        target = f"{PORTAL_API_URL}{path}"
+        if query:
+            target = f"{target}?{query}"
+        headers = {
+            "Accept": "application/json",
+            "X-Dashboard-Internal-Token": _dashboard_internal_token(),
+        }
+        body = None
+        if request.method == "POST":
+            headers["Content-Type"] = "application/json"
+            body = json.dumps(request.get_json(silent=True) or {}).encode("utf-8")
+        backend_request = urllib.request.Request(
+            target,
+            data=body,
+            headers=headers,
+            method=request.method,
+        )
         try:
-            data = _portal_login(username, password)
+            with urllib.request.urlopen(backend_request, timeout=3.0) as response:
+                response_body = response.read()
+                status = response.status
+                content_type = response.headers.get("Content-Type", "application/json")
         except HTTPError as exc:
-            return jsonify({"error": "Login failed"}), exc.code
-        except (URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
-            return jsonify({"error": "Portal authentication is unavailable"}), 502
-        token = str(data.get("token") or "")
-        user = data.get("user")
-        if not token or not isinstance(user, dict):
-            return jsonify({"error": "Portal returned an invalid login"}), 502
-        session.clear()
-        session["portal_token"] = token
-        session["portal_user"] = user
-        return jsonify({"authenticated": True, "token": token, "user": user})
+            response_body = exc.read()
+            status = exc.code
+            content_type = exc.headers.get("Content-Type", "application/json")
+        except (URLError, TimeoutError, OSError):
+            return Response(
+                json.dumps({"error": "Defender data service is unavailable"}),
+                status=502,
+                content_type="application/json",
+            )
+        return Response(response_body, status=status, content_type=content_type)
 
-    @app.route("/api/auth/session")
-    def api_auth_session() -> Any:
-        token = str(session.get("portal_token") or "")
-        user = _validate_portal_token(token)
-        if user is None:
-            session.clear()
-            return jsonify({"authenticated": False}), 401
-        session["portal_user"] = user
-        return jsonify(
-            {
-                "authenticated": True,
-                "token": token,
-                "user": user,
-                "timezone": "Asia/Kolkata",
-            }
-        )
+    @app.route("/api/analyst-feedback")
+    @app.route("/api/analyst-feedback/latest")
+    @app.route("/api/analyst-feedback/stats")
+    def proxy_analyst_feedback() -> Response:
+        return proxy_backend(request.path)
 
-    @app.route("/api/auth/logout", methods=["POST"])
-    def api_auth_logout() -> Any:
-        session.clear()
-        return jsonify({"authenticated": False})
+    @app.route("/api/analyst-feedback/<event_id>", methods=["GET", "POST"])
+    def proxy_analyst_event(event_id: str) -> Response:
+        safe_event_id = urllib.parse.quote(event_id, safe="")
+        return proxy_backend(f"/api/analyst-feedback/{safe_event_id}")
+
+    @app.route("/api/ips/safety")
+    @app.route("/api/ips/status")
+    @app.route("/api/ips/recommendations")
+    @app.route("/api/ips/actions", methods=["GET", "POST"])
+    def proxy_ips() -> Response:
+        return proxy_backend(request.path)
 
     @app.route("/api/monitor")
-    @require_dashboard_auth
     def api_monitor() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
+        central_stats = _central_event_stats()
+        if central_stats is not None:
+            by_severity = central_stats.get("by_severity")
+            if isinstance(by_severity, dict):
+                stats["by_severity"] = by_severity
+                stats["threats_detected"] = int(by_severity.get("warning", 0)) + int(
+                    by_severity.get("critical", 0)
+                )
+            for local_name, central_name in (
+                ("total_events", "total_events"),
+                ("unique_ips", "unique_ips"),
+                ("by_service", "by_service"),
+                ("by_attack", "by_attack_type"),
+            ):
+                value = central_stats.get(central_name)
+                if isinstance(value, (int, dict)) and not isinstance(value, bool):
+                    stats[local_name] = value
         sys_stats = _system_stats()
         port_scan_stats = _port_scan_summary(events)
         return jsonify({
@@ -619,7 +623,6 @@ def create_dashboard_app() -> "Flask":
         })
 
     @app.route("/api/honeypot")
-    @require_dashboard_auth
     def api_honeypot() -> Any:
         events = _all_events(2000)
         services: dict[str, dict] = {}
@@ -634,13 +637,11 @@ def create_dashboard_app() -> "Flask":
         return jsonify({"services": services, "credentials": credentials[:100]})
 
     @app.route("/api/credentials")
-    @require_dashboard_auth
     def api_credentials() -> Any:
         events = _all_events(2000)
         return jsonify(_extract_credentials(events))
 
     @app.route("/api/ids")
-    @require_dashboard_auth
     def api_ids() -> Any:
         results = _all_ids_results(2000)
         stats = _compute_ids_stats(results)
@@ -671,7 +672,6 @@ def create_dashboard_app() -> "Flask":
         })
 
     @app.route("/api/agents")
-    @require_dashboard_auth
     def api_agents() -> Any:
         results = _all_ids_results(2000)
         analyzed = [
@@ -714,13 +714,11 @@ def create_dashboard_app() -> "Flask":
         )
 
     @app.route("/api/xai/alerts")
-    @require_dashboard_auth
     def api_xai_alerts() -> Any:
         events = _all_events(2000)
         return jsonify({"alerts": _xai_alerts(events, limit=50)})
 
     @app.route("/api/xai/report", methods=["POST"])
-    @require_dashboard_auth
     def api_xai_report() -> Any:
         events = _all_events(2000)
         alerts = _xai_alerts(events, limit=30)
@@ -745,7 +743,6 @@ def create_dashboard_app() -> "Flask":
             return jsonify({"status": "error", "message": "Unexpected error sending XAI report.", "detail": str(exc)}), 500
 
     @app.route("/api/report")
-    @require_dashboard_auth
     def api_report() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
@@ -758,7 +755,6 @@ def create_dashboard_app() -> "Flask":
         })
 
     @app.route("/api/report/download")
-    @require_dashboard_auth
     def api_report_download() -> Any:
         events = _all_events(2000)
         stats = _compute_stats(events)
@@ -808,7 +804,6 @@ def create_dashboard_app() -> "Flask":
                         headers={"Content-Disposition": f"attachment; filename={fname}"})
 
     @app.route("/stream")
-    @require_dashboard_auth
     def stream() -> Any:
         def _gen() -> Generator[str, None, None]:
             q = get_stream_queue()
@@ -829,6 +824,8 @@ def create_dashboard_app() -> "Flask":
 
 
 def start_dashboard(host: str = "127.0.0.1", port: int = 5050) -> None:
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("The login-free defender dashboard must remain loopback-only")
     app = create_dashboard_app()
     print(f"[Dashboard] http://{host}:{port}")
     app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)

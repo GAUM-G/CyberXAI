@@ -43,9 +43,11 @@ const {
   validateIPSActionInput,
 } = require("./ips_response_store");
 const { requireAuth } = require("./middleware/auth");
+const { requireDashboardAccess } = require("./middleware/dashboard_access");
 const { buildCommonEvent } = require("./common_event");
 const {
   buildDecoyExposure,
+  buildExposureAudit,
   detectAttack,
   searchDecoyRecords,
 } = require("./decoy_simulation");
@@ -56,8 +58,6 @@ const PORT = Number(process.env.PORT || 5000);
 const allowedFrontendOrigins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "http://localhost:5050",
-  "http://127.0.0.1:5050",
   ...String(process.env.FRONTEND_URL || "")
     .split(",")
     .map((origin) => origin.trim())
@@ -262,7 +262,7 @@ app.post("/api/events", async (req, res) => {
   }
 });
 
-app.get("/api/events", requireAuth, async (req, res) => {
+app.get("/api/events", requireDashboardAccess, async (req, res) => {
   try {
     const events = await listEvents(db, {
       limit: req.query.limit,
@@ -279,7 +279,7 @@ app.get("/api/events", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/events/stats", requireAuth, async (_req, res) => {
+app.get("/api/events/stats", requireDashboardAccess, async (_req, res) => {
   try {
     const stats = await getEventStats(db);
     return res.json({ source: "sqlite", ...stats });
@@ -323,7 +323,7 @@ app.post("/api/ids-results", async (req, res) => {
   }
 });
 
-app.get("/api/ids-results", requireAuth, async (req, res) => {
+app.get("/api/ids-results", requireDashboardAccess, async (req, res) => {
   try {
     const results = await listIDSResults(db, {
       limit: req.query.limit,
@@ -341,7 +341,7 @@ app.get("/api/ids-results", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/ids-results/stats", requireAuth, async (_req, res) => {
+app.get("/api/ids-results/stats", requireDashboardAccess, async (_req, res) => {
   try {
     const stats = await getIDSResultStats(db);
     return res.json({ source: "sqlite", ...stats });
@@ -353,7 +353,7 @@ app.get("/api/ids-results/stats", requireAuth, async (_req, res) => {
   }
 });
 
-app.get("/api/analyst-feedback", requireAuth, async (req, res) => {
+app.get("/api/analyst-feedback", requireDashboardAccess, async (req, res) => {
   try {
     const feedback = await listAnalystFeedback(db, {
       eventId: req.query.event_id,
@@ -368,7 +368,7 @@ app.get("/api/analyst-feedback", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/analyst-feedback/latest", requireAuth, async (req, res) => {
+app.get("/api/analyst-feedback/latest", requireDashboardAccess, async (req, res) => {
   const eventIds = String(req.query.event_ids || "")
     .split(",")
     .map((eventId) => eventId.trim())
@@ -386,7 +386,7 @@ app.get("/api/analyst-feedback/latest", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/analyst-feedback/stats", requireAuth, async (_req, res) => {
+app.get("/api/analyst-feedback/stats", requireDashboardAccess, async (_req, res) => {
   try {
     const stats = await getFeedbackStats(db);
     return res.json({ source: "sqlite", ...stats });
@@ -396,7 +396,7 @@ app.get("/api/analyst-feedback/stats", requireAuth, async (_req, res) => {
   }
 });
 
-app.post("/api/analyst-feedback/:eventId", requireAuth, async (req, res) => {
+app.post("/api/analyst-feedback/:eventId", requireDashboardAccess, async (req, res) => {
   const errors = validateFeedbackInput(req.body);
   if (errors.length > 0) {
     return res.status(400).json({
@@ -449,7 +449,7 @@ app.post("/api/analyst-feedback/:eventId", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/ips/safety", (_req, res) => {
+app.get("/api/ips/safety", requireDashboardAccess, (_req, res) => {
   return res.json({
     mode: IPS_MODE,
     automatic_host_blocking: AUTOMATIC_HOST_BLOCKING,
@@ -458,7 +458,7 @@ app.get("/api/ips/safety", (_req, res) => {
   });
 });
 
-app.get("/api/ips/status", requireAuth, async (_req, res) => {
+app.get("/api/ips/status", requireDashboardAccess, async (_req, res) => {
   try {
     const status = await getIPSStatus(db);
     return res.json({ source: "sqlite", ...status });
@@ -468,7 +468,7 @@ app.get("/api/ips/status", requireAuth, async (_req, res) => {
   }
 });
 
-app.get("/api/ips/recommendations", requireAuth, async (req, res) => {
+app.get("/api/ips/recommendations", requireDashboardAccess, async (req, res) => {
   try {
     const recommendations = await listIPSRecommendations(db, {
       status: req.query.status,
@@ -488,7 +488,7 @@ app.get("/api/ips/recommendations", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/ips/actions", requireAuth, async (req, res) => {
+app.get("/api/ips/actions", requireDashboardAccess, async (req, res) => {
   try {
     const actions = await listIPSActions(db, {
       status: req.query.status,
@@ -504,7 +504,7 @@ app.get("/api/ips/actions", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/ips/actions", requireAuth, async (req, res) => {
+app.post("/api/ips/actions", requireDashboardAccess, async (req, res) => {
   const errors = validateIPSActionInput(req.body);
   if (errors.length > 0) {
     return res.status(400).json({
@@ -705,6 +705,7 @@ app.post("/api/decoy/login", (req, res) => {
   );
   const attackType = findings[0] || "authentication_probe";
   const exposure = buildDecoyExposure(exposureAttack, "employee_login");
+  const exposureAudit = buildExposureAudit(exposure);
 
   const eventName = exposureAttack
     ? `website_decoy_login_${exposureAttack}`
@@ -717,6 +718,7 @@ app.post("/api/decoy/login", (req, res) => {
     status: exposure ? "simulated_exposure" : "failed",
     simulation: Boolean(exposure),
     exposedRecordCount: exposure?.rows.length || 0,
+    exposureAudit,
     ip: req.ip,
     sourcePort: req.socket?.remotePort,
     destinationPort: 5173,
@@ -746,6 +748,7 @@ app.get("/api/decoy/search", (req, res) => {
   );
   const attackType = findings[0] || "web_activity";
   const exposure = buildDecoyExposure(exposureAttack, "resource_search");
+  const exposureAudit = buildExposureAudit(exposure);
   const results = exposure ? [] : searchDecoyRecords(query);
 
   const eventName = attackType === "web_activity"
@@ -759,6 +762,7 @@ app.get("/api/decoy/search", (req, res) => {
     status: exposure ? "simulated_exposure" : "search_complete",
     simulation: Boolean(exposure),
     exposedRecordCount: exposure?.rows.length || 0,
+    exposureAudit,
     resultCount: results.length,
     ip: req.ip,
     sourcePort: req.socket?.remotePort,

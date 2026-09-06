@@ -151,17 +151,11 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
         )
 
         old_all_events = dashboard_module._all_events
-        old_validator = dashboard_module._validate_portal_token
+        old_central_stats = dashboard_module._central_event_stats
         dashboard_module._all_events = lambda limit: events[:limit]
-        dashboard_module._validate_portal_token = (
-            lambda token: {"id": 1, "username": "analyst"}
-            if token == "test-token"
-            else None
-        )
+        dashboard_module._central_event_stats = lambda: None
         try:
             client = dashboard_module.create_dashboard_app().test_client()
-            with client.session_transaction() as dashboard_session:
-                dashboard_session["portal_token"] = "test-token"
             monitor_response = client.get("/api/monitor").get_json()
             monitor_events = monitor_response["recent_events"]
             service_events = client.get("/api/honeypot").get_json()["services"]["http"]["recent"]
@@ -188,7 +182,41 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
             self.assertIn("Port Scanning", dashboard_html)
         finally:
             dashboard_module._all_events = old_all_events
-            dashboard_module._validate_portal_token = old_validator
+            dashboard_module._central_event_stats = old_central_stats
+
+    def test_monitor_uses_uncapped_central_statistics(self) -> None:
+        old_all_events = dashboard_module._all_events
+        old_central_stats = dashboard_module._central_event_stats
+        dashboard_module._all_events = lambda limit: [
+            {
+                "timestamp": "2026-07-19T09:00:00+00:00",
+                "source_ip": "127.0.0.1",
+                "service": "http",
+                "event": "website_decoy_search",
+                "attack_type": "web_activity",
+                "severity": "info",
+                "payload": None,
+            }
+        ]
+        dashboard_module._central_event_stats = lambda: {
+            "total_events": 2501,
+            "unique_ips": 7,
+            "by_service": {"http": 2400, "ssh": 101},
+            "by_severity": {"info": 2400, "warning": 100, "critical": 1},
+            "by_attack_type": {"web_activity": 2400, "sql_injection": 101},
+        }
+        try:
+            payload = dashboard_module.create_dashboard_app().test_client().get(
+                "/api/monitor"
+            ).get_json()
+            self.assertEqual(2501, payload["total_events"])
+            self.assertEqual(7, payload["unique_ips"])
+            self.assertEqual(101, payload["threats_detected"])
+            self.assertEqual(101, payload["by_attack"]["sql_injection"])
+            self.assertEqual(1, len(payload["recent_events"]))
+        finally:
+            dashboard_module._all_events = old_all_events
+            dashboard_module._central_event_stats = old_central_stats
 
 
 if __name__ == "__main__":

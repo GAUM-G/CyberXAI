@@ -65,6 +65,7 @@ test("central event store validates, deduplicates and retrieves events", async (
 
     const stats = await getEventStats(database);
     assert.equal(stats.total_events, 1);
+    assert.equal(stats.unique_ips, 1);
     assert.deepEqual(stats.by_service, { ssh: 1 });
 
     const secondEvent = sampleEvent({

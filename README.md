@@ -14,7 +14,7 @@ The complete roadmap is implemented through the final demonstration stage:
 - Sanitized dataset preparation, preprocessing, and causal feature engineering.
 - Rule detection, Decision Tree, Random Forest, Isolation Forest, and LSTM models.
 - Hybrid fusion, four-level threat reporting, SHAP-based supporting explanations, and human-readable reasons.
-- An authenticated Flask analyst dashboard with filters, IDS/IPS, XAI, feedback, and simulated response actions.
+- A login-free, localhost-only Flask defender dashboard with IDS/IPS, XAI, feedback, captured activity, and simulated response actions.
 - A separate attacker-facing React company portal with tracked decoy files and controlled SQLi/XSS data-exposure simulations.
 - High/Critical enriched IDS alerts through n8n and Telegram.
 - Six bounded intelligent agents for detection, correlation, severity, explanation, response recommendation, and daily reporting.
@@ -30,7 +30,7 @@ flowchart TD
     B --> D["Preprocessing + Hybrid IDS"]
     D --> E["Severity + XAI + Agents"]
     E --> C
-    C --> F["Flask dashboard :5050"]
+    C -->|"server-side internal credential"| F["Local defender dashboard :5050"]
     G["React decoy portal :5173"] --> C
     E --> H["n8n :5678"]
     H --> I["Telegram"]
@@ -52,7 +52,7 @@ Controlled activity
 -> SHAP support and human-readable explanation
 -> six intelligent agents
 -> JSONL and SQLite persistence
--> authenticated analyst dashboard and decoy portal response
+-> localhost defender dashboard and safe decoy portal response
 -> High/Critical n8n and Telegram alert
 -> analyst feedback and simulated response
 ```
@@ -64,8 +64,8 @@ Controlled activity
 | SSH honeypot | 2222 | Captures repeated authentication attempts |
 | FTP honeypot | 2121 | Captures logins, commands, and decoy-file activity |
 | HTTP honeypot | 8080 | Captures login attacks, SQLi, XSS, and scanning |
-| Flask dashboard | 5050 | Authenticated security operations dashboard |
-| Express backend | 5000 | Authentication, APIs, SQLite persistence, feedback, and IPS audit |
+| Flask dashboard | 5050 | Login-free, localhost-only defender operations dashboard |
+| Express backend | 5000 | Protected APIs, SQLite persistence, feedback, and IPS audit |
 | React frontend | 5173 | Attacker-facing company portal, decoy files, and safe SQLi/XSS demonstrations |
 | n8n | 5678 | Alert workflow and Telegram delivery |
 

@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   DECOY_EMPLOYEE_RECORDS,
   buildDecoyExposure,
+  buildExposureAudit,
   detectAttack,
   searchDecoyRecords,
 } = require("../decoy_simulation");
@@ -32,6 +33,21 @@ test("XSS exposure models browser-readable cache data without executable content
   assert.equal(exposure.rows.length, 4);
   assert.ok(exposure.exposed_items.some((item) => item.label === "Session"));
   assert.equal(JSON.stringify(exposure).includes("<script"), false);
+});
+
+test("displayed exposure audit records the exact fictional result and safety controls", () => {
+  for (const attackType of ["sql_injection", "xss"]) {
+    const exposure = buildDecoyExposure(attackType, "resource_search");
+    const audit = buildExposureAudit(exposure);
+
+    assert.equal(audit.displayed, true);
+    assert.equal(audit.record_count, exposure.rows.length);
+    assert.deepEqual(audit.rows, exposure.rows);
+    assert.equal(audit.safety.fictional_data_only, true);
+    assert.equal(audit.safety.real_database_access, false);
+    assert.equal(audit.safety.unrestricted_javascript, false);
+  }
+  assert.equal(buildExposureAudit(null), null);
 });
 
 test("ordinary portal searches return a small decoy catalog", () => {

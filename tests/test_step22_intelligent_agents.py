@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 from core.event_schema import build_common_event
@@ -116,6 +117,29 @@ class Step22IntelligentAgentTests(unittest.TestCase):
             self.assertEqual(report["total_events"], 1)
             self.assertFalse(report["credentials_included"])
             self.assertNotIn("do-not-copy", reports[0].read_text(encoding="utf-8"))
+
+    def test_locked_daily_report_never_stops_ids_processing(self) -> None:
+        source = event()
+        integrated = build_integrated_result(
+            source,
+            ids_result(str(source["event_id"]), str(source["timestamp"])),
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            orchestrator = IntelligentAgentOrchestrator(
+                daily_report_directory=Path(directory)
+            )
+            with patch(
+                "intelligent_agents.orchestrator.os.replace",
+                side_effect=PermissionError("report is temporarily locked"),
+            ), patch("intelligent_agents.orchestrator.time.sleep"):
+                agents = orchestrator.process(source, integrated)
+
+        self.assertEqual(agents["detection"]["status"], "completed")
+        self.assertEqual(agents["daily_report_persistence"]["status"], "deferred")
+        self.assertFalse(
+            agents["daily_report_persistence"]["required_for_detection"]
+        )
 
     def test_correlation_escalates_repeated_high_activity_to_critical(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

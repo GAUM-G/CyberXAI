@@ -59,13 +59,13 @@ class Step20BackendTests(unittest.TestCase):
             database.index("initializeAnalystFeedbackStore(db)"),
         )
 
-    def test_all_feedback_endpoints_are_authenticated(self) -> None:
+    def test_feedback_endpoints_accept_only_defender_or_legacy_access(self) -> None:
         server = read("website/backend/server.js")
         for route in (
-            'app.get("/api/analyst-feedback", requireAuth',
-            'app.get("/api/analyst-feedback/latest", requireAuth',
-            'app.get("/api/analyst-feedback/stats", requireAuth',
-            'app.post("/api/analyst-feedback/:eventId", requireAuth',
+            'app.get("/api/analyst-feedback", requireDashboardAccess',
+            'app.get("/api/analyst-feedback/latest", requireDashboardAccess',
+            'app.get("/api/analyst-feedback/stats", requireDashboardAccess',
+            'app.post("/api/analyst-feedback/:eventId", requireDashboardAccess',
         ):
             self.assertIn(route, server)
 
@@ -94,14 +94,13 @@ class Step20DashboardTests(unittest.TestCase):
         ):
             self.assertIn(marker, dashboard)
 
-    def test_analyst_dashboard_keeps_authentication_and_simulated_ips_controls(self) -> None:
+    def test_local_dashboard_keeps_feedback_and_simulated_ips_controls(self) -> None:
         dashboard = read("dashboard/templates/index.html")
         application = read("dashboard/app.py")
 
         for marker in (
-            "Honeypot Analyst Login",
-            "signInAnalyst",
-            "signOutAnalyst",
+            "Local defender console",
+            "Defender controls enabled",
             "Generate XAI Report",
             "simulate_block",
             "rate_limit",
@@ -109,9 +108,12 @@ class Step20DashboardTests(unittest.TestCase):
         ):
             self.assertIn(marker, dashboard)
 
-        self.assertIn("@require_dashboard_auth", application)
-        self.assertIn('@app.route("/api/auth/login", methods=["POST"])', application)
-        self.assertIn('@app.route("/api/auth/session")', application)
+        self.assertNotIn("@require_dashboard_auth", application)
+        self.assertNotIn('/api/auth/login', application)
+        self.assertIn("X-Dashboard-Internal-Token", application)
+        self.assertIn('@app.route("/api/analyst-feedback")', application)
+        self.assertIn('@app.route("/api/ips/actions", methods=["GET", "POST"])', application)
+        self.assertIn('app.get("/api/ips/safety", requireDashboardAccess', read("website/backend/server.js"))
 
     def test_public_react_portal_has_no_feedback_or_ids_connectivity(self) -> None:
         app = read("website/frontend/src/App.jsx")

@@ -60,6 +60,10 @@ React decoy portal: http://localhost:5173
 n8n: http://localhost:5678
 ```
 
+The port 5050 defender dashboard has no login or signup screen. It is bound to
+localhost and relays protected analyst requests to port 5000 with a server-side
+internal credential that is never exposed to the port 5173 attacker portal.
+
 ## Confirm all ports
 
 ```powershell
@@ -102,7 +106,7 @@ Then show, in order:
 
 1. Terminal 4 final IDS line with attack type, severity, XAI, and agents.
 2. The fictional employee rows shown safely in the React response console.
-3. Flask dashboard incident details.
+3. Flask dashboard captured activity and incident details, including the recorded fictional result.
 4. Telegram enriched High/Critical alert.
 5. Analyst feedback panel.
 6. Simulated IPS recommendation/action showing host firewall unchanged.

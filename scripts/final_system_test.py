@@ -213,9 +213,10 @@ def _check_runtime_http() -> str:
     expectations = {
         "http://127.0.0.1:8080/": {200},
         "http://127.0.0.1:5050/": {200},
-        "http://127.0.0.1:5050/api/auth/session": {200, 401},
+        "http://127.0.0.1:5050/api/monitor": {200},
+        "http://127.0.0.1:5050/api/ips/safety": {200},
         "http://127.0.0.1:5000/": {200},
-        "http://127.0.0.1:5000/api/ips/safety": {200},
+        "http://127.0.0.1:5000/api/ids-results": {401},
         "http://127.0.0.1:5173/": {200},
         "http://127.0.0.1:5678/healthz": {200},
     }
@@ -230,7 +231,7 @@ def _check_runtime_http() -> str:
             failed.append(f"{url}: HTTP {status}")
     if failed:
         raise RuntimeError("; ".join(failed))
-    return "honeypot, dashboards, backend safety endpoint, frontend and n8n are healthy"
+    return "honeypot, local defender proxy, protected backend, frontend and n8n are healthy"
 
 
 def _read_jsonl_after(path: Path, offset: int) -> list[dict[str, Any]]:

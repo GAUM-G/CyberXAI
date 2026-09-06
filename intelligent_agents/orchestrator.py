@@ -6,6 +6,7 @@ import copy
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
@@ -56,9 +57,9 @@ class IntelligentAgentOrchestrator:
         )
         self._lock = RLock()
 
-    def _persist_daily_report(self, report: Mapping[str, Any]) -> None:
+    def _persist_daily_report(self, report: Mapping[str, Any]) -> bool:
         if self.daily_report_directory is None:
-            return
+            return True
         self.daily_report_directory.mkdir(parents=True, exist_ok=True)
         day = str(report.get("report_date_ist") or "unknown")
         destination = self.daily_report_directory / f"daily_report_{day}.json"
@@ -76,7 +77,20 @@ class IntelligentAgentOrchestrator:
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
                 handle.write(content)
-            os.replace(temporary_name, destination)
+            last_error: OSError | None = None
+            for attempt in range(5):
+                try:
+                    os.replace(temporary_name, destination)
+                    return True
+                except OSError as error:
+                    last_error = error
+                    if attempt < 4:
+                        time.sleep(0.05 * (attempt + 1))
+            print(
+                "[AGENTS] Daily report update deferred; IDS processing continues: "
+                f"{last_error}"
+            )
+            return False
         finally:
             try:
                 Path(temporary_name).unlink(missing_ok=True)
@@ -120,7 +134,7 @@ class IntelligentAgentOrchestrator:
                 severity,
                 response,
             )
-            self._persist_daily_report(daily_report)
+            daily_report_persisted = self._persist_daily_report(daily_report)
 
         protected_after = {
             "prediction": ids_result.get("prediction"),
@@ -142,6 +156,10 @@ class IntelligentAgentOrchestrator:
             "explanation": explanation,
             "response": response,
             "daily_report": daily_report,
+            "daily_report_persistence": {
+                "status": "written" if daily_report_persisted else "deferred",
+                "required_for_detection": False,
+            },
             "safety": {
                 "original_prediction_changed": False,
                 "original_threat_level_changed": False,

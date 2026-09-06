@@ -306,8 +306,9 @@ function allRows(database, sql) {
 }
 
 async function getEventStats(database) {
-  const [totalRows, serviceRows, severityRows, attackRows] = await Promise.all([
+  const [totalRows, sourceRows, serviceRows, severityRows, attackRows] = await Promise.all([
     allRows(database, "SELECT COUNT(*) AS count FROM honeypot_events"),
+    allRows(database, "SELECT COUNT(DISTINCT source_ip) AS count FROM honeypot_events"),
     allRows(database, "SELECT service AS name, COUNT(*) AS count FROM honeypot_events GROUP BY service"),
     allRows(database, "SELECT severity AS name, COUNT(*) AS count FROM honeypot_events GROUP BY severity"),
     allRows(database, "SELECT attack_type AS name, COUNT(*) AS count FROM honeypot_events GROUP BY attack_type"),
@@ -318,6 +319,7 @@ async function getEventStats(database) {
 
   return {
     total_events: totalRows[0]?.count || 0,
+    unique_ips: sourceRows[0]?.count || 0,
     by_service: toObject(serviceRows),
     by_severity: toObject(severityRows),
     by_attack_type: toObject(attackRows),

@@ -117,6 +117,32 @@ function buildDecoyExposure(attackType, entryPoint) {
   return null;
 }
 
+function buildExposureAudit(exposure) {
+  if (!exposure || exposure.simulation !== true) {
+    return null;
+  }
+
+  return {
+    displayed: true,
+    simulation: true,
+    attack_type: exposure.attack_type,
+    entry_point: exposure.entry_point,
+    title: exposure.title,
+    technique: exposure.technique,
+    source: exposure.source,
+    columns: [...(exposure.columns || [])],
+    exposed_items: (exposure.exposed_items || []).map((item) => ({ ...item })),
+    rows: (exposure.rows || []).map((row) => ({ ...row })),
+    record_count: (exposure.rows || []).length,
+    safety: {
+      fictional_data_only: true,
+      real_database_access: false,
+      unrestricted_javascript: false,
+      rendering: "react_text_nodes",
+    },
+  };
+}
+
 function searchDecoyRecords(query) {
   const normalized = String(query || "").trim().toLowerCase();
   if (!normalized) {
@@ -132,6 +158,7 @@ module.exports = {
   DECOY_EMPLOYEE_RECORDS,
   DECOY_SEARCH_RECORDS,
   buildDecoyExposure,
+  buildExposureAudit,
   detectAttack,
   searchDecoyRecords,
 };

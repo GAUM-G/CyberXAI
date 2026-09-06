@@ -223,15 +223,13 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 .analyst-session{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);
   gap:.9rem;align-items:start}
 .analyst-session-copy p{font-size:.78rem;color:var(--text2);line-height:1.6}
-.analyst-login-form{display:grid;grid-template-columns:1fr 1fr auto;gap:.55rem;align-items:end}
-.analyst-login-form label,.feedback-field{display:flex;flex-direction:column;gap:.28rem;
+.feedback-field{display:flex;flex-direction:column;gap:.28rem;
   font-family:var(--mono);font-size:.6rem;color:var(--text3);text-transform:uppercase;
   letter-spacing:.07em}
-.analyst-login-form input,.feedback-field select,.feedback-field textarea{
+.feedback-field select,.feedback-field textarea{
   width:100%;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--border2);
   border-radius:4px;padding:.55rem;font-family:var(--mono);font-size:.72rem;outline:none}
-.analyst-login-form input{height:36px}
-.analyst-login-form input:focus,.feedback-field select:focus,.feedback-field textarea:focus{
+.feedback-field select:focus,.feedback-field textarea:focus{
   border-color:rgba(0,212,255,.55)}
 .analyst-session-state{display:flex;align-items:center;justify-content:space-between;gap:.7rem;
   padding:.7rem;border:1px solid rgba(0,255,136,.2);background:rgba(0,255,136,.055);
@@ -360,23 +358,9 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 }
 @media(max-width:620px){
   .ids-toolbar{grid-template-columns:1fr}.ids-detail-grid{grid-template-columns:1fr}
-  .xai-hero{align-items:flex-start;flex-direction:column}.analyst-login-form{grid-template-columns:1fr}
+  .xai-hero{align-items:flex-start;flex-direction:column}
   .xai-score-grid,.xai-safety-grid,.feedback-verdicts{grid-template-columns:1fr}
 }
-.dashboard-auth-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;
-  padding:1.25rem;background:rgba(2,4,8,.94);backdrop-filter:blur(12px)}
-.dashboard-auth-card{width:min(440px,100%);padding:1.35rem;border:1px solid var(--border);
-  border-radius:10px;background:var(--surface);box-shadow:0 24px 80px rgba(0,0,0,.5)}
-.dashboard-auth-card h1{font-family:var(--sans);font-size:1.2rem;color:var(--text);margin:.7rem 0 .3rem}
-.dashboard-auth-card p{font-size:.8rem;line-height:1.55;color:var(--text2);margin-bottom:1rem}
-.dashboard-auth-card label{display:flex;flex-direction:column;gap:.3rem;margin:.65rem 0;
-  font-family:var(--mono);font-size:.68rem;color:var(--text2)}
-.dashboard-auth-card input{height:40px;border:1px solid var(--border);border-radius:5px;
-  background:rgba(0,0,0,.28);color:var(--text);padding:0 .7rem;outline:none}
-.dashboard-auth-card input:focus{border-color:var(--accent)}
-.dashboard-auth-card button{width:100%;justify-content:center;margin-top:.45rem}
-.dashboard-auth-status{min-height:1.2rem;margin-top:.7rem;font-family:var(--mono);
-  font-size:.68rem;color:var(--yellow)}
 .agent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
 .agent-card{border:1px solid var(--border);border-radius:7px;padding:.85rem;background:rgba(0,0,0,.18)}
 .agent-card h3{font-size:.82rem;color:var(--text);margin-bottom:.35rem}
@@ -388,23 +372,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 </head>
 <body>
 <canvas id="starfield"></canvas>
-<div class="dashboard-auth-gate" id="dashboard-auth-gate">
-  <form class="dashboard-auth-card" id="dashboard-login-form" onsubmit="signInDashboard(event)">
-    <div class="logo-icon"><i data-feather="shield" width="18" height="18"></i></div>
-    <h1>Honeypot Analyst Login</h1>
-    <p>Sign in before accessing live attacks, IDS predictions, XAI explanations,
-      simulated IPS controls, intelligent agents, captured data, and reports.</p>
-    <label>Username
-      <input id="dashboard-username" autocomplete="username" required>
-    </label>
-    <label>Password
-      <input id="dashboard-password" type="password" autocomplete="current-password" required>
-    </label>
-    <button class="btn btn-accent" type="submit">Sign in securely</button>
-    <div class="dashboard-auth-status" id="dashboard-auth-status">Authentication required</div>
-  </form>
-</div>
-<div class="app" id="dashboard-app" hidden>
+<div class="app" id="dashboard-app">
   <aside class="sidebar">
     <div class="logo">
       <div class="logo-icon"><i data-feather="hexagon" width="18" height="18"></i></div>
@@ -459,7 +427,6 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
           LIVE · <span id="live-counter">0</span>
         </div>
         <div class="clock" id="top-clock">--:--:--</div>
-        <button class="btn btn-accent" type="button" onclick="signOutAnalyst()">Logout</button>
       </div>
     </div>
 
@@ -629,7 +596,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
       <div class="section" id="sec-xai">
         <div class="section-header">
           <h2><i data-feather="cpu" style="color:var(--accent)"></i> Explainable AI</h2>
-          <p>Investigate real hybrid IDS decisions and record authenticated analyst feedback</p>
+          <p>Investigate real hybrid IDS decisions and record append-only analyst feedback</p>
         </div>
         <div class="card xai-hero">
           <div class="xai-hero-copy">
@@ -652,22 +619,12 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 
         <div class="card analyst-session">
           <div class="analyst-session-copy">
-            <div class="card-title"><i data-feather="user-check" width="14" height="14"></i> Analyst session</div>
-            <p>Sign in with an existing portal account to load review statistics, submit feedback,
-              and view append-only audit history. The authenticated backend supplies the analyst identity.</p>
+            <div class="card-title"><i data-feather="shield" width="14" height="14"></i> Local defender console</div>
+            <p>This console is bound to localhost and separated from the attacker portal. Review statistics,
+              feedback, response simulations, and append-only audit history are available here.</p>
           </div>
-          <form id="analyst-login-form" class="analyst-login-form" onsubmit="signInAnalyst(event)">
-            <label>Username
-              <input id="analyst-username" autocomplete="username" required>
-            </label>
-            <label>Password
-              <input id="analyst-password" type="password" autocomplete="current-password" required>
-            </label>
-            <button class="btn btn-accent" type="submit">Sign in</button>
-          </form>
-          <div id="analyst-session-state" class="analyst-session-state" hidden>
-            <div><strong id="analyst-session-name">Signed in</strong><span>Authenticated review session</span></div>
-            <button class="btn btn-accent" type="button" onclick="signOutAnalyst()">Sign out</button>
+          <div id="analyst-session-state" class="analyst-session-state">
+            <div><strong>Defender controls enabled</strong><span>Internal access stays server-side</span></div>
           </div>
         </div>
 
@@ -702,7 +659,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
                 simulation-only response recommendation → IST daily report.</p>
             </div>
           </div>
-          <span class="xai-live-chip"><span class="dot dot-green"></span> ANALYST-GATED</span>
+          <span class="xai-live-chip"><span class="dot dot-green"></span> LOCAL DEFENDER</span>
         </div>
         <div class="grid-4">
           <div class="card"><div class="card-title">Analyzed Results</div><div class="stat-val c-accent" id="agent-total">—</div></div>
@@ -715,7 +672,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
             <span><i data-feather="layers" width="14" height="14"></i> Latest Agent Run</span>
             <button class="btn btn-accent" type="button" onclick="loadAgents()">Refresh Agents</button>
           </div>
-          <div id="agent-status" class="feedback-message">Waiting for authenticated agent data…</div>
+          <div id="agent-status" class="feedback-message">Waiting for local agent data…</div>
           <div id="agent-grid" class="agent-grid">
             <div class="empty">No Step 22 agent result loaded</div>
           </div>
@@ -753,7 +710,7 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
         </div>
 
         <div id="ips-auth-note" class="ips-auth-note">
-          Sign in through Explainable AI → Analyst session to approve or reverse simulated responses.
+          Local defender controls are enabled. Every simulated response is recorded in the audit trail.
         </div>
 
         <div class="card grid-1" style="margin-top:.9rem">
@@ -822,12 +779,8 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
 </div>
 
 <script>
-const ANALYST_API_BASE={{ portal_api_url|tojson }};
-const ANALYST_TOKEN_KEY='hp_dashboard_analyst_token';
-const ANALYST_USER_KEY='hp_dashboard_analyst_user';
 let dashboardInitialized=false;
 let dashboardRefreshTimer=null;
-let dashboardAuthTimer=null;
 let dashboardEventSource=null;
 
 // Init feather icons
@@ -940,61 +893,6 @@ let selectedIDSIndex=-1;
 let ipsRecommendations=[];
 let ipsActions=[];
 
-function lockDashboard(message){
-  document.getElementById('dashboard-app').hidden=true;
-  document.getElementById('dashboard-auth-gate').hidden=false;
-  document.getElementById('dashboard-auth-status').textContent=message||'Authentication required';
-  if(dashboardEventSource){dashboardEventSource.close();dashboardEventSource=null}
-}
-
-function unlockDashboard(){
-  document.getElementById('dashboard-auth-gate').hidden=true;
-  document.getElementById('dashboard-app').hidden=false;
-  updateAnalystSessionUI();
-  if(dashboardInitialized)connectSSE();
-  else initializeDashboard();
-}
-
-async function signInDashboard(event){
-  event.preventDefault();
-  const status=document.getElementById('dashboard-auth-status');
-  const username=document.getElementById('dashboard-username').value.trim();
-  const password=document.getElementById('dashboard-password').value;
-  status.textContent='Authenticating…';
-  try{
-    const response=await fetch('/api/auth/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username,password})
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'Login failed');
-    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
-    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{username}));
-    document.getElementById('dashboard-password').value='';
-    unlockDashboard();
-  }catch(error){
-    localStorage.removeItem(ANALYST_TOKEN_KEY);
-    localStorage.removeItem(ANALYST_USER_KEY);
-    status.textContent='Sign-in failed: '+error.message;
-  }
-}
-
-async function resumeDashboardSession(){
-  try{
-    const response=await fetch('/api/auth/session');
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||!data.authenticated)throw new Error('Authentication required');
-    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
-    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{}));
-    unlockDashboard();
-  }catch(_error){
-    localStorage.removeItem(ANALYST_TOKEN_KEY);
-    localStorage.removeItem(ANALYST_USER_KEY);
-    lockDashboard('Authentication required');
-  }
-}
-
 // Monitor
 function loadMonitor(){
   fetch('/api/monitor').then(r=>r.json()).then(d=>{
@@ -1012,6 +910,9 @@ function loadMonitor(){
     document.getElementById('ram-bar').style.width=ram+'%';
     document.getElementById('badge-hp').textContent=d.total_events??0;
     document.getElementById('badge-ids').textContent=d.threats_detected??0;
+    initFeed(d.recent_events||[]);
+    liveTotal=d.total_events||0;
+    document.getElementById('live-counter').textContent=liveTotal;
     const scanCount=d.port_scans_detected||0;
     const latestScan=d.latest_port_scan;
     const scanPanel=document.getElementById('port-scan-panel');
@@ -1035,7 +936,7 @@ function initFeed(evs){
   if(!evs||!evs.length)return;
   const f=document.getElementById('live-feed');
   f.innerHTML='';
-  evs.forEach(e=>appendRow(e,false));
+  [...evs].reverse().forEach(e=>appendRow(e,false));
 }
 
 function appendRow(e,flash=true){
@@ -1096,26 +997,22 @@ function renderSvcTables(svcs){
     return `<div class="card" style="margin-bottom:.9rem">
       <div class="card-title"><i data-feather="list" width="14" height="14"></i> ${svc.toUpperCase()} — Recent Events (${evs.length})</div>
       ${!evs.length?'<div class="empty" style="padding:1rem"><div class="empty-icon"><i data-feather="clock" width="24" height="24"></i></div>No events yet</div>':`
-      <div class="tbl-wrap"><table><thead><tr><th>Timestamp (IST)</th><th>IP</th><th>Event</th><th>Attack Type</th><th>Severity</th></tr></thead><tbody>
+      <div class="tbl-wrap"><table><thead><tr><th>Timestamp (IST)</th><th>IP</th><th>Event</th><th>Attack Type</th><th>Displayed result</th><th>Severity</th></tr></thead><tbody>
       ${evs.slice(0,100).map(e=>`<tr><td class="td-mono">${fmtTs(e.timestamp)}</td><td class="td-mono">${esc(e.source_ip)}</td>
-      <td>${esc(e.event)}</td><td>${esc(e.attack_type)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
+      <td>${esc(e.event)}</td><td>${esc(e.attack_type)}</td><td>${simulationResult(e)}</td><td>${sevBadge(e.severity)}</td></tr>`).join('')}
       </tbody></table></div>`}</div>`;
   }).join('');
 }
 
-function analystToken(){
-  return localStorage.getItem(ANALYST_TOKEN_KEY)||'';
-}
-
-function analystUser(){
-  try{return JSON.parse(localStorage.getItem(ANALYST_USER_KEY)||'null')}catch(_error){return null}
+function simulationResult(event){
+  const audit=event?.metadata?.exposureAudit;
+  if(!audit?.displayed)return '<span class="td-muted">—</span>';
+  return `<span class="badge b-warn">${Number(audit.record_count)||0} fake rows</span> <span class="td-muted">${esc(audit.source||'simulated source')}</span>`;
 }
 
 async function analystRequest(path,options={}){
   const headers={'Content-Type':'application/json',...(options.headers||{})};
-  const token=analystToken();
-  if(token)headers.Authorization=`Bearer ${token}`;
-  const response=await fetch(`${ANALYST_API_BASE}${path}`,{...options,headers});
+  const response=await fetch(path,{...options,headers});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
     const error=new Error(data.error||'Analyst request failed');
@@ -1125,76 +1022,14 @@ async function analystRequest(path,options={}){
   return data;
 }
 
-function updateAnalystSessionUI(){
-  const user=analystUser();
-  const signedIn=Boolean(analystToken()&&user);
-  document.getElementById('analyst-login-form').hidden=signedIn;
-  document.getElementById('analyst-session-state').hidden=!signedIn;
-  document.getElementById('analyst-session-name').textContent=
-    signedIn?`Signed in as ${user.username||'analyst'}`:'Signed in';
-  const ipsNote=document.getElementById('ips-auth-note');
-  if(ipsNote){
-    ipsNote.textContent=signedIn
-      ?`Authenticated as ${user.username||'analyst'}. Simulation-only response controls are enabled.`
-      :'Sign in through Explainable AI → Analyst session to approve or reverse simulated responses.';
-    ipsNote.style.color=signedIn?'var(--green)':'var(--yellow)';
-  }
-}
-
-async function signInAnalyst(event){
-  event.preventDefault();
-  const status=document.getElementById('xai-status');
-  const username=document.getElementById('analyst-username').value.trim();
-  const password=document.getElementById('analyst-password').value;
-  status.textContent='Authenticating analyst session…';
-  try{
-    const response=await fetch('/api/auth/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({username,password})
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'Login failed');
-    localStorage.setItem(ANALYST_TOKEN_KEY,data.token);
-    localStorage.setItem(ANALYST_USER_KEY,JSON.stringify(data.user||{username}));
-    document.getElementById('analyst-password').value='';
-    updateAnalystSessionUI();
-    await refreshAnalystFeedback();
-    renderXaiAlerts(idsAllResults);
-    await loadIPSWorkspace();
-    status.textContent=`Authenticated as ${(data.user||{}).username||username}. Review controls are enabled.`;
-  }catch(error){
-    status.textContent=`Sign-in failed: ${error.message}`;
-  }
-}
-
-async function signOutAnalyst(){
-  await fetch('/api/auth/logout',{method:'POST'}).catch(()=>{});
-  localStorage.removeItem(ANALYST_TOKEN_KEY);
-  localStorage.removeItem(ANALYST_USER_KEY);
-  idsLatestFeedback={};
-  updateAnalystSessionUI();
-  updateReviewStats(null);
-  renderXaiAlerts(idsAllResults);
-  ipsRecommendations=[];
-  ipsActions=[];
-  lockDashboard('Signed out. Authentication required.');
-}
-
 function updateReviewStats(stats){
   document.getElementById('xai-confirmed-count').textContent=stats?.confirmed_attacks??'—';
   document.getElementById('xai-false-count').textContent=stats?.false_positives??'—';
-  document.getElementById('xai-awaiting-count').textContent=
-    stats?.awaiting_review??(analystToken()?'—':idsAllResults.length);
+  document.getElementById('xai-awaiting-count').textContent=stats?.awaiting_review??idsAllResults.length;
   document.getElementById('xai-override-count').textContent=stats?.severity_overrides??'—';
 }
 
 async function refreshAnalystFeedback(){
-  if(!analystToken()){
-    idsLatestFeedback={};
-    updateReviewStats(null);
-    return;
-  }
   const eventIds=idsAllResults.map(result=>result.event_id).filter(Boolean).slice(0,100);
   try{
     const [stats,latest]=await Promise.all([
@@ -1204,11 +1039,6 @@ async function refreshAnalystFeedback(){
     idsLatestFeedback=latest.latest_by_event||{};
     updateReviewStats(stats);
   }catch(error){
-    if(error.status===401){
-      localStorage.removeItem(ANALYST_TOKEN_KEY);
-      localStorage.removeItem(ANALYST_USER_KEY);
-      updateAnalystSessionUI();
-    }
     idsLatestFeedback={};
     updateReviewStats(null);
     throw error;
@@ -1232,9 +1062,7 @@ async function loadXAIWorkspace(){
     document.getElementById('xai-result-count').textContent=
       `${idsAllResults.length} recent results`;
     if(!status.textContent.includes('unavailable')){
-      status.textContent=analystToken()
-        ?`Loaded ${idsAllResults.length} explainable IDS results with analyst review state.`
-        :`Loaded ${idsAllResults.length} explainable IDS results. Sign in to record feedback.`;
+      status.textContent=`Loaded ${idsAllResults.length} explainable IDS results with analyst review state.`;
     }
   }catch(error){
     status.textContent=`Unable to load XAI workspace: ${error.message}`;
@@ -1253,7 +1081,6 @@ async function loadAgents(){
   status.textContent='Loading intelligent-agent results…';
   try{
     const response=await fetch('/api/agents');
-    if(response.status===401){lockDashboard('Session expired. Sign in again.');return}
     if(!response.ok)throw new Error('Agent API unavailable');
     const data=await response.json();
     const latest=data.latest||{};
@@ -1547,7 +1374,6 @@ function updateIPSStats(status){
 }
 
 function ipsRecommendationButtons(recommendation,index){
-  if(!analystToken())return '<span class="td-muted">Sign in to respond</span>';
   if(
     recommendation.feedback_verdict==='false_positive'||
     ['suppressed','dismissed'].includes(recommendation.status)||
@@ -1614,14 +1440,6 @@ async function loadIPSWorkspace(){
   try{
     const safety=await analystRequest('/api/ips/safety');
     updateIPSStats(safety);
-    if(!analystToken()){
-      ipsRecommendations=[];
-      ipsActions=[];
-      renderIPSRecommendations([]);
-      renderIPSActions([]);
-      message.textContent='Safety mode verified. Sign in through the XAI analyst session to load response records.';
-      return;
-    }
     const [status,recommendations,actions]=await Promise.all([
       analystRequest('/api/ips/status'),
       analystRequest('/api/ips/recommendations?limit=100'),
@@ -1635,11 +1453,6 @@ async function loadIPSWorkspace(){
     message.className='feedback-message success';
     message.textContent=`Loaded ${ipsRecommendations.length} recommendations and ${ipsActions.length} audit actions. Host firewall changed: no.`;
   }catch(error){
-    if(error.status===401){
-      localStorage.removeItem(ANALYST_TOKEN_KEY);
-      localStorage.removeItem(ANALYST_USER_KEY);
-      updateAnalystSessionUI();
-    }
     message.className='feedback-message error';
     message.textContent=`Unable to load IPS workspace: ${error.message}`;
   }
@@ -1648,7 +1461,7 @@ async function loadIPSWorkspace(){
 
 async function runIPSRecommendationAction(actionType,index){
   const recommendation=ipsRecommendations[index];
-  if(!recommendation||!analystToken())return;
+  if(!recommendation)return;
   const active=['simulate_block','rate_limit','terminate_session'].includes(actionType);
   if(active&&!window.confirm(
     `${ipsActionLabel(actionType)} for ${recommendation.source_ip}?\n\nThis affects only the honeypot application. No Windows Firewall rule will be created.`
@@ -1674,7 +1487,7 @@ async function runIPSRecommendationAction(actionType,index){
 
 async function releaseIPSAction(index){
   const target=ipsActions[index];
-  if(!target||target.status!=='active'||!analystToken())return;
+  if(!target||target.status!=='active')return;
   if(!window.confirm(
     `Release simulated action ${target.action_id}?\n\nOnly application-level simulation state will be removed.`
   ))return;
@@ -1776,14 +1589,6 @@ function severityOptions(selected){
 
 function renderFeedbackPanel(result){
   const latest=idsLatestFeedback[result.event_id];
-  if(!analystToken()){
-    return `<section class="feedback-panel">
-      <div class="xai-panel-heading"><div><div class="xai-eyebrow">Human in the loop</div>
-        <h4>Analyst review</h4></div><span class="review-state review-awaiting">Sign-in required</span></div>
-      <p class="feedback-original">XAI evidence is available only inside an authenticated dashboard session.
-        Sign in again to confirm attacks, mark false positives, override severity, and add notes.</p>
-    </section>`;
-  }
   const verdict=latest?.verdict||'';
   const severityOverride=latest?.severity_override||'';
   return `<section class="feedback-panel">
@@ -1860,7 +1665,6 @@ function renderFeedbackHistory(history){
 }
 
 async function loadFeedbackHistory(eventId){
-  if(!analystToken())return;
   try{
     const data=await analystRequest(`/api/analyst-feedback?event_id=${encodeURIComponent(eventId)}&limit=50`);
     renderFeedbackHistory(data.feedback||[]);
@@ -1886,7 +1690,7 @@ async function submitAnalystFeedback(event){
   }
   button.disabled=true;
   message.className='feedback-message';
-  message.textContent='Saving authenticated analyst review…';
+  message.textContent='Saving analyst review…';
   try{
     const data=await analystRequest(`/api/analyst-feedback/${encodeURIComponent(result.event_id)}`,{
       method:'POST',
@@ -2062,7 +1866,6 @@ function initializeDashboard(){
     document.getElementById('live-counter').textContent=liveTotal;
   }).catch(()=>{});
   connectSSE();
-  updateAnalystSessionUI();
   loadXAIWorkspace();
   loadAgents();
   loadIPSWorkspace();
@@ -2074,16 +1877,12 @@ function initializeDashboard(){
     if(a==='sec-agents')loadAgents();
     if(a==='sec-ips')loadIPSWorkspace();
   },10000);
-  dashboardAuthTimer=setInterval(async()=>{
-    const response=await fetch('/api/auth/session').catch(()=>null);
-    if(!response||response.status===401)lockDashboard('Session expired. Sign in again.');
-  },60000);
 }
 
 // Init
 window.addEventListener('DOMContentLoaded',()=>{
   feather.replace();
-  resumeDashboardSession();
+  initializeDashboard();
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape')closeIDSDetail();
