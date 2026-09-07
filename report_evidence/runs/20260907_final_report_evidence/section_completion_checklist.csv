@@ -1,0 +1,11 @@
+section,item,status,evidence
+3.2,"Implementation narrative, pseudocode, model and feature tables",complete,implementation_details.md; report_sections.docx
+3.2.1,"Algorithm, methodology, techniques, pseudocode, model roles and feature order",complete,implementation_details.md; report_sections.docx; logs/inspection.json
+3.2.2,"Use case, activity, context DFD, Level 1 DFD; editable + PNG/SVG",complete,diagrams/
+3.2.3,Measured hardware/software specifications,complete,environment.json
+4,Result and discussion introduction and evidence-scope separation,complete,results_and_discussion.md; report_sections.docx
+4.1,"Dataset, DB schema/samples, sanitized inputs, prediction outputs",complete,tables/; samples/; predictions/
+4.1,System Monitor screenshot captured; deeper requested views,partially_complete_manual_capture_pending,screenshots/01_system_monitor.png; screenshots/manual_screenshot_checklist.csv
+4.2,Definitions/formulas and score directions,complete,results_and_discussion.md
+4.3,"Fresh offline models, LSTM source-group audit, CSV-backed tables/graphs, SHAP, timing",complete,offline_evaluation/; lstm_robustness/; tables/; figures/
+4.3,Rules-only/full-hybrid comparable aggregate metrics,unsupported,limitations_and_missing_evidence.md

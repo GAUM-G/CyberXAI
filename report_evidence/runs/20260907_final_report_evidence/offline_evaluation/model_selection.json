@@ -1,0 +1,40 @@
+{
+  "best_tabular_classifier": {
+    "candidate_models": [
+      "decision_tree",
+      "random_forest"
+    ],
+    "decisive_criterion": "higher f1_macro",
+    "latency_policy": "Inference latency is reported separately and does not override predictive quality.",
+    "selected_model": "decision_tree",
+    "selection_order": [
+      "higher macro F1",
+      "higher balanced accuracy",
+      "higher macro recall",
+      "higher accuracy",
+      "lower normal-as-attack false-positive rate",
+      "Random Forest architecture tie-breaker"
+    ],
+    "tie_breaker": null,
+    "tie_tolerance": 1e-12
+  },
+  "sequence_classifier": {
+    "reason": "only evaluated model with the required causal sequence input contract",
+    "selected_model": "lstm_classifier"
+  },
+  "step13_hybrid_roles": {
+    "known_attack_classifier": "decision_tree",
+    "rules": "deterministic signatures and thresholds",
+    "sequence_attack_classifier": "lstm_classifier",
+    "unknown_anomaly_detector": "isolation_forest"
+  },
+  "supervised_metric_leader": {
+    "metric": "macro F1 with balanced-accuracy and recall tie-breaks",
+    "model": "lstm_classifier",
+    "warning": "The LSTM uses sequence inputs and must not silently replace the tabular classifier."
+  },
+  "unknown_anomaly_detector": {
+    "reason": "only evaluated normal-only, label-free anomaly detector",
+    "selected_model": "isolation_forest"
+  }
+}

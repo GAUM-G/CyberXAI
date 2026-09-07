@@ -1,0 +1,9 @@
+run_id,class,total,train,validation,test
+20260907_final_report_evidence,normal,510,431,0,79
+20260907_final_report_evidence,ssh_bruteforce,510,400,0,110
+20260907_final_report_evidence,ftp_bruteforce,510,380,0,130
+20260907_final_report_evidence,sql_injection,510,411,0,99
+20260907_final_report_evidence,xss,510,380,0,130
+20260907_final_report_evidence,directory_scanning,510,401,0,109
+20260907_final_report_evidence,port_scanning,510,376,0,134
+20260907_final_report_evidence,other_anomaly,510,485,0,25

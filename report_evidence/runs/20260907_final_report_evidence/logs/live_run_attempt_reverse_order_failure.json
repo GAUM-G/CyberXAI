@@ -1,0 +1,574 @@
+{
+  "dashboard_screenshot": {
+    "detail": "TimeoutExpired: Command '['C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe', '--headless=new', '--disable-gpu', '--no-first-run', '--screenshot=D:\\\\honeypot_v2\\\\report_evidence\\\\runs\\\\20260907_final_report_evidence\\\\screenshots\\\\01_system_monitor.png', '--window-size=1440,1200', '--virtual-time-budget=5000', 'http://127.0.0.1:35050']' timed out after 30 seconds",
+    "status": "failed"
+  },
+  "duration_seconds": 62.002,
+  "ended_at_utc": "2026-09-07T14:03:43.664654Z",
+  "event_collector_enabled": false,
+  "events_captured": 125,
+  "events_processed": 3,
+  "external_notifications_enabled": false,
+  "host_firewall_changed": false,
+  "kind": "fresh bounded localhost network demonstration",
+  "ports": {
+    "ftp": 32121,
+    "http": 38080,
+    "ssh": 32222
+  },
+  "processing_failures": [
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "e22b92c1-9f33-45af-91b5-0dc15ecdf4c9"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "df6c4da8-c45d-4966-801f-5e9a2a70eebe"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "21fcd018-2835-4326-a0c2-04f8de2af50e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1f7318f7-3e07-4385-acc7-286c77b4d5e7"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "f72f754b-0f21-4935-ae43-54371f645bff"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "dd73ccd6-26da-464f-829e-230b4c6dd513"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a57ea376-894e-4b97-8185-c0df25f646ff"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "f17ea54e-5a34-4f59-aced-75efbbc33de3"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "3a14312e-0076-4fd7-8799-ee0c9fe57660"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "511bb448-7477-4672-8dfc-4966498b2e01"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "aac7fa4b-2690-49b7-8a0a-d90ed5314c95"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0bb0e3b6-c8a7-4260-a47d-93372ca70c1e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "d0d26896-5866-4355-b6ae-55824da5fe41"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "56bf569d-06bd-4402-bd60-8500575955dd"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "4dcf1db5-62a6-46e9-bf49-7c8c05e1b755"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9e951c48-31b4-426f-8b26-39d93931e10d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "08fe6fbf-6c2a-441c-b75a-0a3a70d3f36d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "fedece33-e735-49df-ba64-82043202cf3c"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "c2ccc182-2324-4ac1-9627-25ebf0b44af3"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5982c6fb-ae9c-4ae2-ab27-0d0544fc297d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "23b4ed01-6bb1-4a14-82ba-038b6461c07e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a486f485-b205-407f-ba6a-81ca2e2a450a"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9faaa3fc-754b-4931-b779-7663a4aee1a0"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "3be1c2c7-42e3-4519-821d-cde1ba17228e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "258d15c6-ae2e-476c-a6b3-c3b5a1f3a009"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1dcdb77d-3f0d-4b94-be61-069380be27fc"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ed571e5f-7826-48d4-a07c-e18640c85b33"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ec23c3eb-7518-463a-93e4-635579f360f7"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "be51e36f-16f5-4b8b-b142-f390aec43ac5"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "2a1bec09-922c-4ae8-8786-c0276245d89b"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "bf769707-21f8-4123-9e06-aaacfa2aac80"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a2a4c709-3128-4f9b-b92e-4d50bcd7719f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "e9ef35e3-42f8-434b-873f-0666cc28232f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "710b0bde-3bcb-4aeb-81c5-3977bcc47b1d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5984435c-bb9e-4b52-a43a-7788ca71b0e2"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "8f7667cf-c2c1-4594-aef1-609de6beb59a"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "cab106de-972b-402e-acfe-906ed2d8d240"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "8a98a2ba-b113-4f40-a046-bcec94bc255d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ba23ba9b-863e-4d94-b32a-3f6fe856b9af"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ec7755cb-ff25-43f2-b044-7a3b2a3d9b88"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "13f5bec4-3f5e-4bd5-b1bc-6acd9232fa66"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "8cc2073e-72e1-49ad-8e38-f17af0824c7a"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "4735b767-bd5e-485b-b482-24a2b29459f4"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "046ba6ca-f0f7-4454-a272-ff7358a4feca"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "985fc4ab-4ebe-4918-8208-4bc899012926"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "54c7d259-4715-4197-886d-e02d775d1adb"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a20baa56-9ad0-4235-a13c-2ca907ac207f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0134c269-ad31-4e31-990f-14453a3164b8"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "20c1e0c3-3ebd-473e-8f04-8c996df730bb"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "29bc7c69-a71d-4066-ade5-e068d42624f8"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "8aa20d77-9417-42ed-859f-445cdb7c06f4"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "172892ab-4bac-4e54-b67f-057a321821a1"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a129091a-f09c-4080-a7eb-f25a207e3709"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "3e26a70e-8f7f-41bf-8ae9-ea1e9270e453"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "af271e9a-fabf-4a50-8193-2b891fe40ee1"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "7294962f-6cba-4cc3-8821-ba4de7be17b4"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "eb5c9239-c793-4426-b9b9-f2ca7e7ebc43"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "f7f97666-6fcd-4ed7-bc95-bd821e77dcbe"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "53dacef5-cc8d-43e5-b79b-48eab05351cc"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "17ee7a6d-ef77-4a28-a3bd-3391af1eeb99"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9c937b66-209b-420c-adca-28615fc2315b"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0b969204-ee0c-4b39-bd2e-0aee50a8e2f1"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "22f1e337-ea53-4afc-9278-56ae442a8ed5"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9b9ab280-9bd2-4391-a364-1368c9a4216e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5b9b1681-5336-4a7f-a46a-e0cf32c3a2de"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1317890a-ea3b-450b-8e5f-224b7de8fd66"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "6790a83a-2d26-4d09-9964-347c5961e657"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "58f1abb0-005d-4b45-ab34-ccbdf8cc1330"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a73f7864-e6f7-4ec6-b1a8-fa054c2785c8"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "d2175042-d1cd-493d-952b-f05f577b3123"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "2cbc7e80-2eeb-479d-9cad-e7011bb33c4f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ed17d356-c17a-4850-8e2e-36908c76488c"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "550cd7a7-8518-4db7-9aad-e955b0687113"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ee7fc2a0-e8a8-41dc-9741-9726160bee8f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "bfb107e2-b0a1-4013-b1c0-3618801947f4"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9d5bc96e-b49f-46eb-b9eb-0bc0872e39d0"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "998e0181-465f-424e-91e7-769ee7dcca91"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0a3644b4-61e3-40f2-b7dc-b6e0e48e7b76"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "105bc982-34e9-49c0-a986-eb9dea00e721"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "30300f69-a11a-44ad-9aef-30836942a384"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "61242fb9-a367-4f87-a18a-7ade45e59b4c"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5a267ec9-6e7c-4f7f-af20-c2483d57676b"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1393c377-cc3b-4ef4-a613-88363a1647ed"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "df9e26ab-24e7-4624-8e34-7037fcb95a89"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1b1ad118-ba32-451c-a910-0bc979ab187e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "990bebb6-a3cb-4cb7-8b5c-f4d19e2be9ec"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "f9748cb0-e8d5-419e-b282-746d1c5a00ea"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "a7919dbb-9253-4627-bf04-b10c6506a083"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "db38b5dc-8728-4d7e-895c-387513bf466b"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "2a58fab1-c6f3-4653-b8da-886cbe874c76"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ee607975-b815-40e9-8e72-55e279d0ac50"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0fa326e4-bd98-48f5-b37c-8751b74bb26d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ccd03818-1fab-48b2-856c-d1204ec0d43f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "abe314d4-af15-4560-9b85-f1d920cf7f1b"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ba6267ea-b29c-4415-8bc7-2fd75db85c28"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "23301c63-a0a7-42ea-85fa-3359e28bb008"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "1fa76b22-ffc7-4df6-9e6d-612f57f4d85f"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "cdff540a-a550-4162-a5c9-70ef5cedd400"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "03d78f41-09b1-443d-9a38-ac1f26e5bd02"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "cb831a36-d5ae-44a8-880c-b4ee4f5cb780"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5eadc064-4e1f-4b27-b376-bff5c423fc03"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "0c64d01d-b028-4db5-9056-cf9908788f33"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "5a19fc9f-4b97-4fc2-8a4a-cbf6efd21fdc"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "d61c9296-2dcd-4f3e-857b-6edfecd9eb66"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "99151aa2-cd79-47dd-a621-235f87023c9d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "b12ea985-de19-4279-be43-3589802a1682"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "dd59b1de-752b-411d-bb3e-5c147c4fdbae"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "57b3c0f2-a6e6-4aa7-bd67-e6154dd3504e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "e41e594f-a4a4-41bf-9725-297960db65a2"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "c501060a-c851-4509-b9b7-f227376d6501"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "aead3754-59a2-487d-9e32-6a712477b893"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "4b5129ad-eed2-4cc8-a292-5e77e32c5a25"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ca09571e-2071-4c17-b737-d2b3212d7694"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "88e15fef-ac9b-465c-ba19-7b0153759290"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "ffcca94a-1420-4115-8f69-e48fef8a0b13"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "d9a90017-6935-4dd6-883c-fe32a3db75d9"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "887de927-3c4d-445f-8af5-696c35ebbfaa"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "6fc3af20-0a45-4275-a90e-056079e17e5d"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "2a349d93-78ab-4afe-8a9a-a99bff46ac88"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "9c720485-afc8-4c2a-acdf-1d4c488c415e"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "4b4736bb-7cd8-4b3f-bf81-feda5a380fba"
+    },
+    {
+      "error": "ValueError: rows must be chronological within each source/service group",
+      "event_id": "d8e0fcf9-2e65-4239-8b8c-1988876985f9"
+    }
+  ],
+  "run_id": "20260907_final_report_evidence",
+  "scenarios": [
+    {
+      "attack_predictions": 0,
+      "duration_ms": 341.696,
+      "error": "",
+      "event_ids": "d8e0fcf9-2e65-4239-8b8c-1988876985f9",
+      "events_captured": 1,
+      "events_processed": 0,
+      "expected": "normal",
+      "normal_predictions": 0,
+      "observed_attack_types": "",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "normal_http_get",
+      "started_at_utc": "2026-09-07T14:02:43.901429Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 0,
+      "duration_ms": 6263.815,
+      "error": "",
+      "event_ids": "dd59b1de-752b-411d-bb3e-5c147c4fdbae;57b3c0f2-a6e6-4aa7-bd67-e6154dd3504e;e41e594f-a4a4-41bf-9725-297960db65a2;c501060a-c851-4509-b9b7-f227376d6501;aead3754-59a2-487d-9e32-6a712477b893;4b5129ad-eed2-4cc8-a292-5e77e32c5a25;ca09571e-2071-4c17-b737-d2b3212d7694;88e15fef-ac9b-465c-ba19-7b0153759290;ffcca94a-1420-4115-8f69-e48fef8a0b13;d9a90017-6935-4dd6-883c-fe32a3db75d9;887de927-3c4d-445f-8af5-696c35ebbfaa;6fc3af20-0a45-4275-a90e-056079e17e5d;2a349d93-78ab-4afe-8a9a-a99bff46ac88;9c720485-afc8-4c2a-acdf-1d4c488c415e;4b4736bb-7cd8-4b3f-bf81-feda5a380fba;d8e0fcf9-2e65-4239-8b8c-1988876985f9",
+      "events_captured": 16,
+      "events_processed": 0,
+      "expected": "ssh_bruteforce",
+      "normal_predictions": 0,
+      "observed_attack_types": "",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "ssh_bounded_bruteforce",
+      "started_at_utc": "2026-09-07T14:02:44.243050Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 1,
+      "duration_ms": 16014.182,
+      "error": "",
+      "event_ids": "f9748cb0-e8d5-419e-b282-746d1c5a00ea;a7919dbb-9253-4627-bf04-b10c6506a083;db38b5dc-8728-4d7e-895c-387513bf466b;2a58fab1-c6f3-4653-b8da-886cbe874c76;ee607975-b815-40e9-8e72-55e279d0ac50;0fa326e4-bd98-48f5-b37c-8751b74bb26d;ccd03818-1fab-48b2-856c-d1204ec0d43f;abe314d4-af15-4560-9b85-f1d920cf7f1b;ba6267ea-b29c-4415-8bc7-2fd75db85c28;23301c63-a0a7-42ea-85fa-3359e28bb008;1fa76b22-ffc7-4df6-9e6d-612f57f4d85f;cdff540a-a550-4162-a5c9-70ef5cedd400;03d78f41-09b1-443d-9a38-ac1f26e5bd02;cb831a36-d5ae-44a8-880c-b4ee4f5cb780;5eadc064-4e1f-4b27-b376-bff5c423fc03;0c64d01d-b028-4db5-9056-cf9908788f33;5a19fc9f-4b97-4fc2-8a4a-cbf6efd21fdc;d61c9296-2dcd-4f3e-857b-6edfecd9eb66;99151aa2-cd79-47dd-a621-235f87023c9d;b12ea985-de19-4279-be43-3589802a1682;2189882c-4464-44dd-a13c-9284116ba2d8;dd59b1de-752b-411d-bb3e-5c147c4fdbae;57b3c0f2-a6e6-4aa7-bd67-e6154dd3504e;e41e594f-a4a4-41bf-9725-297960db65a2;c501060a-c851-4509-b9b7-f227376d6501;aead3754-59a2-487d-9e32-6a712477b893;4b5129ad-eed2-4cc8-a292-5e77e32c5a25;ca09571e-2071-4c17-b737-d2b3212d7694;88e15fef-ac9b-465c-ba19-7b0153759290;ffcca94a-1420-4115-8f69-e48fef8a0b13;d9a90017-6935-4dd6-883c-fe32a3db75d9;887de927-3c4d-445f-8af5-696c35ebbfaa;6fc3af20-0a45-4275-a90e-056079e17e5d;2a349d93-78ab-4afe-8a9a-a99bff46ac88;9c720485-afc8-4c2a-acdf-1d4c488c415e;4b4736bb-7cd8-4b3f-bf81-feda5a380fba;d8e0fcf9-2e65-4239-8b8c-1988876985f9",
+      "events_captured": 37,
+      "events_processed": 1,
+      "expected": "ftp_bruteforce",
+      "normal_predictions": 0,
+      "observed_attack_types": "other_anomaly:1",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "ftp_bounded_bruteforce",
+      "started_at_utc": "2026-09-07T14:02:50.506944Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 2,
+      "duration_ms": 5367.451,
+      "error": "",
+      "event_ids": "3e26a70e-8f7f-41bf-8ae9-ea1e9270e453;af271e9a-fabf-4a50-8193-2b891fe40ee1;7294962f-6cba-4cc3-8821-ba4de7be17b4;eb5c9239-c793-4426-b9b9-f2ca7e7ebc43;f7f97666-6fcd-4ed7-bc95-bd821e77dcbe;53dacef5-cc8d-43e5-b79b-48eab05351cc;17ee7a6d-ef77-4a28-a3bd-3391af1eeb99;9c937b66-209b-420c-adca-28615fc2315b;0b969204-ee0c-4b39-bd2e-0aee50a8e2f1;22f1e337-ea53-4afc-9278-56ae442a8ed5;9b9ab280-9bd2-4391-a364-1368c9a4216e;5b9b1681-5336-4a7f-a46a-e0cf32c3a2de;1317890a-ea3b-450b-8e5f-224b7de8fd66;6790a83a-2d26-4d09-9964-347c5961e657;58f1abb0-005d-4b45-ab34-ccbdf8cc1330;a73f7864-e6f7-4ec6-b1a8-fa054c2785c8;d2175042-d1cd-493d-952b-f05f577b3123;b989a521-1dd8-4d4a-94c5-873f91960593;2cbc7e80-2eeb-479d-9cad-e7011bb33c4f;ed17d356-c17a-4850-8e2e-36908c76488c;550cd7a7-8518-4db7-9aad-e955b0687113;ee7fc2a0-e8a8-41dc-9741-9726160bee8f;bfb107e2-b0a1-4013-b1c0-3618801947f4;9d5bc96e-b49f-46eb-b9eb-0bc0872e39d0;998e0181-465f-424e-91e7-769ee7dcca91;0a3644b4-61e3-40f2-b7dc-b6e0e48e7b76;105bc982-34e9-49c0-a986-eb9dea00e721;30300f69-a11a-44ad-9aef-30836942a384;61242fb9-a367-4f87-a18a-7ade45e59b4c;5a267ec9-6e7c-4f7f-af20-c2483d57676b;1393c377-cc3b-4ef4-a613-88363a1647ed;df9e26ab-24e7-4624-8e34-7037fcb95a89;1b1ad118-ba32-451c-a910-0bc979ab187e;990bebb6-a3cb-4cb7-8b5c-f4d19e2be9ec;f9748cb0-e8d5-419e-b282-746d1c5a00ea;a7919dbb-9253-4627-bf04-b10c6506a083;db38b5dc-8728-4d7e-895c-387513bf466b;2a58fab1-c6f3-4653-b8da-886cbe874c76;ee607975-b815-40e9-8e72-55e279d0ac50;0fa326e4-bd98-48f5-b37c-8751b74bb26d;ccd03818-1fab-48b2-856c-d1204ec0d43f;abe314d4-af15-4560-9b85-f1d920cf7f1b;ba6267ea-b29c-4415-8bc7-2fd75db85c28;23301c63-a0a7-42ea-85fa-3359e28bb008;1fa76b22-ffc7-4df6-9e6d-612f57f4d85f;cdff540a-a550-4162-a5c9-70ef5cedd400;03d78f41-09b1-443d-9a38-ac1f26e5bd02;cb831a36-d5ae-44a8-880c-b4ee4f5cb780;5eadc064-4e1f-4b27-b376-bff5c423fc03;0c64d01d-b028-4db5-9056-cf9908788f33;5a19fc9f-4b97-4fc2-8a4a-cbf6efd21fdc;d61c9296-2dcd-4f3e-857b-6edfecd9eb66;99151aa2-cd79-47dd-a621-235f87023c9d;b12ea985-de19-4279-be43-3589802a1682;2189882c-4464-44dd-a13c-9284116ba2d8;dd59b1de-752b-411d-bb3e-5c147c4fdbae;57b3c0f2-a6e6-4aa7-bd67-e6154dd3504e;e41e594f-a4a4-41bf-9725-297960db65a2;c501060a-c851-4509-b9b7-f227376d6501;aead3754-59a2-487d-9e32-6a712477b893;4b5129ad-eed2-4cc8-a292-5e77e32c5a25;ca09571e-2071-4c17-b737-d2b3212d7694;88e15fef-ac9b-465c-ba19-7b0153759290;ffcca94a-1420-4115-8f69-e48fef8a0b13;d9a90017-6935-4dd6-883c-fe32a3db75d9;887de927-3c4d-445f-8af5-696c35ebbfaa;6fc3af20-0a45-4275-a90e-056079e17e5d;2a349d93-78ab-4afe-8a9a-a99bff46ac88;9c720485-afc8-4c2a-acdf-1d4c488c415e;4b4736bb-7cd8-4b3f-bf81-feda5a380fba;d8e0fcf9-2e65-4239-8b8c-1988876985f9",
+      "events_captured": 71,
+      "events_processed": 2,
+      "expected": "multiple_supported_http",
+      "normal_predictions": 0,
+      "observed_attack_types": "other_anomaly:1;ssh_bruteforce:1",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "http_supported_attacks",
+      "started_at_utc": "2026-09-07T14:03:06.522172Z",
+      "status": "completed"
+    }
+  ],
+  "started_at_utc": "2026-09-07T14:02:41.663326Z",
+  "storage": "isolated run directory"
+}

@@ -1,0 +1,159 @@
+{
+  "commands": {
+    "all_offline": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/report_evidence.py all-offline",
+    "inspect": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/report_evidence.py inspect --run-dir report_evidence\\runs\\20260907_final_report_evidence",
+    "live": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/report_evidence.py live --run-dir report_evidence\\runs\\20260907_final_report_evidence",
+    "lstm_audit_seed_42": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/audit_lstm_generalization.py --seed 42",
+    "lstm_audit_seed_43": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/audit_lstm_generalization.py --seed 43",
+    "lstm_audit_seed_44": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/audit_lstm_generalization.py --seed 44",
+    "offline": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/report_evidence.py offline --run-dir report_evidence\\runs\\20260907_final_report_evidence",
+    "render": "D:\\honeypot_v2\\data\\runtime\\python312\\python.exe scripts/report_evidence.py render --run-dir report_evidence\\runs\\20260907_final_report_evidence"
+  },
+  "dataset": {
+    "accepted_events": 4080,
+    "dataset_version": "1.0",
+    "duplicate_events": 0,
+    "manifest_sha256": "b3b2fe37d467c1a1bf9d7a5de63987ade71c8a66f2c8686187b0661c5b4c0742",
+    "path": "data\\processed\\honeypot_dataset.csv",
+    "raw_events": 5193,
+    "rejected_events": 1113,
+    "sha256": "cf187ec93e9e13e4b40e63d732ff9e41e725e0ce9e51c713bd7faf2ef7c12259"
+  },
+  "evaluation_settings": {
+    "artifact_loading_included": false,
+    "classes": 8,
+    "encoded_features": 23,
+    "kind": "fresh offline inference on original saved holdout",
+    "test_rows": 816,
+    "timing_batch_size": 816,
+    "timing_repetitions": 12,
+    "timing_warmup_runs": 2
+  },
+  "evidence_scope": {
+    "historical": "saved legacy LSTM training history and manifests",
+    "live": "bounded localhost services with isolated files",
+    "lstm_robustness": "three source-IP-hash group-isolated candidate fits with training-only preprocessing and validation-loss checkpointing",
+    "offline": "fresh execution of protected saved models on the original held-out arrays"
+  },
+  "generated_at_utc": "2026-09-07T16:19:34.940200Z",
+  "live_demo_settings": {
+    "event_collector_enabled": false,
+    "events_captured": 125,
+    "events_processed": 125,
+    "external_notifications_enabled": false,
+    "host_firewall_changed": false,
+    "kind": "fresh bounded localhost network demonstration",
+    "ports": {
+      "ftp": 32121,
+      "http": 38080,
+      "ssh": 32222
+    },
+    "processing_failures": 0,
+    "storage": "isolated run directory"
+  },
+  "lstm_robustness": {
+    "accuracy": {
+      "maximum": 0.9802816901408451,
+      "mean": 0.9760675633736786,
+      "minimum": 0.971830985915493,
+      "population_std": 0.003450022077343988
+    },
+    "active_model_modified": false,
+    "candidate_bundle": "lstm_robustness/20260907_candidate_bundle_seed42",
+    "candidate_promoted": false,
+    "legacy_source_overlap": "791/816 test rows (96.94%)",
+    "legacy_template_overlap": "816/816 test rows",
+    "macro_f1": {
+      "maximum": 0.9715243272238656,
+      "mean": 0.9675284795903893,
+      "minimum": 0.9635357816820458,
+      "population_std": 0.003261310821230083
+    },
+    "runs": 3,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "source_group_overlap": "zero in every run"
+  },
+  "model_fit_called": {
+    "lstm_robustness_audit_candidates": true,
+    "protected_saved_model_evaluation": false
+  },
+  "original_data_models_logs_database_modified": false,
+  "protected_artifact_hashes": {
+    "X_test.npy": "486281e683833ba958a6f255000762d3de383272d7a1d091dc9f174c65655bf1",
+    "X_test_sequences.npy": "9878629f4aacc6245f1894261bf1d111e34269bcc1b93cc0817bb65f2a6914e3",
+    "decision_tree": "a01fbd0312257753b5201d10fa588870f69d2009a7d3ba08fc6f3a161f472e17",
+    "feature_names.json": "4fbc2b12011d0550fc1615d5a67ee117808ae67188693bd18d3032edf73e4533",
+    "isolation_forest": "bd1a86604d4462ef8c1fdcb7aaa5fd570ebba470db336f8a5c26b358ec111728",
+    "label_mapping.json": "feb45086ee3f15045d63a097bb44b634f50e51bb886aabde84bb077f6bd6a24c",
+    "lstm_classifier": "87de85f52316c82e2f9efe5c53f9df2ba8a05fec563730f54a13cd4799dc14fa",
+    "lstm_metrics": "8e6bd7aea189d5f5f3c8758023875802bf57250c531734e21481274c1fbdb8aa",
+    "preprocessing_manifest.json": "bd27d6221b61c7e1c42328c8a9c59d8665bfa47298d19c855264c51c0398fd35",
+    "random_forest": "ef178eb05581298474553cd46ca56ab8e95c675a5806b6f6c16986a3b33f5dd8",
+    "training_manifest": "f1a2fd92de496a23679242b3bcf355bda3ee5ae5388809ad1419ce1d208fa836",
+    "y_test.npy": "00701636a866248fa177270febc0c5b371b093f6ac574a84c440e50ae5c772c1",
+    "y_test_sequences.npy": "a82b3359c2e7b7c13ef72ea8b1f3db207ac83077520bf6d8fdc381eac51a9305"
+  },
+  "repository": {
+    "branch": "mock",
+    "commit": "a4f83823e931d2e750c13d7b73fb7cc4a11d0c90",
+    "working_tree_state": [
+      "M howtostart.md",
+      "?? MOCK_IMPLEMENTATION_REPORT.md",
+      "?? output/pdf/MOCK_IMPLEMENTATION_REPORT.pdf",
+      "?? output/pdf/MODEL_EVALUATION_PERFORMANCE_AND_DATASET_REPORT.pdf",
+      "?? report_evidence/",
+      "?? scripts/audit_lstm_generalization.py",
+      "?? scripts/report_evidence.py",
+      "?? tmp/matplotlib/",
+      "?? tmp/pdfs/"
+    ]
+  },
+  "run_id": "20260907_final_report_evidence",
+  "runtime_versions": {
+    "browser": "Playwright with installed Microsoft Edge",
+    "node": "v22.23.1",
+    "npm": "10.9.8",
+    "packages": {
+      "docx": "1.2.0",
+      "flask": "3.1.3",
+      "joblib": "1.5.3",
+      "matplotlib": "3.11.1",
+      "numpy": "2.4.6",
+      "pandas": "3.0.5",
+      "psutil": "7.2.2",
+      "shap": "0.52.0",
+      "sklearn": "1.9.0",
+      "torch": "2.13.0+cpu"
+    },
+    "python": "3.12.3 (tags/v3.12.3:f6650f9, Apr  9 2024, 14:05:25) [MSC v.1938 64 bit (AMD64)]"
+  },
+  "seeds": {
+    "active_lstm_random_state": "unverified in saved artifact; training script default is 42 but invocation is not recorded",
+    "evaluation": "deterministic saved-artifact inference plus separately labelled audit fitting",
+    "lstm_robustness_audit": [
+      42,
+      43,
+      44
+    ],
+    "traditional_models_random_state": 42
+  },
+  "split": {
+    "preprocessor_fit_scope": "training_rows_only",
+    "sequence_length": 10,
+    "strategy": "chronological",
+    "test_rows": 816,
+    "test_start_utc": "2026-07-26T14:15:30.004518+00:00",
+    "train_end_utc": "2026-07-26T14:15:30.004518+00:00",
+    "train_rows": 3264,
+    "validation_rows": 0
+  },
+  "timestamps": {
+    "live_ended_at_utc": "2026-09-07T14:06:59.179983Z",
+    "live_started_at_utc": "2026-09-07T14:06:12.727923Z",
+    "offline_generated_at_utc": "2026-09-07T13:56:04.100929Z"
+  }
+}

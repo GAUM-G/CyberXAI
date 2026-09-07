@@ -119,7 +119,7 @@ the same attack type because Terminal 5 intentionally suppresses duplicate alert
 SQL injection in the employee sign-in form:
 
 ```text
-Username: admin' OR '1'='1
+Username: admin' 
 Password: test
 ```
 
@@ -160,3 +160,8 @@ python -m continuous_learning.pipeline status
 ```
 
 Do not promote or roll back models while `run.py` is running.
+
+## for model accuracy
+cd D:\honeypot_v2
+.\.venv\Scripts\Activate.ps1
+python -m machine_learning.evaluate_modelsOR '1'='1

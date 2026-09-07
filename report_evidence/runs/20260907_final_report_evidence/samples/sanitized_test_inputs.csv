@@ -1,0 +1,7 @@
+event_id,timestamp_utc,source_ip_scope,source_port,destination_port,service,protocol,event_type,event,severity,status,username_present,session_id_present,request_method,request_path,payload_length,label
+83f2bcf6-35f2-450c-9ba3-a444be9aa56a,2026-07-26T14:15:30.009144Z,private,44552,8080,http,http,request,http_page_request,info,200,0,1,GET,/products,11,normal
+8439c093-bbab-47ff-bc66-9261a99b0359,2026-07-26T14:15:30.010143Z,private,54631,8080,http,http,attack,http_search_sql_injection,warning,detected,0,1,GET,/search,13,sql_injection
+ead558de-54cf-470d-baf8-6557981f771e,2026-07-26T14:15:30.012222Z,private,48596,8080,http,http,attack,http_search_xss,warning,detected,0,1,GET,/search,29,xss
+38bca63b-958b-4989-ac9c-edaaed437534,2026-07-26T14:15:30.012222Z,private,51310,2222,ssh,ssh,authentication,ssh_bruteforce_attempt,warning,failed,1,1,,,43,ssh_bruteforce
+1834a672-ec6f-4c5f-ac63-202cbb575da4,2026-07-26T14:15:30.006573Z,private,41886,2121,ftp,ftp,authentication,ftp_login_failed,warning,failed,1,1,,,44,ftp_bruteforce
+8302e6cf-8bf8-4997-9792-9384b818934f,2026-07-26T14:15:30.028048Z,private,53115,2222,ssh,ssh,authentication,ssh_login_attempt,info,failed,1,1,,,43,other_anomaly

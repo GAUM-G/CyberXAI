@@ -1,0 +1,6 @@
+flowchart LR
+ A[Attacker / test client] -->|SSH, FTP, HTTP interactions| P((Secure intelligent detection framework))
+ P -->|Decoy responses| A
+ P -->|Events, decisions, explanations, recommendations| N[Defender / analyst]
+ N -->|Feedback and approved simulated actions| P
+ P -.->|Sanitized alert payload when explicitly enabled| X[Local n8n / Telegram path]

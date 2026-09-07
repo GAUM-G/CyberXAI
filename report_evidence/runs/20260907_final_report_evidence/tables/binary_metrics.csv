@@ -1,0 +1,5 @@
+run_id,model,task,samples,tn,fp,fn,tp,fpr,fnr,roc_auc,average_precision,score_type
+20260907_final_report_evidence,decision_tree,attack_vs_normal,816,78,1,6,731,0.012658227848101266,0.008141112618724558,0.9998969479415352,0.9999889686820884,1 - P(normal)
+20260907_final_report_evidence,random_forest,attack_vs_normal,816,55,24,0,737,0.3037974683544304,0.0,1.0,1.0,1 - P(normal)
+20260907_final_report_evidence,lstm_classifier,attack_vs_normal,816,79,0,0,737,0.0,0.0,1.0,0.9999999999999999,1 - P(normal)
+20260907_final_report_evidence,isolation_forest,binary_anomaly,816,79,0,723,14,0.0,0.9810040705563093,0.9357642168902324,0.9929100774400685,"negative decision_function; continuous, not calibrated probability"

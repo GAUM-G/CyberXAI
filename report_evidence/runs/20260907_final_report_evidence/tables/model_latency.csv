@@ -1,0 +1,5 @@
+run_id,model,samples,device,median_total_ms,mean_total_ms,p95_total_ms,median_per_sample_ms,runs
+20260907_final_report_evidence,decision_tree,816,cpu,0.17615,0.18694999999999998,0.234875,0.0002158700980392157,12
+20260907_final_report_evidence,random_forest,816,cpu,23.10485,22.97045,23.497525,0.028314767156862743,12
+20260907_final_report_evidence,lstm_classifier,816,cpu,14.9285,14.449466666666666,16.10932,0.01829473039215686,12
+20260907_final_report_evidence,isolation_forest,816,cpu,22.8482,23.475233333333332,28.720885,0.028000245098039212,12

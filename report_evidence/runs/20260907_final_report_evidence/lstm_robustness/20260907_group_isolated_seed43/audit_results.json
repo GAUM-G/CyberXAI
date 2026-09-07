@@ -1,0 +1,536 @@
+{
+  "active_model_modified": false,
+  "configuration": {
+    "batch_size": 64,
+    "best_epoch": 40,
+    "dropout": 0.3,
+    "epochs_completed": 40,
+    "hidden_size": 64,
+    "learning_rate": 0.001,
+    "max_epochs": 40,
+    "patience": 6,
+    "random_state": 43,
+    "split_group": "source_ip_hash",
+    "weight_decay": 0.0001
+  },
+  "dataset_modified": false,
+  "group_isolated_split": {
+    "test": {
+      "fold": 4,
+      "group_overlap": 0,
+      "test_class_counts": {
+        "directory_scanning": 99,
+        "ftp_bruteforce": 102,
+        "normal": 89,
+        "other_anomaly": 26,
+        "port_scanning": 90,
+        "sql_injection": 103,
+        "ssh_bruteforce": 98,
+        "xss": 103
+      },
+      "test_groups": 70,
+      "test_rows": 710,
+      "train_groups": 228,
+      "train_rows": 3370
+    },
+    "test_rows": 710,
+    "train_rows": 2778,
+    "validation_rows": 592,
+    "validation_within_outer_train": {
+      "fold": 3,
+      "group_overlap": 0,
+      "test_class_counts": {
+        "directory_scanning": 83,
+        "ftp_bruteforce": 84,
+        "normal": 75,
+        "other_anomaly": 18,
+        "port_scanning": 90,
+        "sql_injection": 87,
+        "ssh_bruteforce": 70,
+        "xss": 85
+      },
+      "test_groups": 55,
+      "test_rows": 592,
+      "train_groups": 173,
+      "train_rows": 2778
+    }
+  },
+  "interpretation_rule": "A lower group-isolated score indicates optimistic original splitting. A still-perfect score indicates a highly separable/template-limited synthetic dataset and requires external or template-held-out data, not score manipulation.",
+  "metrics": {
+    "test": {
+      "accuracy": 0.971830985915493,
+      "balanced_accuracy": 0.9748043892461368,
+      "classification_report": {
+        "accuracy": 0.971830985915493,
+        "directory_scanning": {
+          "f1-score": 0.9468085106382979,
+          "precision": 1.0,
+          "recall": 0.898989898989899,
+          "support": 99.0
+        },
+        "ftp_bruteforce": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 102.0
+        },
+        "macro avg": {
+          "f1-score": 0.9635357816820458,
+          "precision": 0.9575534759358288,
+          "recall": 0.9748043892461368,
+          "support": 710.0
+        },
+        "normal": {
+          "f1-score": 0.9319371727748691,
+          "precision": 0.8725490196078431,
+          "recall": 1.0,
+          "support": 89.0
+        },
+        "other_anomaly": {
+          "f1-score": 0.8813559322033898,
+          "precision": 0.7878787878787878,
+          "recall": 1.0,
+          "support": 26.0
+        },
+        "port_scanning": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 90.0
+        },
+        "sql_injection": {
+          "f1-score": 0.9852216748768473,
+          "precision": 1.0,
+          "recall": 0.970873786407767,
+          "support": 103.0
+        },
+        "ssh_bruteforce": {
+          "f1-score": 0.9629629629629629,
+          "precision": 1.0,
+          "recall": 0.9285714285714286,
+          "support": 98.0
+        },
+        "weighted avg": {
+          "f1-score": 0.9724505747184911,
+          "precision": 0.9762559313097838,
+          "recall": 0.971830985915493,
+          "support": 710.0
+        },
+        "xss": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 103.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          89,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          91,
+          0,
+          0,
+          0,
+          0,
+          0,
+          7
+        ],
+        [
+          0,
+          0,
+          102,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          100,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          103,
+          0,
+          0,
+          0
+        ],
+        [
+          10,
+          0,
+          0,
+          0,
+          0,
+          89,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          90,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          26
+        ]
+      ],
+      "macro_f1": 0.9635357816820458,
+      "samples": 710,
+      "weighted_f1": 0.9724505747184911
+    },
+    "train": {
+      "accuracy": 0.9802015838732901,
+      "balanced_accuracy": 0.9801166331586906,
+      "classification_report": {
+        "accuracy": 0.9802015838732901,
+        "directory_scanning": {
+          "f1-score": 0.9829457364341085,
+          "precision": 1.0,
+          "recall": 0.9664634146341463,
+          "support": 328.0
+        },
+        "ftp_bruteforce": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 324.0
+        },
+        "macro avg": {
+          "f1-score": 0.9808580942925007,
+          "precision": 0.9819445456937839,
+          "recall": 0.9801166331586906,
+          "support": 2778.0
+        },
+        "normal": {
+          "f1-score": 0.9612625538020086,
+          "precision": 0.9544159544159544,
+          "recall": 0.9682080924855492,
+          "support": 346.0
+        },
+        "other_anomaly": {
+          "f1-score": 0.9714889123548046,
+          "precision": 0.9563409563409564,
+          "recall": 0.9871244635193133,
+          "support": 466.0
+        },
+        "port_scanning": {
+          "f1-score": 0.9984825493171472,
+          "precision": 1.0,
+          "recall": 0.996969696969697,
+          "support": 330.0
+        },
+        "sql_injection": {
+          "f1-score": 0.9749216300940439,
+          "precision": 0.9779874213836478,
+          "recall": 0.971875,
+          "support": 320.0
+        },
+        "ssh_bruteforce": {
+          "f1-score": 0.9730538922155688,
+          "precision": 0.9969325153374233,
+          "recall": 0.9502923976608187,
+          "support": 342.0
+        },
+        "weighted avg": {
+          "f1-score": 0.9802202753654021,
+          "precision": 0.9805942785422063,
+          "recall": 0.9802015838732901,
+          "support": 2778.0
+        },
+        "xss": {
+          "f1-score": 0.9847094801223242,
+          "precision": 0.9698795180722891,
+          "recall": 1.0,
+          "support": 322.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          335,
+          0,
+          0,
+          3,
+          8,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          325,
+          0,
+          0,
+          0,
+          0,
+          0,
+          17
+        ],
+        [
+          0,
+          0,
+          324,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0,
+          311,
+          1,
+          0,
+          0,
+          4
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          322,
+          0,
+          0,
+          0
+        ],
+        [
+          11,
+          0,
+          0,
+          0,
+          0,
+          317,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          329,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          4,
+          1,
+          0,
+          0,
+          460
+        ]
+      ],
+      "macro_f1": 0.9808580942925007,
+      "samples": 2778,
+      "weighted_f1": 0.9802202753654021
+    },
+    "validation": {
+      "accuracy": 0.9847972972972973,
+      "balanced_accuracy": 0.9851858171602668,
+      "classification_report": {
+        "accuracy": 0.9847972972972973,
+        "directory_scanning": {
+          "f1-score": 0.9878048780487805,
+          "precision": 1.0,
+          "recall": 0.9759036144578314,
+          "support": 83.0
+        },
+        "ftp_bruteforce": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 84.0
+        },
+        "macro avg": {
+          "f1-score": 0.9740503641011522,
+          "precision": 0.9667057704913776,
+          "recall": 0.9851858171602668,
+          "support": 592.0
+        },
+        "normal": {
+          "f1-score": 0.9868421052631579,
+          "precision": 0.974025974025974,
+          "recall": 1.0,
+          "support": 75.0
+        },
+        "other_anomaly": {
+          "f1-score": 0.8780487804878049,
+          "precision": 0.782608695652174,
+          "recall": 1.0,
+          "support": 18.0
+        },
+        "port_scanning": {
+          "f1-score": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "support": 90.0
+        },
+        "sql_injection": {
+          "f1-score": 0.9883720930232558,
+          "precision": 1.0,
+          "recall": 0.9770114942528736,
+          "support": 87.0
+        },
+        "ssh_bruteforce": {
+          "f1-score": 0.9629629629629629,
+          "precision": 1.0,
+          "recall": 0.9285714285714286,
+          "support": 70.0
+        },
+        "weighted avg": {
+          "f1-score": 0.985157513900293,
+          "precision": 0.9867987864614551,
+          "recall": 0.9847972972972973,
+          "support": 592.0
+        },
+        "xss": {
+          "f1-score": 0.9883720930232558,
+          "precision": 0.9770114942528736,
+          "recall": 1.0,
+          "support": 85.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          75,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          65,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          0,
+          84,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          85,
+          2,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          85,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          81,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          90,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          18
+        ]
+      ],
+      "macro_f1": 0.9740503641011522,
+      "samples": 592,
+      "weighted_f1": 0.985157513900293
+    }
+  },
+  "original_split_audit": {
+    "boundary_timestamp_equal": true,
+    "exact_test_sequences_seen_in_train": 0,
+    "source_overlap_rate": 0.9693627450980392,
+    "template_overlap_rate": 1.0,
+    "test_rows": 816,
+    "test_rows_from_sources_seen_in_train": 791,
+    "test_rows_with_event_path_template_seen_in_train": 816,
+    "test_start_timestamp": "2026-07-26T14:15:30.004518+00:00",
+    "train_end_timestamp": "2026-07-26T14:15:30.004518+00:00",
+    "train_rows": 3264
+  },
+  "purpose": "diagnose the original perfect holdout result without changing the active model",
+  "read_stats": {
+    "duplicate_event_ids_removed": 0,
+    "input_rows": 4080,
+    "unique_rows": 4080
+  },
+  "status": "complete"
+}

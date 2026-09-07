@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+actor Attacker
+actor Analyst
+rectangle Framework {
+ usecase "Interact with SSH/FTP/HTTP decoys" as U1
+ usecase "Submit safe portal SQLi/XSS probes" as U2
+ usecase "Monitor events and IDS decisions" as U3
+ usecase "Review SHAP and agent analysis" as U4
+ usecase "Submit analyst feedback" as U5
+ usecase "Approve simulated IPS action" as U6
+ usecase "Prepare gated offline retraining candidate" as U7
+}
+Attacker --> U1
+Attacker --> U2
+Analyst --> U3
+Analyst --> U4
+Analyst --> U5
+Analyst --> U6
+Analyst --> U7
+@enduml

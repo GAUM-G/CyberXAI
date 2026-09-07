@@ -1,0 +1,4 @@
+run_id,model,task,samples,accuracy,balanced_accuracy,macro_precision,macro_recall,macro_f1,weighted_f1
+20260907_final_report_evidence,decision_tree,multiclass,816,0.9803921568627451,0.9465369875740333,0.9804157239819005,0.9465369875740333,0.9581722324741311,0.9794292320538293
+20260907_final_report_evidence,random_forest,multiclass,816,0.9644607843137255,0.9407626901930699,0.9721034456369932,0.9407626901930699,0.9510000930395346,0.9631152056290038
+20260907_final_report_evidence,lstm_classifier,multiclass_sequence,816,1.0,1.0,1.0,1.0,1.0,1.0

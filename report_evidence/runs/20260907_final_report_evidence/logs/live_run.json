@@ -1,0 +1,86 @@
+{
+  "dashboard_screenshot": {
+    "method": "Playwright with installed Microsoft Edge",
+    "path": "D:\\honeypot_v2\\report_evidence\\runs\\20260907_final_report_evidence\\screenshots\\01_system_monitor.png",
+    "status": "captured"
+  },
+  "duration_seconds": 46.452,
+  "ended_at_utc": "2026-09-07T14:06:59.179983Z",
+  "event_collector_enabled": false,
+  "events_captured": 125,
+  "events_processed": 125,
+  "external_notifications_enabled": false,
+  "host_firewall_changed": false,
+  "kind": "fresh bounded localhost network demonstration",
+  "ports": {
+    "ftp": 32121,
+    "http": 38080,
+    "ssh": 32222
+  },
+  "processing_failures": [],
+  "run_id": "20260907_final_report_evidence",
+  "scenarios": [
+    {
+      "attack_predictions": 1,
+      "duration_ms": 341.922,
+      "error": "",
+      "event_ids": "968412c6-c8c3-4e2e-91f0-6f136d8cb127",
+      "events_captured": 1,
+      "events_processed": 1,
+      "expected": "normal",
+      "normal_predictions": 0,
+      "observed_attack_types": "directory_scanning:1",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "normal_http_get",
+      "started_at_utc": "2026-09-07T14:06:14.962499Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 16,
+      "duration_ms": 6266.137,
+      "error": "",
+      "event_ids": "a17ffb73-7364-400a-90af-eca086b1b7a3;22d95e66-d93a-48ac-91e5-7d57761cbefb;7074b8d2-630a-4fa4-b93f-03899662dc66;94a52a9a-259e-445e-968f-2329ac9953a2;11c707db-cf08-432a-afbc-20c361dfdeb1;b60d2790-763d-4862-8b7f-d3ebc90d5b84;789fe29e-b96e-4a7d-8022-3a8a6d7bd52f;483e8759-feaf-4168-b4dd-2e447aed5b04;74477eca-1900-4937-ac44-e64dc6c51e74;44f9ac57-3b18-4c51-8578-90c84cd85a30;1f70fe78-b4dd-47eb-8d18-faef69c059de;eaf56674-f009-4ed3-8feb-6b5d720ae3fe;f60bc39e-359d-47e8-87dd-e3ad4a4d34e3;954c73e8-bb07-4805-9a50-b227fed393cf;3cd299b9-9cd9-4820-a1d3-dd2f39b15d4a;788be580-261e-4788-9609-cfa1107e6daa",
+      "events_captured": 16,
+      "events_processed": 16,
+      "expected": "ssh_bruteforce",
+      "normal_predictions": 0,
+      "observed_attack_types": "other_anomaly:1;ssh_bruteforce:15",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "ssh_bounded_bruteforce",
+      "started_at_utc": "2026-09-07T14:06:15.303980Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 37,
+      "duration_ms": 16094.985,
+      "error": "",
+      "event_ids": "077111b5-df24-44b3-a034-ed07a259af92;12981bfe-d66e-4bd7-84ee-fcbf497a83a3;ed299fea-567d-4887-9909-3ed1bebf6ac9;a0632828-ce22-4d95-8ac4-20b1d974b345;ea14f758-d5ae-4946-aa3f-c8f03967248a;26e11bf1-5461-44d2-858d-63619f5de774;600e127d-cb79-4421-8998-880cb1945584;ec0d00d4-d87e-40ad-8fb3-f5a1f022f166;de40f14d-25c5-482e-8988-bba6e0a58bdc;b9be80c3-0510-4b2e-976b-474947bbf71f;560748c0-2e2f-40f0-a335-85766870e937;e5bc5555-27cd-4142-8468-077fcb38cd16;2bbb5e6a-a2b7-4919-900e-32c54acacee0;2af900cf-acc2-4697-a045-2ab1cf98d082;b06cb2df-c1f8-4505-a4ba-49db1a750ab8;93f1de94-b5a8-4951-b6ad-5d8bcf505273;7ef3b969-523e-4a8b-b7db-5f1d6ce0e6b1;a353de6e-7ec6-4e13-a69d-80ae1fe8431c;eefcf283-7fe3-469c-8162-52ac71ead2b7;cdd4487f-761b-4fe5-9672-e70ccf11b74e;052f8037-e670-4423-ae1d-946d6ba8bbc7;f0ab70a3-3fe9-4a76-a794-c89ee6120c91;502a05c8-41dc-4c1c-8a27-12c62df03286;8b21f83e-a437-43fd-8126-40376630921c;2dd22c9b-1a6e-418c-aa4a-3b6e8fdc5e25;85a8d421-ebf5-4792-85a8-b98abb4d7efa;5f10b2b2-41a1-41d7-b9be-84eee746e325;2e15b92f-8159-425f-86ff-9121a999295d;1ff8f919-6243-49c9-9c2a-8f6fd7b0771c;a67d3937-ce90-4944-92aa-81f4310177b9;d147f39e-4729-4ace-bf98-1ee09d70531b;85746fcb-7e0b-497e-9f6f-4297fa6286c8;c010bc96-ebcc-44c7-9744-7cd3ce9c8041;46ea97a2-3e5f-4faf-a10c-4e8515516b31;1a5b06b0-5555-41d5-a357-4ecfc22b998b;200d4f57-8395-4f9c-a8ec-9c1fc41adca5;9d5f23d5-d420-4074-a9d8-a5895e1c504c",
+      "events_captured": 37,
+      "events_processed": 37,
+      "expected": "ftp_bruteforce",
+      "normal_predictions": 0,
+      "observed_attack_types": "ftp_bruteforce:1;other_anomaly:8;ssh_bruteforce:28",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "ftp_bounded_bruteforce",
+      "started_at_utc": "2026-09-07T14:06:21.571004Z",
+      "status": "completed"
+    },
+    {
+      "attack_predictions": 70,
+      "duration_ms": 5343.869,
+      "error": "",
+      "event_ids": "8b4e8d60-c68d-4f9b-b48e-d54dfdb36c86;b0d7370f-9fdf-4d26-87f4-c3d77426ef16;3c7e34b4-d249-4e23-9a76-ff93f3fb1226;c845a313-ed1e-4d4a-a7cc-9b9426769560;d9e95444-f2cb-4710-9bd2-56dfce6f932f;2441e623-4c19-4063-b0be-9cffcc90d827;0acc6569-867d-4e91-8264-2106b4ad7f80;71715d7d-316c-49e8-a66c-74a6fab6cff3;836a4def-99da-417f-b0e7-1fc4d740be8e;2a96e698-8635-4fed-800a-320605250767;461bb977-4d49-42a9-bc12-46a24fb0bd17;de786768-c94d-4721-a83f-78e6d3b810a0;cc95b2c3-9f92-47bf-9d04-875b0aee0686;e2a69833-fa1e-4156-9e19-87e7c712e654;f8d62a66-17ed-4745-8a77-e7638c42be44;21c3a238-96ec-4460-9be7-cbac1b4e4d3a;b8263f68-d146-4d48-bc26-1ff28b30b07f;226680ab-5095-47e9-9bb1-158e3c526e4c;76070b5c-2581-4124-97ba-765649d86f11;1eb1084b-bc9b-439b-bc56-ca1af43af2f7;b9b73661-a607-4358-91e4-94d49a019369;503091a7-730c-49d5-9985-6c1197112a64;1a8e3bb4-7d6c-4ae0-8f55-e8f3093e631d;93f37d69-be33-4773-8ce4-e16b04c91c5c;2b91f2d2-6fd7-4fe7-ae08-68d27af0edab;cca27f19-529d-4e92-bd0d-2ae3366195c1;a5e2a8de-af8f-47c7-b8ce-033796cb319b;d40bffc7-4695-4e53-89a4-d4c52877dbb9;7bf01ffd-1a29-44a3-93fd-83babe1369fe;efb93d08-00b0-4a56-a461-2652de399c40;7f423abb-c2c7-403b-b5ec-539fbf78ed19;2cdcb393-e95b-4844-8000-a1d50dd85a1c;3fc8a715-681b-47f0-b6eb-1841b928a1eb;1070b3af-5f2c-4bfe-bf53-ea6a041d3253;bb083d34-904b-4eb9-bb38-4764ceba3556;c1bc72f0-8d44-46ce-af8a-df8baec36227;c12381ca-e90f-477a-bfe1-c67a3236a428;5f94f32e-7010-4296-981c-fdeb737b6dff;7d8148fe-7ca4-4aa5-9b32-4629c52e0bb1;2fd8e7ab-a772-4f11-b335-2e904d74dfd5;ebc149cb-0c24-4725-9f70-d901f805752c;2a8e06ab-8675-458b-9d24-e06786301085;55b43778-5170-4704-b12c-026d6395639b;15bc6882-5ec1-4d14-a181-d020dced6c73;29a0384c-b9ac-4018-aee3-6e2902f57fd4;11785a71-35a6-4abe-bf1c-5b89f0e2e49a;fcac53cf-1332-488e-8ed2-c2b5317d0190;14bbefbe-62bf-4f45-a17e-65df034ef1f3;757f2078-0fbe-49fc-a45f-a3368ee0c1dd;d0ddaeff-dfc4-403a-8d28-5a66adbff3bf;6ed63ffd-2410-4b91-b285-59e64a2a4a8c;18d2377d-c877-43b0-9f48-32af95b22194;d3fa343c-f7f6-4102-84f1-ec368567b6b4;ddf627ef-ff93-43bb-886a-249e49b4c0c8;bb6c7aa2-bd24-42a7-8582-61115959a2ef;420d49ab-f97f-4113-8174-87f1204a1779;dc6cfdd2-02d9-4b43-a490-72430e5d577b;5a8f0b70-517f-4cfd-b19b-5138fbbfc3b9;ad5b8b5b-33d4-42a0-b702-cb5c971ad342;fed41b22-b4b8-4e7f-ba0b-3d3b0f4a163b;a25d2d00-e81e-4cd3-8271-2a3607deb6c9;533d708c-e542-43b0-bc42-4b537a2dd7d0;d83ce4ca-f4ed-4cc5-9355-884a8e8ea8cb;5a9e2fbd-ff6d-4e32-9d4d-d1141b8a8752;735cb300-ec32-47ee-b21d-86e142051cf2;6f31857f-c904-4c8b-ba26-ed268138e8d6;798f5243-17c2-49ea-b9e9-31849a2e4d70;eec5f362-3f89-4345-92aa-835b027503fd;e09d9e86-bb08-420d-9e32-24daa32756e1;b6843f38-a5fd-43c7-b322-e17e12dfd89d;556a9bec-2077-4002-86c7-f41420d5e442",
+      "events_captured": 71,
+      "events_processed": 71,
+      "expected": "multiple_supported_http",
+      "normal_predictions": 1,
+      "observed_attack_types": "directory_scanning:17;http_bruteforce:1;normal:1;sql_injection:42;xss:10",
+      "run_id": "20260907_final_report_evidence",
+      "scenario": "http_supported_attacks",
+      "started_at_utc": "2026-09-07T14:06:37.666772Z",
+      "status": "completed"
+    }
+  ],
+  "started_at_utc": "2026-09-07T14:06:12.727923Z",
+  "storage": "isolated run directory"
+}
