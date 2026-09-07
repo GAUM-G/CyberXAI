@@ -49,17 +49,17 @@ Latency is wall-clock inference time after artifact loading, with one warm-up an
 
 ## 4.3 Performance Evaluation (Tables/Graphs/Charts)
 
-**Table 4.3-1. Fresh offline multiclass metrics on the original holdout**
+**Table 4.3-1. Primary reported multiclass metrics by evaluation scope**
 
-| Model | n | Accuracy | Balanced accuracy | Macro precision | Macro recall | Macro F1 | Weighted F1 |
-|---|---|---|---|---|---|---|---|
-| decision_tree | 816 | 0.9803921568627451 | 0.9465369875740333 | 0.9804157239819005 | 0.9465369875740333 | 0.9581722324741311 | 0.9794292320538293 |
-| random_forest | 816 | 0.9644607843137255 | 0.9407626901930699 | 0.9721034456369932 | 0.9407626901930699 | 0.9510000930395346 | 0.9631152056290038 |
-| lstm_classifier | 816 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+| Model | Evaluation scope | Runs | Test n | Accuracy | Accuracy SD | Balanced accuracy | Macro F1 | Macro F1 SD |
+|---|---|---|---|---|---|---|---|---|
+| Decision Tree | legacy chronological holdout | 1 | 816 | 0.9804 | n/a | 0.9465 | 0.9582 | n/a |
+| Random Forest | legacy chronological holdout | 1 | 816 | 0.9645 | n/a | 0.9408 | 0.9510 | n/a |
+| LSTM | source-group-isolated holdouts | 3 | 710/710/711 | 0.9761 | 0.0035 | 0.9785 | 0.9675 | 0.0033 |
 
-![Figure 4.3-1. Grouped metric comparison.](figures/model_metric_comparison.png)
+![Figure 4.3-1. Primary reported metrics with explicit evaluation scopes.](figures/model_metric_comparison.png)
 
-Decision Tree remains the selected tabular classifier: its macro F1 is approximately 0.958 while Random Forest is approximately 0.951 and has a materially larger normal-event false-positive rate. The active LSTM reproduced 1.0000 on all 816 legacy saved sequence targets; this is a reproducibility result, not the primary generalization estimate.
+Decision Tree remains the selected tabular classifier: its macro F1 is approximately 0.958 while Random Forest is approximately 0.951 and has a materially larger normal-event false-positive rate. The primary LSTM row now uses the three-run source-group-isolated estimate: 0.9761 accuracy and 0.9675 macro F1. The legacy 1.0000 reproduction appears only in the explicitly labelled comparison below and must not be quoted as the final generalization result.
 
 **Table 4.3-2. LSTM evaluation-scope comparison**
 

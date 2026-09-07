@@ -316,7 +316,7 @@ def pipeline_diagram():
 def grouped_metric_chart(rows):
     d = Drawing(CONTENT_W, 245)
     left, bottom, plot_w, plot_h = 42, 48, CONTENT_W - 55, 158
-    d.add(String(0, 228, "Supervised model quality on the 816-row holdout", fontName=BOLD_FONT, fontSize=10, fillColor=NAVY))
+    d.add(String(0, 228, "Primary supervised metrics by explicitly labelled evaluation scope", fontName=BOLD_FONT, fontSize=10, fillColor=NAVY))
     for tick in range(0, 101, 20):
         y = bottom + plot_h * tick / 100
         d.add(Line(left, y, left + plot_w, y, strokeColor=MID, strokeWidth=0.4))
@@ -533,12 +533,18 @@ def load_data():
     with (LSTM_AUDIT / "aggregate_results.csv").open(encoding="utf-8", newline="") as handle:
         robust_runs = list(csv.DictReader(handle))
     robust_summary = json.loads((LSTM_AUDIT / "aggregate_summary.json").read_text(encoding="utf-8"))
-    robust_seed42 = json.loads((LSTM_AUDIT / "20260907_group_isolated_audit" / "audit_results.json").read_text(encoding="utf-8"))
-    return eval_report, confusions, preprocess, dataset, training, lstm, summary, samples, outputs, features, X_test, y_test, robust_runs, robust_summary, robust_seed42
+    audit_dirs = ["20260907_group_isolated_audit", "20260907_group_isolated_seed43", "20260907_group_isolated_seed44"]
+    robust_audits = [json.loads((LSTM_AUDIT / name / "audit_results.json").read_text(encoding="utf-8")) for name in audit_dirs]
+    return eval_report, confusions, preprocess, dataset, training, lstm, summary, samples, outputs, features, X_test, y_test, robust_runs, robust_summary, robust_audits
 
 
 def build_story(data):
-    eval_report, confusions, preprocess, dataset, training, lstm, summary, samples, outputs, features, X_test, y_test, robust_runs, robust_summary, robust_seed42 = data
+    eval_report, confusions, preprocess, dataset, training, lstm, summary, samples, outputs, features, X_test, y_test, robust_runs, robust_summary, robust_audits = data
+    primary_summary = [dict(row, evaluation_scope="legacy chronological holdout") for row in summary if row["model"] in ("decision_tree", "random_forest")]
+    macro_precision = float(np.mean([audit["metrics"]["test"]["classification_report"]["macro avg"]["precision"] for audit in robust_audits]))
+    macro_recall = float(np.mean([audit["metrics"]["test"]["classification_report"]["macro avg"]["recall"] for audit in robust_audits]))
+    normal_fpr = float(np.mean([1.0-audit["metrics"]["test"]["classification_report"]["normal"]["recall"] for audit in robust_audits]))
+    primary_summary.append({"model":"lstm_classifier","evaluation_scope":"source-group-isolated 3-run audit","accuracy":robust_summary["accuracy"]["mean"],"balanced_accuracy":macro_recall,"precision":macro_precision,"recall":macro_recall,"f1_score":robust_summary["macro_f1"]["mean"],"false_positive_rate":normal_fpr})
     story = []
 
     # Cover
@@ -753,20 +759,20 @@ def build_story(data):
     # Performance
     story += section("4. Performance evaluation")
     story.extend([
-        p("4.1 Overall model comparison", H2), grouped_metric_chart(summary),
-        p("Figure 3. Accuracy, balanced accuracy, and macro F1 for the three supervised classifiers.", CAPTION),
+        p("4.1 Primary model comparison", H2), grouped_metric_chart(primary_summary),
+        p("Figure 3. Primary reported metrics: tabular models use the labelled legacy holdout; LSTM uses the source-group-isolated three-run mean.", CAPTION),
     ])
-    overall_rows = [["Model", "Accuracy", "Balanced acc.", "Precision", "Recall", "F1", "Normal FPR", "Median ms"]]
+    overall_rows = [["Model", "Evaluation scope", "Accuracy", "Balanced acc.", "Macro precision", "Macro recall", "Macro F1", "Normal FPR"]]
     display_names = {"decision_tree": "Decision Tree", "random_forest": "Random Forest", "lstm_classifier": "LSTM", "isolation_forest": "Isolation Forest"}
-    for row in summary:
+    for row in primary_summary:
         overall_rows.append([
-            display_names[row["model"]], f'{float(row["accuracy"]):.4f}', f'{float(row["balanced_accuracy"]):.4f}',
+            display_names[row["model"]], row["evaluation_scope"], f'{float(row["accuracy"]):.4f}', f'{float(row["balanced_accuracy"]):.4f}',
             f'{float(row["precision"]):.4f}', f'{float(row["recall"]):.4f}', f'{float(row["f1_score"]):.4f}',
-            f'{float(row["false_positive_rate"]):.4f}', f'{float(row["median_total_ms"]):.4f}',
+            f'{float(row["false_positive_rate"]):.4f}',
         ])
     story.extend([
-        table(overall_rows, [CONTENT_W * .20] + [CONTENT_W * .105] * 7, small=True, alignments=["LEFT"] + ["RIGHT"] * 7),
-        p("Decision Tree wins the tabular selection rule: its macro F1 is 0.9582 versus 0.9510 for Random Forest, balanced accuracy is higher, and its normal-as-attack FPR is 0.0127 versus 0.3038. LSTM and Isolation Forest use different input/role contracts and are not substitutes in this selection."),
+        table(overall_rows, [CONTENT_W * .14, CONTENT_W * .22] + [CONTENT_W * .1067] * 6, small=True, alignments=["LEFT", "LEFT"] + ["RIGHT"] * 6),
+        p("Decision Tree wins the tabular selection rule: its macro F1 is 0.9582 versus 0.9510 for Random Forest, balanced accuracy is higher, and its normal-as-attack FPR is 0.0127 versus 0.3038. The primary LSTM row is the group-isolated mean (accuracy 0.9761; macro F1 0.9675), not the legacy 1.0000 result. The evaluation scopes are explicit and should not be treated as a single shared test set."),
         p("4.2 Inference latency", H2), latency_chart(summary),
         p("Figure 4. Median total prediction time for 816 rows. Decision Tree is approximately 128 times faster than Random Forest in this saved benchmark.", CAPTION),
         p("Latency was measured on the local CPU runtime. It excludes model loading, preprocessing, storage, XAI, agents, dashboard delivery, and alert transport; therefore it is model inference latency, not end-to-end incident latency."),
@@ -935,7 +941,7 @@ def build_story(data):
             ["report_evidence/lstm_robustness/*/audit_results.json", "Exact split overlap, configuration, per-class results, and active-model integrity."],
             ["report_evidence/lstm_robustness/20260907_candidate_bundle_seed42", "Unpromoted checkpoint, matching preprocessor, split assignments, predictions, confusion matrix, and history."],
             ["data/ml_ready/evaluation/evaluation_report.json", "Complete evaluation metrics and timing protocol."],
-            ["data/ml_ready/evaluation/evaluation_summary.csv", "Compact comparison table used in Figures 3 and 4."],
+            ["data/ml_ready/evaluation/evaluation_summary.csv", "Legacy saved-holdout metrics and latency inputs; LSTM primary comparison uses the separate robustness audit."],
             ["data/ml_ready/evaluation/confusion_matrices.json", "Matrices used in Figures 6, 7, and 9."],
             ["data/ml_ready/evaluation/model_selection.json", "Selection criteria and hybrid model roles."],
             ["data/detections/hybrid_ids_results.jsonl", "Representative live hybrid outputs used in Section 5."],
@@ -948,8 +954,7 @@ def build_story(data):
         p("Optional end-to-end regression verification:", BODY),
         p("python .\\scripts\\final_system_test.py", CODE),
         p("A.3 Evaluation integrity statement", H2),
-        p("The legacy evaluation manifest states: chronological split preserved; test labels used only for evaluation; inference timing excludes artifact loading; model fit was not called; and protected artifacts were not modified. The separate audit records seeds 42-44, source-group-isolated outer and validation splits, training-only preprocessing, best-validation-loss checkpointing, exact predictions/confusion matrices, and active-model hashes. Neither evaluation proves external or unseen-template generalization."),
-        p("Prepared from local project artifacts on branch mock. All seven runtime service ports were closed before this report was generated."),
+        p("The legacy evaluation manifest states: chronological split preserved; test labels used only for evaluation; inference timing excludes artifact loading; model fit was not called; and protected artifacts were not modified. The separate audit records seeds 42-44, source-group-isolated outer and validation splits, training-only preprocessing, best-validation-loss checkpointing, exact predictions/confusion matrices, and active-model hashes. Neither evaluation proves external or unseen-template generalization. Prepared from local project artifacts on branch mock; all seven runtime service ports were closed before generation."),
     ])
     return story
 

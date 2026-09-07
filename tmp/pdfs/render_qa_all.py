@@ -9,6 +9,7 @@ SOURCES = {
     "sections": ROOT / "report_evidence/runs/20260907_final_report_evidence/report_sections.pdf",
     "implementation": ROOT / "output/pdf/MOCK_IMPLEMENTATION_REPORT.pdf",
     "model_evaluation": ROOT / "output/pdf/MODEL_EVALUATION_PERFORMANCE_AND_DATASET_REPORT.pdf",
+    "architecture": ROOT / "output/pdf/PROJECT_ARCHITECTURE_EXPLANATION.pdf",
 }
 QA_ROOT = ROOT / "tmp/pdfs/qa_all"
 

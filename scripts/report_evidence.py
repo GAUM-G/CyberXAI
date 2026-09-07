@@ -511,7 +511,20 @@ def setup_plotting():
 
 
 def savefig(fig, path: Path) -> None:
-    fig.tight_layout(); fig.savefig(path.with_suffix(".png"),dpi=220,bbox_inches="tight"); fig.savefig(path.with_suffix(".svg"),bbox_inches="tight")
+    # The report contract requires print-ready raster figures.  Keep SVG as the
+    # editable/vector counterpart and export PNGs at a true 300 DPI.
+    png_path = path.with_suffix(".png")
+    svg_path = path.with_suffix(".svg")
+    fig.tight_layout()
+    fig.savefig(png_path, dpi=300, bbox_inches="tight")
+    fig.savefig(svg_path, bbox_inches="tight")
+    # Matplotlib writes harmless trailing spaces into SVG path data.  Normalize
+    # them so repository whitespace checks stay useful and deterministic.
+    svg_text = svg_path.read_text(encoding="utf-8")
+    svg_path.write_text(
+        "\n".join(line.rstrip() for line in svg_text.splitlines()) + "\n",
+        encoding="utf-8",
+    )
 
 
 def stage_lstm_robustness(run_dir: Path) -> None:
@@ -526,9 +539,16 @@ def stage_lstm_robustness(run_dir: Path) -> None:
     write_csv(run_dir/"tables"/"lstm_group_isolated_runs.csv",[{"report_run_id":run_dir.name,**row} for row in rows])
     summary=read_json(summary_path)
     mean_balanced=sum(float(row["test_balanced_accuracy"]) for row in rows)/len(rows)
+    std_balanced=(sum((float(row["test_balanced_accuracy"])-mean_balanced)**2 for row in rows)/len(rows))**0.5
     write_csv(run_dir/"tables"/"lstm_evaluation_scope_summary.csv",[
       {"run_id":run_dir.name,"evaluation":"legacy chronological holdout","runs":1,"test_samples":"816","accuracy_mean":1.0,"accuracy_std":0.0,"balanced_accuracy_mean":1.0,"macro_f1_mean":1.0,"macro_f1_std":0.0,"source_group_overlap":"791/816 test rows","template_overlap":"816/816 test rows","interpretation":"reproduced but optimistic; not independent generalization"},
       {"run_id":run_dir.name,"evaluation":"source-group-isolated holdouts","runs":summary["runs"],"test_samples":"710, 710, 711","accuracy_mean":summary["accuracy"]["mean"],"accuracy_std":summary["accuracy"]["population_std"],"balanced_accuracy_mean":mean_balanced,"macro_f1_mean":summary["macro_f1"]["mean"],"macro_f1_std":summary["macro_f1"]["population_std"],"source_group_overlap":"0 in every run","template_overlap":"templates still repeat across groups","interpretation":"primary defensible internal LSTM estimate; external validation still required"},
+    ])
+    legacy={row["model"]:row for row in read_csv(run_dir/"tables"/"model_metrics.csv")}
+    write_csv(run_dir/"tables"/"primary_model_metrics.csv",[
+      {"run_id":run_dir.name,"model":"Decision Tree","evaluation_scope":"legacy chronological holdout","runs":1,"test_samples":"816","accuracy_mean":f'{float(legacy["decision_tree"]["accuracy"]):.4f}',"accuracy_std":"n/a","balanced_accuracy_mean":f'{float(legacy["decision_tree"]["balanced_accuracy"]):.4f}',"balanced_accuracy_std":"n/a","macro_f1_mean":f'{float(legacy["decision_tree"]["macro_f1"]):.4f}',"macro_f1_std":"n/a","interpretation":"selected tabular model; controlled holdout"},
+      {"run_id":run_dir.name,"model":"Random Forest","evaluation_scope":"legacy chronological holdout","runs":1,"test_samples":"816","accuracy_mean":f'{float(legacy["random_forest"]["accuracy"]):.4f}',"accuracy_std":"n/a","balanced_accuracy_mean":f'{float(legacy["random_forest"]["balanced_accuracy"]):.4f}',"balanced_accuracy_std":"n/a","macro_f1_mean":f'{float(legacy["random_forest"]["macro_f1"]):.4f}',"macro_f1_std":"n/a","interpretation":"tabular comparison; controlled holdout"},
+      {"run_id":run_dir.name,"model":"LSTM","evaluation_scope":"source-group-isolated holdouts","runs":summary["runs"],"test_samples":"710/710/711","accuracy_mean":f'{float(summary["accuracy"]["mean"]):.4f}',"accuracy_std":f'{float(summary["accuracy"]["population_std"]):.4f}',"balanced_accuracy_mean":f'{mean_balanced:.4f}',"balanced_accuracy_std":f'{std_balanced:.4f}',"macro_f1_mean":f'{float(summary["macro_f1"]["mean"]):.4f}',"macro_f1_std":f'{float(summary["macro_f1"]["population_std"]):.4f}',"interpretation":"preferred internal LSTM estimate; candidate not promoted"},
     ])
 
 
@@ -538,9 +558,12 @@ def render_figures(run_dir: Path) -> None:
     rows=read_csv(tables/"class_distribution.csv"); names=[r["class"].replace("_","\n") for r in rows]; total=[int(r["total"]) for r in rows]
     fig,ax=plt.subplots(figsize=(9,4.5)); bars=ax.bar(names,total,color=PALETTE["blue"]); ax.bar_label(bars,padding=3); ax.set(ylabel="Accepted records",title="Accepted dataset class distribution"); ax.grid(axis="y",alpha=.5); savefig(fig,figs/"dataset_class_distribution"); plt.close(fig)
     train=[int(r["train"]) for r in rows]; test=[int(r["test"]) for r in rows]; x=np.arange(len(names)); fig,ax=plt.subplots(figsize=(9,4.8)); ax.bar(x-.2,train,.4,label="Train",color=PALETTE["navy"]); ax.bar(x+.2,test,.4,label="Test",color=PALETTE["cyan"]); ax.set_xticks(x,names); ax.set(ylabel="Records",title="Chronological split by class"); ax.legend(); ax.grid(axis="y",alpha=.5); savefig(fig,figs/"train_test_distribution"); plt.close(fig)
-    metrics=read_csv(tables/"model_metrics.csv"); models=[r["model"] for r in metrics]; keys=["accuracy","balanced_accuracy","macro_f1","weighted_f1"]; x=np.arange(len(models)); fig,ax=plt.subplots(figsize=(9,5)); width=.18
-    for k,key in enumerate(keys): ax.bar(x+(k-1.5)*width,[float(r[key]) for r in metrics],width,label=key.replace("_"," "))
-    ax.set_xticks(x,models); ax.set_ylim(.85,1.015); ax.set(ylabel="Score",title="Fresh offline multiclass performance (n=816)"); ax.legend(ncol=2); ax.grid(axis="y",alpha=.5); savefig(fig,figs/"model_metric_comparison"); plt.close(fig)
+    metrics=read_csv(tables/"primary_model_metrics.csv"); models=[r["model"] for r in metrics]; keys=["accuracy_mean","balanced_accuracy_mean","macro_f1_mean"]; x=np.arange(len(models)); fig,ax=plt.subplots(figsize=(9,5)); width=.24
+    std_keys=["accuracy_std","balanced_accuracy_std","macro_f1_std"]
+    for k,(key,std_key) in enumerate(zip(keys,std_keys)):
+        errors=[0.0 if r[std_key]=="n/a" else float(r[std_key]) for r in metrics]
+        ax.bar(x+(k-1)*width,[float(r[key]) for r in metrics],width,yerr=errors,capsize=4,label=key.replace("_mean"," ").replace("_"," "))
+    ax.set_xticks(x,["Decision Tree\nlegacy holdout","Random Forest\nlegacy holdout","LSTM\nsource-group audit"]); ax.set_ylim(.90,1.005); ax.set(ylabel="Score",title="Primary reported metrics by explicitly labelled evaluation scope"); ax.legend(ncol=3); ax.grid(axis="y",alpha=.5); savefig(fig,figs/"model_metric_comparison"); plt.close(fig)
     binary=read_csv(tables/"binary_metrics.csv"); x=np.arange(len(binary)); fig,ax=plt.subplots(figsize=(9,4.5)); ax.bar(x-.18,[float(r["fpr"]) for r in binary],.36,label="FPR",color=PALETTE["amber"]); ax.bar(x+.18,[float(r["fnr"]) for r in binary],.36,label="FNR",color=PALETTE["red"]); ax.set_xticks(x,[r["model"] for r in binary]); ax.set(ylabel="Rate",title="Attack-versus-normal error rates"); ax.legend(); ax.grid(axis="y",alpha=.5); savefig(fig,figs/"binary_fpr_fnr"); plt.close(fig)
     curves=read_csv(tables/"curves.csv")
     for kind,title,xlab,ylab in (("roc","ROC curves: attack versus normal","False positive rate","True positive rate"),("pr","Precision-recall curves: attack versus normal","Recall","Precision")):
@@ -623,7 +646,7 @@ def table_md(rows: list[dict[str,str]], fields: list[str], headings: list[str] |
 
 
 def build_markdown(run_dir: Path) -> tuple[str,str]:
-    env=read_json(run_dir/"environment.json"); dataset=read_csv(run_dir/"tables"/"dataset_summary.csv")[0]; classes=read_csv(run_dir/"tables"/"class_distribution.csv"); metrics=read_csv(run_dir/"tables"/"model_metrics.csv"); binary=read_csv(run_dir/"tables"/"binary_metrics.csv"); latency=read_csv(run_dir/"tables"/"model_latency.csv"); robust=read_csv(run_dir/"tables"/"lstm_evaluation_scope_summary.csv"); robust_runs=read_csv(run_dir/"tables"/"lstm_group_isolated_runs.csv"); db=read_json(run_dir/"samples"/"database_schema.json"); prep=read_json(MODEL_ROOT/"preprocessing_manifest.json"); train=read_json(MODEL_DIR/"training_manifest.json"); lstm=read_json(MODEL_DIR/"lstm_metrics.json"); features=read_json(MODEL_ROOT/"feature_names.json")
+    env=read_json(run_dir/"environment.json"); dataset=read_csv(run_dir/"tables"/"dataset_summary.csv")[0]; classes=read_csv(run_dir/"tables"/"class_distribution.csv"); metrics=read_csv(run_dir/"tables"/"model_metrics.csv"); primary_metrics=read_csv(run_dir/"tables"/"primary_model_metrics.csv"); binary=read_csv(run_dir/"tables"/"binary_metrics.csv"); latency=read_csv(run_dir/"tables"/"model_latency.csv"); robust=read_csv(run_dir/"tables"/"lstm_evaluation_scope_summary.csv"); robust_runs=read_csv(run_dir/"tables"/"lstm_group_isolated_runs.csv"); db=read_json(run_dir/"samples"/"database_schema.json"); prep=read_json(MODEL_ROOT/"preprocessing_manifest.json"); train=read_json(MODEL_DIR/"training_manifest.json"); lstm=read_json(MODEL_DIR/"lstm_metrics.json"); features=read_json(MODEL_ROOT/"feature_names.json")
     feature_defs=prep["features"]["engineered_definitions"]
     feature_rows=[{"feature":f,"definition":feature_defs.get(f.replace("numeric__",""),"Raw numeric field, standardized using training-set statistics." if f.startswith("numeric__") else "One-hot category; unknown test categories ignored.")} for f in features]
     model_rows=[
@@ -753,13 +776,13 @@ Latency is wall-clock inference time after artifact loading, with one warm-up an
 
 ## 4.3 Performance Evaluation (Tables/Graphs/Charts)
 
-**Table 4.3-1. Fresh offline multiclass metrics on the original holdout**
+**Table 4.3-1. Primary reported multiclass metrics by evaluation scope**
 
-{table_md(metrics,['model','samples','accuracy','balanced_accuracy','macro_precision','macro_recall','macro_f1','weighted_f1'],['Model','n','Accuracy','Balanced accuracy','Macro precision','Macro recall','Macro F1','Weighted F1'])}
+{table_md(primary_metrics,['model','evaluation_scope','runs','test_samples','accuracy_mean','accuracy_std','balanced_accuracy_mean','macro_f1_mean','macro_f1_std'],['Model','Evaluation scope','Runs','Test n','Accuracy','Accuracy SD','Balanced accuracy','Macro F1','Macro F1 SD'])}
 
-![Figure 4.3-1. Grouped metric comparison.](figures/model_metric_comparison.png)
+![Figure 4.3-1. Primary reported metrics with explicit evaluation scopes.](figures/model_metric_comparison.png)
 
-Decision Tree remains the selected tabular classifier: its macro F1 is approximately 0.958 while Random Forest is approximately 0.951 and has a materially larger normal-event false-positive rate. The active LSTM reproduced 1.0000 on all 816 legacy saved sequence targets; this is a reproducibility result, not the primary generalization estimate.
+Decision Tree remains the selected tabular classifier: its macro F1 is approximately 0.958 while Random Forest is approximately 0.951 and has a materially larger normal-event false-positive rate. The primary LSTM row now uses the three-run source-group-isolated estimate: 0.9761 accuracy and 0.9675 macro F1. The legacy 1.0000 reproduction appears only in the explicitly labelled comparison below and must not be quoted as the final generalization result.
 
 **Table 4.3-2. LSTM evaluation-scope comparison**
 
@@ -914,8 +937,8 @@ def build_docx(run_dir: Path, impl: str, results: str) -> None:
     for text in ["Attack is the positive binary class and normal is negative. Accuracy=(TP+TN)/(TP+TN+FP+FN); Precision=TP/(TP+FP); Recall=TP/(TP+FN); F1=2PR/(P+R); FPR=FP/(FP+TN); FNR=FN/(FN+TP). Zero denominators are reported as zero.","For eight classes, per-class metrics are one-vs-rest. Macro averages weight classes equally; weighted averages weight by support; balanced accuracy is mean class recall. Confusion matrices use actual rows and predicted columns.","ROC/PR use 1−P(normal) for supervised models and negative Isolation Forest decision_function for anomaly detection. Average precision is reported, not trapezoidal PR-AUC. The anomaly score is continuous but not calibrated probability.","Latency excludes artifact loading and uses one warm-up plus 12 repeated 816-sample batches. Functional test pass rates are not detection accuracy."]:
         p(text)
     heading("4.3 Performance Evaluation (Tables/Graphs/Charts)",2)
-    metrics=read_csv(run_dir/"tables"/"model_metrics.csv"); table("Table 4.3-1. Fresh offline multiclass metrics",metrics,["model","samples","accuracy","balanced_accuracy","macro_f1","weighted_f1"],["Model","n","Accuracy","Balanced accuracy","Macro F1","Weighted F1"]); figure(run_dir/"figures"/"model_metric_comparison.png","Figure 4.3-1. Fresh offline metric comparison.")
-    p("Decision Tree remains the selected tabular model. The active LSTM reproduced 1.0000 on 816 legacy saved sequence targets; this is a reproducibility result rather than the primary generalization estimate.")
+    primary_metrics=read_csv(run_dir/"tables"/"primary_model_metrics.csv"); table("Table 4.3-1. Primary reported multiclass metrics by evaluation scope",primary_metrics,["model","evaluation_scope","runs","test_samples","accuracy_mean","accuracy_std","balanced_accuracy_mean","macro_f1_mean","macro_f1_std"],["Model","Evaluation scope","Runs","Test n","Accuracy","Acc. SD","Balanced acc.","Macro F1","F1 SD"]); figure(run_dir/"figures"/"model_metric_comparison.png","Figure 4.3-1. Primary metrics with explicit evaluation scopes.")
+    p("Decision Tree remains the selected tabular model. The primary LSTM row uses the three-run source-group-isolated result: 0.9761 mean accuracy and 0.9675 mean macro F1. The 1.0000 result is retained only below as an explicitly labelled legacy-holdout reproduction and must not be quoted as final generalization performance.")
     robust=read_csv(run_dir/"tables"/"lstm_evaluation_scope_summary.csv")
     table("Table 4.3-2. LSTM evaluation-scope comparison",robust,["evaluation","runs","test_samples","accuracy_mean","accuracy_std","balanced_accuracy_mean","macro_f1_mean","macro_f1_std"],["Evaluation","Runs","Test n","Accuracy mean","Accuracy SD","Balanced acc.","Macro F1","F1 SD"])
     figure(run_dir/"figures"/"lstm_robustness_comparison.png","Figure 4.3-2. Legacy holdout versus source-group-isolated LSTM audit.",width=6.2)
@@ -984,7 +1007,7 @@ def finalize(run_dir: Path) -> None:
       {"artifact_id":"Table 4.1-4","artifact_type":"table","title":"Representative sanitized held-out inputs","data_source":"samples/sanitized_test_inputs.csv","run_id":run_dir.name,"sample_count":"representative subset","units":"events","scope":"Fresh offline measurement"},
       {"artifact_id":"Table 4.1-5","artifact_type":"table","title":"Traceable Decision Tree output samples","data_source":"predictions/decision_tree_predictions.csv","run_id":run_dir.name,"sample_count":"six displayed of 816","units":"predictions","scope":"Fresh offline measurement"},
       {"artifact_id":"Table 4.1-6","artifact_type":"table","title":"Fresh bounded localhost scenarios","data_source":"tables/live_scenarios.csv","run_id":run_dir.name,"sample_count":"four scenarios; 125 events","units":"events/predictions","scope":"Fresh live measurement"},
-      {"artifact_id":"Table 4.3-1","artifact_type":"table","title":"Fresh offline multiclass metrics","data_source":"tables/model_metrics.csv","run_id":run_dir.name,"sample_count":"816 per model","units":"rates","scope":"Fresh offline measurement"},
+      {"artifact_id":"Table 4.3-1","artifact_type":"table","title":"Primary reported multiclass metrics by evaluation scope","data_source":"tables/primary_model_metrics.csv","run_id":run_dir.name,"sample_count":"tabular 816; LSTM audit 710/710/711","units":"rates","scope":"Explicitly labelled legacy tabular holdout and fresh LSTM robustness audit"},
       {"artifact_id":"Table 4.3-2","artifact_type":"table","title":"LSTM evaluation-scope comparison","data_source":"tables/lstm_evaluation_scope_summary.csv","run_id":run_dir.name,"sample_count":"legacy 816; audit 710/710/711","units":"rates","scope":"Legacy reproduction and fresh robustness audit"},
       {"artifact_id":"Table 4.3-3","artifact_type":"table","title":"Source-group-isolated LSTM seed-level results","data_source":"tables/lstm_group_isolated_runs.csv","run_id":run_dir.name,"sample_count":"three seeds; test 710/710/711","units":"rows/epochs/rates","scope":"Fresh robustness audit"},
       {"artifact_id":"Table 4.3-4","artifact_type":"table","title":"Binary attack-versus-normal metrics","data_source":"tables/binary_metrics.csv","run_id":run_dir.name,"sample_count":"816 per model","units":"rates/area","scope":"Fresh offline measurement"},
@@ -993,7 +1016,7 @@ def finalize(run_dir: Path) -> None:
       {"artifact_id":"Figure 4.1-1","artifact_type":"figure","title":"Accepted dataset class distribution","data_source":"tables/class_distribution.csv","run_id":run_dir.name,"sample_count":"4,080","units":"rows","scope":"Verified from code"},
       {"artifact_id":"Figure 4.1-2","artifact_type":"figure","title":"Chronological train/test distribution","data_source":"tables/class_distribution.csv; tables/dataset_summary.csv","run_id":run_dir.name,"sample_count":"4,080","units":"rows","scope":"Verified from code"},
       {"artifact_id":"Figure 4.1-3","artifact_type":"screenshot","title":"Flask defender system monitor","data_source":"screenshots/01_system_monitor.png; logs/live_run.json","run_id":run_dir.name,"sample_count":"125 events","units":"application state","scope":"Fresh live measurement"},
-      {"artifact_id":"Figure 4.3-1","artifact_type":"figure","title":"Legacy holdout model metrics","data_source":"tables/model_metrics.csv","run_id":run_dir.name,"sample_count":"816 per evaluated model","units":"rates","scope":"Fresh offline measurement"},
+      {"artifact_id":"Figure 4.3-1","artifact_type":"figure","title":"Primary model metrics by evaluation scope","data_source":"tables/primary_model_metrics.csv","run_id":run_dir.name,"sample_count":"tabular 816; LSTM audit three seeds","units":"rates","scope":"Explicitly labelled mixed evaluation scopes"},
       {"artifact_id":"Figure 4.3-2","artifact_type":"figure","title":"LSTM legacy versus source-group-isolated audit","data_source":"tables/lstm_evaluation_scope_summary.csv; tables/lstm_group_isolated_runs.csv","run_id":run_dir.name,"sample_count":"legacy 816; audit three seeds","units":"rates","scope":"Legacy reproduction and fresh robustness audit"},
       {"artifact_id":"Figures 4.3-3 to 4.3-8","artifact_type":"figure","title":"Confusion matrices, per-class, FPR/FNR, ROC and PR","data_source":"confusion_raw.csv; confusion_normalized.csv; per_class_metrics.csv; binary_metrics.csv; curves.csv","run_id":run_dir.name,"sample_count":"816 per evaluated model","units":"counts/rates/area","scope":"Fresh offline measurement"},
       {"artifact_id":"Figure 4.3-9","artifact_type":"figure","title":"Local Decision Tree SHAP explanation","data_source":"tables/shap_example.csv","run_id":run_dir.name,"sample_count":"one held-out event","units":"SHAP contribution","scope":"Fresh offline measurement"},

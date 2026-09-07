@@ -15,9 +15,11 @@ This package contains the regenerated implementation, evaluation, and results ma
 
 ## Package layout
 
-- `reports/`: final DOCX/PDF report sections, full implementation report, and model-evaluation PDF.
+- `reports/`: final DOCX/PDF report sections, full implementation report, model-evaluation PDF, and standalone architecture explanation.
 - `evidence/`: complete sanitized evidence run with tables, figures, diagrams, predictions, manifests, integrity checks, and LSTM robustness artifacts.
 - `reproducibility/`: report generator and LSTM audit script.
 - `archives/`: the separately generated verified evidence ZIP.
 
 The raw isolated producer event stream, databases, credentials, tokens, secrets, and local configuration are intentionally excluded.
+
+The primary comparison table and chart use the source-group-isolated LSTM mean (`0.9761` accuracy, `0.9675` macro F1). The legacy `1.0000` result appears only in explicitly labelled audit comparisons.

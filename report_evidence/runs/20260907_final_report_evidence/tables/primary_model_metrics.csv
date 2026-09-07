@@ -1,0 +1,4 @@
+run_id,model,evaluation_scope,runs,test_samples,accuracy_mean,accuracy_std,balanced_accuracy_mean,balanced_accuracy_std,macro_f1_mean,macro_f1_std,interpretation
+20260907_final_report_evidence,Decision Tree,legacy chronological holdout,1,816,0.9804,n/a,0.9465,n/a,0.9582,n/a,selected tabular model; controlled holdout
+20260907_final_report_evidence,Random Forest,legacy chronological holdout,1,816,0.9645,n/a,0.9408,n/a,0.9510,n/a,tabular comparison; controlled holdout
+20260907_final_report_evidence,LSTM,source-group-isolated holdouts,3,710/710/711,0.9761,0.0035,0.9785,0.0031,0.9675,0.0033,preferred internal LSTM estimate; candidate not promoted

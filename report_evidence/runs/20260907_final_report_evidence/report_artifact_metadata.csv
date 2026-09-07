@@ -8,7 +8,7 @@ Table 4.1-3,table,Application database inventory,samples/database_schema.json,20
 Table 4.1-4,table,Representative sanitized held-out inputs,samples/sanitized_test_inputs.csv,20260907_final_report_evidence,representative subset,events,Fresh offline measurement
 Table 4.1-5,table,Traceable Decision Tree output samples,predictions/decision_tree_predictions.csv,20260907_final_report_evidence,six displayed of 816,predictions,Fresh offline measurement
 Table 4.1-6,table,Fresh bounded localhost scenarios,tables/live_scenarios.csv,20260907_final_report_evidence,four scenarios; 125 events,events/predictions,Fresh live measurement
-Table 4.3-1,table,Fresh offline multiclass metrics,tables/model_metrics.csv,20260907_final_report_evidence,816 per model,rates,Fresh offline measurement
+Table 4.3-1,table,Primary reported multiclass metrics by evaluation scope,tables/primary_model_metrics.csv,20260907_final_report_evidence,tabular 816; LSTM audit 710/710/711,rates,Explicitly labelled legacy tabular holdout and fresh LSTM robustness audit
 Table 4.3-2,table,LSTM evaluation-scope comparison,tables/lstm_evaluation_scope_summary.csv,20260907_final_report_evidence,legacy 816; audit 710/710/711,rates,Legacy reproduction and fresh robustness audit
 Table 4.3-3,table,Source-group-isolated LSTM seed-level results,tables/lstm_group_isolated_runs.csv,20260907_final_report_evidence,three seeds; test 710/710/711,rows/epochs/rates,Fresh robustness audit
 Table 4.3-4,table,Binary attack-versus-normal metrics,tables/binary_metrics.csv,20260907_final_report_evidence,816 per model,rates/area,Fresh offline measurement
@@ -17,7 +17,7 @@ Figures 3.2.2-1 to 3.2.2-4,diagram,"Use case, activity, context DFD and Level 1 
 Figure 4.1-1,figure,Accepted dataset class distribution,tables/class_distribution.csv,20260907_final_report_evidence,"4,080",rows,Verified from code
 Figure 4.1-2,figure,Chronological train/test distribution,tables/class_distribution.csv; tables/dataset_summary.csv,20260907_final_report_evidence,"4,080",rows,Verified from code
 Figure 4.1-3,screenshot,Flask defender system monitor,screenshots/01_system_monitor.png; logs/live_run.json,20260907_final_report_evidence,125 events,application state,Fresh live measurement
-Figure 4.3-1,figure,Legacy holdout model metrics,tables/model_metrics.csv,20260907_final_report_evidence,816 per evaluated model,rates,Fresh offline measurement
+Figure 4.3-1,figure,Primary model metrics by evaluation scope,tables/primary_model_metrics.csv,20260907_final_report_evidence,tabular 816; LSTM audit three seeds,rates,Explicitly labelled mixed evaluation scopes
 Figure 4.3-2,figure,LSTM legacy versus source-group-isolated audit,tables/lstm_evaluation_scope_summary.csv; tables/lstm_group_isolated_runs.csv,20260907_final_report_evidence,legacy 816; audit three seeds,rates,Legacy reproduction and fresh robustness audit
 Figures 4.3-3 to 4.3-8,figure,"Confusion matrices, per-class, FPR/FNR, ROC and PR",confusion_raw.csv; confusion_normalized.csv; per_class_metrics.csv; binary_metrics.csv; curves.csv,20260907_final_report_evidence,816 per evaluated model,counts/rates/area,Fresh offline measurement
 Figure 4.3-9,figure,Local Decision Tree SHAP explanation,tables/shap_example.csv,20260907_final_report_evidence,one held-out event,SHAP contribution,Fresh offline measurement
