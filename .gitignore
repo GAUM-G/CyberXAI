@@ -49,3 +49,8 @@ data/ips/
 data/reports/
 data/continuous_learning/
 data/runtime/
+
+# Local browser profiles used for architecture inspection
+tmp/architecture-chrome-profile/
+tmp/architecture-chrome-unsandboxed/
+tmp/architecture-edge-profile/

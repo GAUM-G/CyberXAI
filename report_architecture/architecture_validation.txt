@@ -1,0 +1,25 @@
+Components included
+- External attacker and controlled local attack simulator.
+- SSH honeypot on port 2222, FTP honeypot on port 2121, and HTTP honeypot on port 8080.
+- React/Vite attacker-facing decoy employee portal on port 5173 and its Express decoy APIs on port 5000.
+- Common event schema 1.0, Python structured logger, JavaScript event builder, backend event collector, raw event JSONL, and SQLite event persistence.
+- Runtime validation, producer-label neutralization, credential sanitization, IP pseudonymization, normalization, causal behavioural feature engineering, and saved preprocessing transforms.
+- Rule-based detection, selected Decision Tree known-attack classifier, Isolation Forest anomaly evidence, and LSTM – Sequence / Temporal Analysis.
+- Hybrid fusion with verified precedence: rules, Decision Tree, threshold-qualified LSTM, Isolation Forest, then normal.
+- Threat score and severity calculation, SHAP TreeExplainer for the selected Decision Tree component, and deterministic human-readable explanations.
+- Six post-decision agents in order: detection, correlation, severity, explanation, response, and daily reporting.
+- Final IDS JSONL, agent report JSON, Express/SQLite IDS-result persistence, Flask defender dashboard, append-only analyst feedback, and simulated IPS audit records.
+- Enriched IDS alert relay and the checked-in n8n webhook/normalization flow.
+- Separate controlled offline lifecycle: new events and latest feedback, candidate-data preparation, offline retraining, evaluation/quality gate, required human approval, promote or reject/retain active, and rollback support.
+
+Components excluded
+- CNN — no current CNN implementation was found.
+- Random Forest from the active runtime path — the latest repository evaluation selects Decision Tree; Random Forest is shown only as an offline evaluated candidate.
+- Model accuracy values — architecture contains roles and flows only, and the older perfect LSTM holdout result is not an independent-generalization claim.
+- Telegram delivery node — the checked-in n8n workflow ends after webhook normalization and contains no Telegram recipient node; private local delivery configuration cannot be verified from repository code.
+- Automatic host-firewall blocking — simulated IPS contracts explicitly keep automatic host blocking and firewall modification disabled.
+- Automatic online learning — candidate preparation, retraining, evaluation, promotion, and rollback are separate offline commands with explicit human promotion.
+
+Uncertainty
+- Telegram delivery may be configured in private local n8n state outside the repository, but it is intentionally not shown because that state and recipient node are not code-verifiable here.
+- SHAP output is available only when the SHAP dependency initializes successfully; deterministic explanations remain available when SHAP is unavailable.

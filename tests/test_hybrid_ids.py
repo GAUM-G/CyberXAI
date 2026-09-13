@@ -144,18 +144,24 @@ def make_artifacts(
     tabular_index: int = 0,
     sequence_index: int = 0,
     anomaly: bool = False,
+    anomaly_score: float | None = None,
+    anomaly_score_threshold: float = 0.0,
 ) -> HybridArtifacts:
     return HybridArtifacts(
         preprocessor=FakePreprocessor(),
         tabular_model_name="decision_tree",
         tabular_estimator=FakeClassifier(tabular_index),
-        isolation_estimator=FakeIsolationForest(anomaly=anomaly),
+        isolation_estimator=FakeIsolationForest(
+            anomaly=anomaly,
+            score=anomaly_score,
+        ),
         lstm_model=FakeLSTM(sequence_index),
         feature_names=tuple(f"feature_{index}" for index in range(23)),
         label_mapping=dict(LABELS),
         sequence_length=10,
         device=torch.device("cpu"),
         protected_hashes={},
+        anomaly_score_threshold=anomaly_score_threshold,
     )
 
 
@@ -267,6 +273,20 @@ class HybridIDSEngineTests(unittest.TestCase):
         self.assertEqual(result["attack_type"], "other_anomaly")
         self.assertEqual(result["model_used"], "isolation_forest")
         self.assertIsNone(result["confidence"])
+        self.assertTrue(result["components"]["anomaly"]["is_anomaly"])
+
+    def test_isolation_forest_uses_calibrated_anomaly_threshold(self) -> None:
+        # The estimator's legacy predict() says inlier, but its score crosses
+        # the validation-calibrated operating point stored in the bundle.
+        result = make_engine(
+            anomaly=False,
+            anomaly_score=-0.20,
+            anomaly_score_threshold=0.10,
+        ).process_event(make_event())
+
+        self.assertEqual(result["attack_type"], "other_anomaly")
+        self.assertEqual(result["model_used"], "isolation_forest")
+        self.assertAlmostEqual(result["anomaly_score"], 0.20)
         self.assertTrue(result["components"]["anomaly"]["is_anomaly"])
 
     def test_normal_decision_uses_both_supervised_models(self) -> None:

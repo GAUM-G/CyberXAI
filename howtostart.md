@@ -164,4 +164,4 @@ Do not promote or roll back models while `run.py` is running.
 ## for model accuracy
 cd D:\honeypot_v2
 .\.venv\Scripts\Activate.ps1
-python -m machine_learning.evaluate_modelsOR '1'='1
+python -m machine_learning.evaluate_models

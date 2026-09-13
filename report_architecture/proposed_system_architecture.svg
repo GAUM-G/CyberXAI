@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1700" viewBox="0 0 2400 1700" role="img" aria-labelledby="title desc">
+  <title id="title">3.1.2 Proposed System Architecture</title>
+  <desc id="desc">Verified architecture of the implemented honeypot system, showing the real-time data path and the separate human-gated offline model lifecycle.</desc>
+  <defs>
+    <marker id="arrow-runtime" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#2563a6"/>
+    </marker>
+    <marker id="arrow-offline" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#7651a8"/>
+    </marker>
+    <marker id="arrow-sim" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#2b7a62"/>
+    </marker>
+    <style>
+      .title { font: 700 38px 'Segoe UI', Arial, sans-serif; fill: #172538; }
+      .subtitle { font: 400 19px 'Segoe UI', Arial, sans-serif; fill: #506176; }
+      .group { fill: #f7f9fc; stroke: #b9c5d3; stroke-width: 2; }
+      .group-head { fill: #e9eff6; }
+      .group-title { font: 700 20px 'Segoe UI', Arial, sans-serif; fill: #20344d; letter-spacing: .6px; }
+      .group-title-small { font: 700 17px 'Segoe UI', Arial, sans-serif; fill: #20344d; letter-spacing: .2px; }
+      .node { fill: #ffffff; stroke: #8497ab; stroke-width: 2; }
+      .node-blue { fill: #eef6ff; stroke: #5b8fc3; stroke-width: 2; }
+      .node-teal { fill: #eff9f6; stroke: #5b9886; stroke-width: 2; }
+      .node-purple { fill: #f6f1fb; stroke: #8a6bb0; stroke-width: 2; }
+      .node-muted { fill: #f3f4f6; stroke: #9aa3ad; stroke-width: 2; }
+      .node-warning { fill: #fff8e7; stroke: #b38a34; stroke-width: 2; }
+      .node-title { font: 700 21px 'Segoe UI', Arial, sans-serif; fill: #172538; }
+      .node-text { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #34465b; }
+      .node-small { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #4a5c70; }
+      .tiny { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #5a6878; }
+      .runtime { fill: none; stroke: #2563a6; stroke-width: 4; marker-end: url(#arrow-runtime); }
+      .runtime-thin { fill: none; stroke: #2563a6; stroke-width: 3; marker-end: url(#arrow-runtime); }
+      .bus { fill: none; stroke: #7e93aa; stroke-width: 3; }
+      .offline { fill: none; stroke: #7651a8; stroke-width: 4; stroke-dasharray: 12 9; marker-end: url(#arrow-offline); }
+      .sim { fill: none; stroke: #2b7a62; stroke-width: 4; stroke-dasharray: 3 9; marker-end: url(#arrow-sim); }
+      .edge-label { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #2563a6; }
+      .offline-label { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #7651a8; }
+      .sim-label { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #2b7a62; }
+      .legend { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #3d4f63; }
+      .note { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #6b4b16; }
+    </style>
+  </defs>
+
+  <rect width="2400" height="1700" fill="#ffffff"/>
+  <text x="60" y="62" class="title">3.1.2 Proposed System Architecture</text>
+  <text x="60" y="96" class="subtitle">Implemented multi-service honeypot, hybrid IDS, analyst operations, and human-gated model updates</text>
+
+  <line x1="1480" y1="60" x2="1540" y2="60" class="runtime"/>
+  <text x="1555" y="66" class="legend">Runtime data</text>
+  <line x1="1740" y1="60" x2="1800" y2="60" class="offline"/>
+  <text x="1815" y="66" class="legend">Offline lifecycle</text>
+  <line x1="2050" y1="60" x2="2110" y2="60" class="sim"/>
+  <text x="2125" y="66" class="legend">Honeypot-only simulated control</text>
+
+  <!-- Runtime architecture groups -->
+  <rect x="30" y="140" width="190" height="980" rx="10" class="group"/>
+  <rect x="30" y="140" width="190" height="58" rx="10" class="group-head"/>
+  <text x="125" y="176" text-anchor="middle" class="group-title">INPUT</text>
+
+  <rect x="245" y="140" width="355" height="980" rx="10" class="group"/>
+  <rect x="245" y="140" width="355" height="58" rx="10" class="group-head"/>
+  <text x="422" y="176" text-anchor="middle" class="group-title">INTERACTION / CAPTURE</text>
+
+  <rect x="625" y="140" width="330" height="980" rx="10" class="group"/>
+  <rect x="625" y="140" width="330" height="58" rx="10" class="group-head"/>
+  <text x="790" y="176" text-anchor="middle" class="group-title">EVENT COLLECTION</text>
+
+  <rect x="980" y="140" width="250" height="980" rx="10" class="group"/>
+  <rect x="980" y="140" width="250" height="58" rx="10" class="group-head"/>
+  <text x="1105" y="176" text-anchor="middle" class="group-title-small">RUNTIME PREPARATION</text>
+
+  <rect x="1255" y="140" width="370" height="980" rx="10" class="group"/>
+  <rect x="1255" y="140" width="370" height="58" rx="10" class="group-head"/>
+  <text x="1440" y="176" text-anchor="middle" class="group-title">HYBRID IDS EVIDENCE</text>
+
+  <rect x="1650" y="140" width="310" height="980" rx="10" class="group"/>
+  <rect x="1650" y="140" width="310" height="58" rx="10" class="group-head"/>
+  <text x="1805" y="176" text-anchor="middle" class="group-title">DECISION &amp; XAI</text>
+
+  <rect x="1985" y="140" width="385" height="980" rx="10" class="group"/>
+  <rect x="1985" y="140" width="385" height="58" rx="10" class="group-head"/>
+  <text x="2177" y="176" text-anchor="middle" class="group-title">POST-DECISION OPERATIONS</text>
+
+  <!-- Input -->
+  <rect x="50" y="270" width="150" height="150" rx="10" class="node-blue"/>
+  <text x="125" y="320" text-anchor="middle" class="node-title">External</text>
+  <text x="125" y="350" text-anchor="middle" class="node-title">Attacker</text>
+  <text x="125" y="386" text-anchor="middle" class="node-small">network / web</text>
+
+  <rect x="50" y="545" width="150" height="160" rx="10" class="node-teal"/>
+  <text x="125" y="590" text-anchor="middle" class="node-title">Controlled</text>
+  <text x="125" y="620" text-anchor="middle" class="node-title">Attack</text>
+  <text x="125" y="650" text-anchor="middle" class="node-title">Simulator</text>
+  <text x="125" y="682" text-anchor="middle" class="node-small">local only</text>
+
+  <path d="M200 345 H235 V390 H265" class="runtime"/>
+  <path d="M200 625 H235 V690 H265" class="runtime"/>
+
+  <!-- Capture -->
+  <rect x="265" y="230" width="315" height="110" rx="9" class="node"/>
+  <text x="422" y="274" text-anchor="middle" class="node-title">SSH Honeypot</text>
+  <text x="422" y="309" text-anchor="middle" class="node-text">TCP :2222</text>
+
+  <rect x="265" y="370" width="315" height="110" rx="9" class="node"/>
+  <text x="422" y="414" text-anchor="middle" class="node-title">FTP Honeypot</text>
+  <text x="422" y="449" text-anchor="middle" class="node-text">TCP :2121</text>
+
+  <rect x="265" y="510" width="315" height="110" rx="9" class="node"/>
+  <text x="422" y="554" text-anchor="middle" class="node-title">HTTP Honeypot</text>
+  <text x="422" y="589" text-anchor="middle" class="node-text">HTTP :8080</text>
+
+  <rect x="265" y="675" width="315" height="150" rx="9" class="node-blue"/>
+  <text x="422" y="718" text-anchor="middle" class="node-title">React / Vite Decoy Portal</text>
+  <text x="422" y="750" text-anchor="middle" class="node-text">attacker-facing :5173</text>
+  <text x="422" y="781" text-anchor="middle" class="node-small">employee login, search, files</text>
+  <text x="422" y="807" text-anchor="middle" class="node-small">calls Express decoy APIs</text>
+
+  <!-- Capture buses to collection -->
+  <path d="M580 285 H610 M580 425 H610 M580 565 H610 M610 285 V565" class="bus"/>
+  <path d="M610 425 H618 V322 H645" class="runtime"/>
+  <path d="M580 750 H610 V665 H645" class="runtime"/>
+
+  <!-- Event collection -->
+  <rect x="645" y="245" width="290" height="155" rx="9" class="node-blue"/>
+  <text x="790" y="286" text-anchor="middle" class="node-title">Common Event Schema 1.0</text>
+  <text x="790" y="320" text-anchor="middle" class="node-text">Python structured logger</text>
+  <text x="790" y="350" text-anchor="middle" class="node-text">+ JavaScript event builder</text>
+  <text x="790" y="379" text-anchor="middle" class="node-small">validated service telemetry</text>
+
+  <rect x="645" y="455" width="290" height="130" rx="9" class="node"/>
+  <text x="790" y="498" text-anchor="middle" class="node-title">Raw Events JSONL</text>
+  <text x="790" y="532" text-anchor="middle" class="node-text">honeypot_events.jsonl</text>
+  <text x="790" y="562" text-anchor="middle" class="node-small">durable real-time IDS feed</text>
+
+  <rect x="645" y="625" width="290" height="165" rx="9" class="node-teal"/>
+  <text x="790" y="667" text-anchor="middle" class="node-title">Express Backend :5000</text>
+  <text x="790" y="700" text-anchor="middle" class="node-text">decoy + event / IDS APIs</text>
+  <text x="790" y="730" text-anchor="middle" class="node-text">feedback + simulated IPS APIs</text>
+  <text x="790" y="763" text-anchor="middle" class="node-small">central collection and persistence</text>
+
+  <rect x="645" y="840" width="290" height="150" rx="9" class="node"/>
+  <text x="790" y="882" text-anchor="middle" class="node-title">SQLite: honeypot.db</text>
+  <text x="790" y="915" text-anchor="middle" class="node-text">common events / portal telemetry</text>
+  <text x="790" y="947" text-anchor="middle" class="node-small">later stores IDS, feedback, IPS audit</text>
+  <text x="790" y="974" text-anchor="middle" class="node-small">through Express APIs</text>
+
+  <path d="M790 400 V455" class="runtime-thin"/>
+  <path d="M830 400 V610 H790 V625" class="runtime-thin"/>
+  <path d="M790 790 V840" class="runtime-thin"/>
+  <path d="M720 625 V605 H720 V585" class="runtime-thin"/>
+
+  <!-- Runtime preparation -->
+  <rect x="1000" y="270" width="210" height="125" rx="9" class="node"/>
+  <text x="1105" y="313" text-anchor="middle" class="node-title">Schema Validation</text>
+  <text x="1105" y="347" text-anchor="middle" class="node-text">reject invalid / duplicate IDs</text>
+  <text x="1105" y="375" text-anchor="middle" class="node-small">validated common event</text>
+
+  <rect x="1000" y="455" width="210" height="145" rx="9" class="node"/>
+  <text x="1105" y="495" text-anchor="middle" class="node-title">Sanitize &amp; Normalize</text>
+  <text x="1105" y="526" text-anchor="middle" class="node-text">neutralize producer label</text>
+  <text x="1105" y="555" text-anchor="middle" class="node-small">secret redaction + IP hash</text>
+  <text x="1105" y="581" text-anchor="middle" style="font:400 14px 'Segoe UI',Arial,sans-serif;fill:#4a5c70">canonical fields; no raw payload input</text>
+
+  <rect x="1000" y="660" width="210" height="145" rx="9" class="node"/>
+  <text x="1105" y="700" text-anchor="middle" class="node-title">Behavioural Features</text>
+  <text x="1105" y="734" text-anchor="middle" class="node-text">causal source / service history</text>
+  <text x="1105" y="764" text-anchor="middle" class="node-small">rates, failures, timing, patterns</text>
+  <text x="1105" y="790" text-anchor="middle" class="node-small">current and past events only</text>
+
+  <rect x="1000" y="865" width="210" height="130" rx="9" class="node-blue"/>
+  <text x="1105" y="905" text-anchor="middle" class="node-title">Saved Preprocessor</text>
+  <text x="1105" y="938" text-anchor="middle" class="node-text">impute + one-hot encode</text>
+  <text x="1105" y="968" text-anchor="middle" class="node-text">standard-scale numeric data</text>
+
+  <path d="M935 520 H968 V332 H1000" class="runtime"/>
+  <path d="M1105 395 V455" class="runtime-thin"/>
+  <path d="M1105 600 V660" class="runtime-thin"/>
+  <path d="M1105 805 V865" class="runtime-thin"/>
+
+  <!-- Hybrid IDS evidence -->
+  <rect x="1285" y="235" width="300" height="125" rx="9" class="node-warning"/>
+  <text x="1435" y="278" text-anchor="middle" class="node-title">Rule-Based Detection</text>
+  <text x="1435" y="312" text-anchor="middle" class="node-text">signatures + repeated failures</text>
+  <text x="1435" y="341" text-anchor="middle" class="node-small">deterministic evidence</text>
+
+  <rect x="1285" y="405" width="300" height="125" rx="9" class="node-blue"/>
+  <text x="1435" y="448" text-anchor="middle" class="node-title">Decision Tree</text>
+  <text x="1435" y="482" text-anchor="middle" class="node-text">selected runtime tabular model</text>
+  <text x="1435" y="511" text-anchor="middle" class="node-small">known-attack classification</text>
+
+  <rect x="1285" y="575" width="300" height="125" rx="9" class="node"/>
+  <text x="1435" y="618" text-anchor="middle" class="node-title">Isolation Forest</text>
+  <text x="1435" y="652" text-anchor="middle" class="node-text">unknown-anomaly evidence</text>
+  <text x="1435" y="681" text-anchor="middle" class="node-small">validation-calibrated threshold</text>
+
+  <rect x="1285" y="745" width="300" height="125" rx="9" class="node-teal"/>
+  <text x="1435" y="796" text-anchor="middle" style="font:700 16px 'Segoe UI',Arial,sans-serif;fill:#172538">LSTM – Sequence / Temporal Analysis</text>
+  <text x="1435" y="833" text-anchor="middle" class="node-small">causal source / service sequence</text>
+  <text x="1435" y="861" text-anchor="middle" class="node-small">temporal evidence component</text>
+
+  <rect x="1285" y="935" width="300" height="105" rx="9" class="node-muted"/>
+  <text x="1435" y="975" text-anchor="middle" class="node-title">Inference Only</text>
+  <text x="1435" y="1007" text-anchor="middle" class="node-text">artifacts loaded once; no fitting</text>
+  <text x="1435" y="1033" text-anchor="middle" class="node-small">Random Forest is not loaded here</text>
+
+  <path d="M1210 332 H1285" class="runtime-thin"/>
+  <path d="M1210 930 H1240 V468" class="bus"/>
+  <path d="M1240 468 H1285" class="runtime-thin"/>
+  <path d="M1240 638 H1285" class="runtime-thin"/>
+  <path d="M1240 808 H1285" class="runtime-thin"/>
+  <path d="M1585 298 H1610 M1585 468 H1610 M1585 638 H1610 M1585 808 H1610 M1610 298 V808" class="bus"/>
+
+  <!-- Decision and XAI -->
+  <rect x="1675" y="350" width="260" height="190" rx="9" class="node-blue"/>
+  <text x="1805" y="390" text-anchor="middle" class="node-title">Hybrid Decision Fusion</text>
+  <text x="1805" y="425" text-anchor="middle" class="node-text">precedence:</text>
+  <text x="1805" y="455" text-anchor="middle" class="node-small">Rules → Decision Tree → sequence</text>
+  <text x="1805" y="482" text-anchor="middle" class="node-small">→ Isolation Forest → Normal</text>
+  <text x="1805" y="513" text-anchor="middle" class="node-small">agreement can combine confidence</text>
+
+  <rect x="1675" y="600" width="260" height="130" rx="9" class="node-warning"/>
+  <text x="1805" y="644" text-anchor="middle" class="node-title">Threat Analysis</text>
+  <text x="1805" y="678" text-anchor="middle" class="node-text">threat score + severity</text>
+  <text x="1805" y="705" text-anchor="middle" class="node-small">type, confidence, repetition,</text>
+  <text x="1805" y="724" text-anchor="middle" class="node-small">service and anomaly factors</text>
+
+  <rect x="1675" y="790" width="260" height="170" rx="9" class="node-purple"/>
+  <text x="1805" y="831" text-anchor="middle" class="node-title">Explainability</text>
+  <text x="1805" y="865" text-anchor="middle" class="node-text">SHAP TreeExplainer</text>
+  <text x="1805" y="894" text-anchor="middle" class="node-small">selected Decision Tree component only</text>
+  <text x="1805" y="923" text-anchor="middle" class="node-text">+ deterministic human reason</text>
+  <text x="1805" y="949" text-anchor="middle" class="node-small">never changes the IDS decision</text>
+
+  <path d="M1610 445 H1675" class="runtime"/>
+  <path d="M1805 540 V600" class="runtime-thin"/>
+  <path d="M1805 730 V790" class="runtime-thin"/>
+
+  <!-- Post-decision operations -->
+  <rect x="2010" y="225" width="335" height="190" rx="9" class="node-teal"/>
+  <text x="2177" y="263" text-anchor="middle" class="node-title">Six Bounded Operational Agents</text>
+  <text x="2177" y="298" text-anchor="middle" class="node-text">Detection → Correlation → Severity</text>
+  <text x="2177" y="329" text-anchor="middle" class="node-text">→ Explanation → Response</text>
+  <text x="2177" y="360" text-anchor="middle" class="node-text">→ Daily Reporting</text>
+  <text x="2177" y="392" text-anchor="middle" class="node-small">post-decision; protected fields immutable</text>
+
+  <rect x="2010" y="460" width="335" height="180" rx="9" class="node"/>
+  <text x="2177" y="500" text-anchor="middle" class="node-title">Operational Persistence</text>
+  <text x="2177" y="533" text-anchor="middle" class="node-text">hybrid_ids_results.jsonl</text>
+  <text x="2177" y="562" text-anchor="middle" class="node-text">SQLite: IDS / feedback / IPS audit</text>
+  <text x="2177" y="591" text-anchor="middle" class="node-small">via Express collector APIs</text>
+  <text x="2177" y="618" text-anchor="middle" class="node-small">daily agent reports as JSON</text>
+
+  <rect x="2010" y="685" width="335" height="150" rx="9" class="node-blue"/>
+  <text x="2177" y="725" text-anchor="middle" class="node-title">Flask Defender Dashboard :5050</text>
+  <text x="2177" y="758" text-anchor="middle" class="node-text">monitoring, IDS, XAI, agents</text>
+  <text x="2177" y="788" text-anchor="middle" class="node-text">analyst review + append-only feedback</text>
+  <text x="2177" y="817" text-anchor="middle" class="node-small">loopback; protected Express proxy</text>
+
+  <rect x="2010" y="875" width="335" height="115" rx="9" class="node-purple"/>
+  <text x="2177" y="914" text-anchor="middle" class="node-title">IDS Alert Relay → n8n :5678</text>
+  <text x="2177" y="947" text-anchor="middle" class="node-text">eligible enriched IDS webhook</text>
+  <text x="2177" y="976" text-anchor="middle" class="node-small">checked-in workflow receives / normalizes</text>
+
+  <rect x="2010" y="1020" width="335" height="82" rx="9" class="node-warning"/>
+  <text x="2177" y="1048" text-anchor="middle" class="node-title">SIMULATED IPS / Response</text>
+  <text x="2177" y="1075" text-anchor="middle" class="node-small">recommendation + analyst-approved</text>
+  <text x="2177" y="1096" text-anchor="middle" class="node-small">honeypot-only effects; firewall NO</text>
+
+  <path d="M1935 875 H1970 V320 H2010" class="runtime"/>
+  <path d="M2177 415 V460" class="runtime-thin"/>
+  <path d="M2177 640 V685" class="runtime-thin"/>
+  <path d="M2250 640 V855 H2177 V875" class="runtime-thin"/>
+  <path d="M2177 835 V1020" class="runtime-thin"/>
+
+  <!-- Simulated, application-only feedback path -->
+  <path d="M2010 1061 H1975 V1175 H422 V1120" class="sim"/>
+  <rect x="875" y="1148" width="720" height="42" fill="#ffffff"/>
+  <text x="1235" y="1175" text-anchor="middle" class="sim-label">Analyst-triggered state affects honeypot behavior only; no OS command or host firewall rule</text>
+
+  <!-- Separate offline model lifecycle -->
+  <rect x="30" y="1230" width="2340" height="410" rx="12" fill="#fbf9fd" stroke="#b9a8cf" stroke-width="2"/>
+  <rect x="30" y="1230" width="2340" height="64" rx="12" fill="#eee7f6"/>
+  <text x="60" y="1271" class="group-title">CONTROLLED OFFLINE MODEL LIFECYCLE — SEPARATE FROM EACH REAL-TIME REQUEST</text>
+  <text x="2290" y="1271" text-anchor="end" class="offline-label">No automatic online learning</text>
+
+  <rect x="60" y="1350" width="265" height="170" rx="9" class="node-purple"/>
+  <text x="192" y="1392" text-anchor="middle" class="node-title">New Events + Latest</text>
+  <text x="192" y="1423" text-anchor="middle" class="node-title">Analyst Feedback</text>
+  <text x="192" y="1460" text-anchor="middle" class="node-small">raw JSONL + SQLite reviews</text>
+  <text x="192" y="1488" text-anchor="middle" class="node-small">latest review per event</text>
+
+  <rect x="370" y="1350" width="250" height="170" rx="9" class="node-purple"/>
+  <text x="495" y="1401" text-anchor="middle" class="node-title">Prepare Candidate Data</text>
+  <text x="495" y="1437" text-anchor="middle" class="node-small">validate, deduplicate, sanitize</text>
+  <text x="495" y="1465" text-anchor="middle" class="node-small">apply feedback to labels only</text>
+  <text x="495" y="1493" text-anchor="middle" class="node-small">immutable candidate snapshot</text>
+
+  <rect x="665" y="1350" width="270" height="170" rx="9" class="node-purple"/>
+  <text x="800" y="1394" text-anchor="middle" class="node-title">Offline Retraining</text>
+  <text x="800" y="1426" text-anchor="middle" class="node-small">Decision Tree + Isolation Forest</text>
+  <text x="800" y="1462" text-anchor="middle" style="font:400 13px 'Segoe UI',Arial,sans-serif;fill:#4a5c70">LSTM – Sequence / Temporal Analysis</text>
+  <text x="800" y="1498" text-anchor="middle" style="font:400 14px 'Segoe UI',Arial,sans-serif;fill:#4a5c70">Random Forest — Evaluated Candidate</text>
+
+  <rect x="980" y="1350" width="270" height="170" rx="9" class="node-purple"/>
+  <text x="1115" y="1394" text-anchor="middle" class="node-title">Evaluation / Quality Gate</text>
+  <text x="1115" y="1430" text-anchor="middle" class="node-small">test safety + minimum size</text>
+  <text x="1115" y="1458" text-anchor="middle" class="node-small">F1 / recall / false-positive gates</text>
+  <text x="1115" y="1486" text-anchor="middle" class="node-small">pass or retain active version</text>
+
+  <rect x="1295" y="1350" width="250" height="170" rx="9" class="node-warning"/>
+  <text x="1420" y="1398" text-anchor="middle" class="node-title">Human Approval</text>
+  <text x="1420" y="1431" text-anchor="middle" class="node-title">REQUIRED</text>
+  <text x="1420" y="1470" text-anchor="middle" class="node-small">explicit promote command</text>
+  <text x="1420" y="1498" text-anchor="middle" class="node-small">live services must be stopped</text>
+
+  <rect x="1590" y="1350" width="250" height="170" rx="9" class="node-purple"/>
+  <text x="1715" y="1401" text-anchor="middle" class="node-title">Promote / Reject</text>
+  <text x="1715" y="1437" text-anchor="middle" class="node-small">promote approved candidate</text>
+  <text x="1715" y="1465" text-anchor="middle" class="node-small">or reject / retain active</text>
+  <text x="1715" y="1493" text-anchor="middle" class="node-small">no automatic promotion</text>
+
+  <rect x="1885" y="1350" width="260" height="170" rx="9" class="node-purple"/>
+  <text x="2015" y="1394" text-anchor="middle" class="node-title">Active Model Bundle</text>
+  <text x="2015" y="1430" text-anchor="middle" class="node-small">loaded on next IDS start</text>
+  <text x="2015" y="1458" text-anchor="middle" class="node-small">previous tree retained</text>
+  <text x="2015" y="1486" text-anchor="middle" class="node-small">for rollback support</text>
+
+  <rect x="2190" y="1350" width="145" height="170" rx="9" class="node-muted"/>
+  <text x="2262" y="1403" text-anchor="middle" class="node-title">Rollback</text>
+  <text x="2262" y="1437" text-anchor="middle" class="node-small">explicit restore</text>
+  <text x="2262" y="1465" text-anchor="middle" class="node-small">services stopped</text>
+  <text x="2262" y="1493" text-anchor="middle" class="node-small">audit retained</text>
+
+  <path d="M325 1435 H370" class="offline"/>
+  <path d="M620 1435 H665" class="offline"/>
+  <path d="M935 1435 H980" class="offline"/>
+  <path d="M1250 1435 H1295" class="offline"/>
+  <path d="M1545 1435 H1590" class="offline"/>
+  <path d="M1840 1435 H1885" class="offline"/>
+  <path d="M2145 1435 H2190" class="offline"/>
+
+</svg>

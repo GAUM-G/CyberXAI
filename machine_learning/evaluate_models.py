@@ -310,13 +310,31 @@ def _anomaly_metrics(
     decision_scores: np.ndarray,
     *,
     normal_index: int,
+    other_anomaly_index: int | None = None,
+    anomaly_score_threshold: float = 0.0,
 ) -> dict[str, Any]:
-    truth = (original_labels != normal_index).astype(np.int8)
-    predictions = (isolation_predictions == -1).astype(np.int8)
+    all_truth = (original_labels != normal_index).astype(np.int8)
+    all_predictions = (isolation_predictions == -1).astype(np.int8)
+    anomaly_scores_all = -np.asarray(decision_scores, dtype=np.float64)
+
+    if other_anomaly_index is None:
+        scope_mask = np.ones(len(original_labels), dtype=bool)
+        positive_class = "attack_or_anomaly"
+    else:
+        scope_mask = np.isin(
+            original_labels,
+            np.asarray([normal_index, other_anomaly_index]),
+        )
+        positive_class = "other_anomaly"
+
+    truth = (
+        original_labels[scope_mask] != normal_index
+    ).astype(np.int8)
+    predictions = all_predictions[scope_mask]
+    anomaly_scores = anomaly_scores_all[scope_mask]
     true_negative, false_positive, false_negative, true_positive = (
         _binary_confusion_counts(truth, predictions)
     )
-    anomaly_scores = -np.asarray(decision_scores, dtype=np.float64)
 
     if len(np.unique(truth)) == 2:
         roc_auc = float(roc_auc_score(truth, anomaly_scores))
@@ -327,10 +345,19 @@ def _anomaly_metrics(
         roc_auc = None
         average_precision = None
 
+    all_tn, all_fp, all_fn, all_tp = _binary_confusion_counts(
+        all_truth,
+        all_predictions,
+    )
+
     return {
-        "metric_scope": "binary_unknown_anomaly_detection",
+        "metric_scope": (
+            "binary_other_anomaly_vs_normal"
+            if other_anomaly_index is not None
+            else "binary_unknown_anomaly_detection"
+        ),
         "test_rows": int(len(truth)),
-        "positive_class": "attack_or_anomaly",
+        "positive_class": positive_class,
         "accuracy": float(accuracy_score(truth, predictions)),
         "balanced_accuracy": float(
             balanced_accuracy_score(truth, predictions)
@@ -359,6 +386,11 @@ def _anomaly_metrics(
             "reported_anomaly_score": (
                 "negative decision_function; higher values indicate anomaly"
             ),
+            "anomaly_score_threshold": float(anomaly_score_threshold),
+            "threshold_selection": (
+                "validation-calibrated when recorded in the model bundle; "
+                "otherwise sklearn default zero"
+            ),
         },
         "anomaly_score_summary": {
             "minimum": float(np.min(anomaly_scores)),
@@ -370,16 +402,29 @@ def _anomaly_metrics(
             truth,
             predictions,
             labels=[0, 1],
-            target_names=["normal", "attack_or_anomaly"],
+            target_names=["normal", positive_class],
             output_dict=True,
             zero_division=0,
         ),
         "confusion_matrix": {
-            "labels": ["normal", "attack_or_anomaly"],
+            "labels": ["normal", positive_class],
             "values": [
                 [true_negative, false_positive],
                 [false_negative, true_positive],
             ],
+        },
+        "known_attack_coverage_secondary": {
+            "scope": (
+                "all non-normal labels; diagnostic only because Isolation "
+                "Forest is assigned to unknown-anomaly detection"
+            ),
+            "rows": int(len(all_truth)),
+            "recall": _safe_rate(all_tp, all_tp + all_fn),
+            "false_positive_rate": _safe_rate(all_fp, all_fp + all_tn),
+            "confusion_matrix": {
+                "labels": ["normal", "any_non_normal"],
+                "values": [[all_tn, all_fp], [all_fn, all_tp]],
+            },
         },
     }
 
@@ -812,10 +857,18 @@ def evaluate_models(
         if isinstance(preprocessing_manifest, Mapping)
         else {}
     )
+    supported_split_strategies = {
+        "chronological",
+        "stratified_group_holdout",
+    }
     if (
-        split.get("strategy") != "chronological"
+        split.get("strategy") not in supported_split_strategies
         or split.get("transform_fit_scope") != "training_rows_only"
         or split.get("test_rows") != len(X_test)
+        or (
+            split.get("strategy") == "stratified_group_holdout"
+            and split.get("group_overlap") != 0
+        )
     ):
         raise ValueError("preprocessing manifest has an unsafe test contract")
 
@@ -851,6 +904,17 @@ def evaluate_models(
         feature_names=feature_names,
         normal_index=label_mapping["normal"],
     )
+    threshold_value = isolation_bundle.get("anomaly_score_threshold", 0.0)
+    if isinstance(threshold_value, bool):
+        raise ValueError("Isolation Forest anomaly threshold must be numeric")
+    try:
+        anomaly_score_threshold = float(threshold_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Isolation Forest anomaly threshold must be numeric"
+        ) from exc
+    if not np.isfinite(anomaly_score_threshold):
+        raise ValueError("Isolation Forest anomaly threshold must be finite")
 
     lstm_model = _load_lstm(
         model_paths["lstm_classifier"],
@@ -893,11 +957,19 @@ def evaluate_models(
             "inference_time": timing,
         }
 
+    def predict_isolation() -> np.ndarray:
+        anomaly_scores = -np.asarray(
+            isolation_estimator.decision_function(X_test),
+            dtype=np.float64,
+        )
+        return np.where(
+            anomaly_scores >= anomaly_score_threshold,
+            -1,
+            1,
+        ).astype(np.int8)
+
     isolation_predictions, isolation_timing = _benchmark(
-        lambda: np.asarray(
-            isolation_estimator.predict(X_test),
-            dtype=np.int8,
-        ),
+        predict_isolation,
         rows=len(X_test),
         warmup_runs=warmup_runs,
         timing_runs=timing_runs,
@@ -923,6 +995,8 @@ def evaluate_models(
             isolation_predictions.astype(np.int8),
             isolation_scores,
             normal_index=label_mapping["normal"],
+            other_anomaly_index=label_mapping.get("other_anomaly"),
+            anomaly_score_threshold=anomaly_score_threshold,
         ),
         "inference_time": isolation_timing,
     }
@@ -979,6 +1053,21 @@ def evaluate_models(
         tabular_metrics,
         tolerance=selection_tolerance,
     )
+    validation_selection = training_manifest.get("validation_selection", {})
+    if isinstance(validation_selection, Mapping):
+        validation_selected_model = validation_selection.get("tabular_model")
+        if validation_selected_model in SUPERVISED_ARTIFACTS:
+            tabular_selection = {
+                **tabular_selection,
+                "selected_model": validation_selected_model,
+                "decisive_criterion": "validation macro F1",
+                "selection_scope": "validation_only",
+                "validation_metrics": validation_selection.get(
+                    "tabular_metrics",
+                    {},
+                ),
+                "test_metrics_used_for_selection": False,
+            }
     all_supervised_metrics = {
         name: model_results[name]["metrics"]
         for name in (
@@ -1040,7 +1129,9 @@ def evaluate_models(
         .isoformat()
         .replace("+00:00", "Z"),
         "data_contract": {
-            "chronological_split": True,
+            "split_strategy": split.get("strategy"),
+            "chronological_split": split.get("strategy") == "chronological",
+            "group_overlap": split.get("group_overlap"),
             "preprocessor_fit_scope": "training_rows_only",
             "tabular_test_rows": int(len(X_test)),
             "sequence_test_rows": int(len(X_test_sequences)),
@@ -1070,7 +1161,10 @@ def evaluate_models(
             "model_fit_called": False,
             "test_labels_used_only_for_evaluation": True,
             "protected_artifacts_modified": False,
-            "chronological_split_preserved": True,
+            "split_contract_preserved": True,
+            "chronological_split_preserved": (
+                split.get("strategy") == "chronological"
+            ),
             "sequence_labels_compared_by_position_to_tabular_labels": False,
             "inference_timing_excludes_artifact_loading": True,
             "single_holdout_results_prove_external_generalization": False,

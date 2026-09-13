@@ -206,6 +206,9 @@ class HybridArtifacts:
     sequence_length: int
     device: torch.device
     protected_hashes: dict[Path, str]
+    # Threshold on ``-decision_function``.  Older bundles omit it and retain
+    # the sklearn default operating point of zero.
+    anomaly_score_threshold: float = 0.0
 
     def verify_unchanged(self) -> None:
         changed = [
@@ -335,11 +338,23 @@ def load_hybrid_artifacts(
         feature_names=feature_names,
         label_mapping=label_mapping,
     )
+    isolation_bundle = joblib.load(model_paths["isolation"])
     isolation_estimator = _require_isolation_bundle(
-        joblib.load(model_paths["isolation"]),
+        isolation_bundle,
         feature_names=feature_names,
         normal_index=label_mapping["normal"],
     )
+    threshold_value = isolation_bundle.get("anomaly_score_threshold", 0.0)
+    if isinstance(threshold_value, bool):
+        raise ValueError("Isolation Forest anomaly threshold must be numeric")
+    try:
+        anomaly_score_threshold = float(threshold_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "Isolation Forest anomaly threshold must be numeric"
+        ) from exc
+    if not np.isfinite(anomaly_score_threshold):
+        raise ValueError("Isolation Forest anomaly threshold must be finite")
     lstm_model = _load_lstm(
         model_paths["lstm"],
         label_mapping=label_mapping,
@@ -363,6 +378,7 @@ def load_hybrid_artifacts(
         sequence_length=sequence_length,
         device=device,
         protected_hashes=hashes_before,
+        anomaly_score_threshold=anomaly_score_threshold,
     )
 
 
@@ -437,7 +453,12 @@ class HybridIDSEngine:
         )
         if not np.isfinite(decision_score):
             raise RuntimeError("Isolation Forest returned a non-finite score")
-        return prediction == -1, -decision_score
+        anomaly_score = -decision_score
+        # ``predict`` is still validated above for artifact compatibility, but
+        # a versioned validation-calibrated threshold is the runtime operating
+        # point when present in the bundle.
+        is_anomaly = anomaly_score >= self.artifacts.anomaly_score_threshold
+        return is_anomaly, anomaly_score
 
     def _sequence_prediction(
         self,

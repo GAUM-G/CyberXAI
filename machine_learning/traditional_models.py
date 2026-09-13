@@ -193,8 +193,18 @@ def _validate_preprocessing_manifest(
 
     if not isinstance(split, Mapping):
         raise ValueError("preprocessing manifest is missing split metadata")
-    if split.get("strategy") != "chronological":
-        raise ValueError("Step 10 requires a chronological train/test split")
+    if split.get("strategy") not in {
+        "chronological",
+        "stratified_group_holdout",
+    }:
+        raise ValueError(
+            "Step 10 requires a chronological or group-isolated split"
+        )
+    if (
+        split.get("strategy") == "stratified_group_holdout"
+        and split.get("group_overlap") != 0
+    ):
+        raise ValueError("group-isolated split contains overlapping groups")
     if split.get("transform_fit_scope") != "training_rows_only":
         raise ValueError("preprocessor must be fitted on training rows only")
     if split.get("train_rows") != len(X_train):
@@ -657,7 +667,15 @@ def train_and_save_models(
                 "joblib": joblib.__version__,
             },
             "safety": {
-                "chronological_split_preserved": True,
+                "split_strategy": artifacts.preprocessing_manifest.get(
+                    "split", {}
+                ).get("strategy"),
+                "chronological_split_preserved": (
+                    artifacts.preprocessing_manifest.get("split", {}).get(
+                        "strategy"
+                    )
+                    == "chronological"
+                ),
                 "preprocessed_input_arrays_modified": False,
                 "supervised_models_fitted_on_test_rows": False,
                 "test_labels_used_for_model_fit": False,
