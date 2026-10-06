@@ -1,18 +1,14 @@
 """Plot ROC and precision-recall curves from evaluated model predictions.
 
-The evaluation evidence exports one CSV per model with ``true_label`` and a
+The evaluation exports one CSV per model with ``true_label`` and a
 continuous ``attack_score``.  This script treats every non-``normal`` label as
 the positive (attack) class so supervised classifiers and the Isolation Forest
 can be compared on the same binary detection task.
 
 Run from the project root with::
 
-    python -m machine_learning.plot_roc_precision_recall
-
-An explicit prediction directory and output directory can also be supplied::
-
     python -m machine_learning.plot_roc_precision_recall \
-        --predictions-dir report_evidence/runs/<run>/predictions \
+        --predictions-dir data/ml_ready/evaluation/predictions \
         --output-dir data/ml_ready/evaluation/graphs
 """
 
@@ -80,29 +76,6 @@ class CurveData:
     @property
     def prevalence(self) -> float:
         return float(np.mean(self.truth))
-
-
-def _latest_predictions_dir() -> Path:
-    """Resolve the prediction exports from ``latest_run.txt`` or newest run."""
-
-    latest_run_file = PROJECT_ROOT / "report_evidence" / "latest_run.txt"
-    if latest_run_file.is_file():
-        latest_run = Path(latest_run_file.read_text(encoding="utf-8").strip())
-        if not latest_run.is_absolute():
-            latest_run = PROJECT_ROOT / latest_run
-        candidate = latest_run / "predictions"
-        if candidate.is_dir():
-            return candidate
-
-    runs_dir = PROJECT_ROOT / "report_evidence" / "runs"
-    candidates = [path for path in runs_dir.glob("*/predictions") if path.is_dir()]
-    if candidates:
-        return max(candidates, key=lambda path: path.stat().st_mtime)
-
-    raise FileNotFoundError(
-        "No evaluated prediction directory was found. Pass --predictions-dir "
-        "with a directory containing *_predictions.csv files."
-    )
 
 
 def _read_curve_data(path: Path) -> CurveData:
@@ -361,6 +334,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--predictions-dir",
         type=Path,
+        required=True,
         help="Directory containing the evaluated *_predictions.csv exports.",
     )
     parser.add_argument(
@@ -380,7 +354,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    predictions_dir = args.predictions_dir or _latest_predictions_dir()
+    predictions_dir = args.predictions_dir
     formats = ("png", "svg") if args.format == "both" else (args.format,)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 

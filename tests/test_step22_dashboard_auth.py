@@ -1,4 +1,4 @@
-"""Login-free local defender dashboard and intelligent-agent tests."""
+"""Login-protected local defender dashboard and intelligent-agent tests."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from dashboard import app as dashboard_module
+from tests.dashboard_auth_helpers import authenticated_dashboard_client
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,13 +41,16 @@ class LocalDefenderDashboardTests(unittest.TestCase):
                 },
             }
         ][:limit]
-        self.client = dashboard_module.create_dashboard_app().test_client()
+        self.client_context = authenticated_dashboard_client()
+        self.client = self.client_context.__enter__()
 
     def tearDown(self) -> None:
+        self.client_context.__exit__(None, None, None)
         dashboard_module._all_events = self.original_events
         dashboard_module._all_ids_results = self.original_results
 
-    def test_defender_apis_are_available_without_a_portal_session(self) -> None:
+    def test_defender_apis_require_dashboard_session_not_portal_session(self) -> None:
+        self.assertEqual(self.client.application.test_client().get("/api/monitor").status_code, 401)
         for path in (
             "/api/monitor",
             "/api/honeypot",
@@ -64,14 +68,16 @@ class LocalDefenderDashboardTests(unittest.TestCase):
         self.assertEqual(payload["correlated_campaigns"], 1)
         self.assertEqual(payload["severity_escalations"], 1)
 
-    def test_page_has_no_login_gate_and_keeps_defender_tools(self) -> None:
+    def test_page_has_login_gate_and_keeps_defender_tools(self) -> None:
+        anonymous = self.client.application.test_client()
+        self.assertEqual(anonymous.get("/").status_code, 200)
+        self.assertIn("Sign up with Gmail", anonymous.get("/").get_data(as_text=True))
+        self.assertIn("Analyst sign in", anonymous.get("/login").get_data(as_text=True))
         body = self.client.get("/").get_data(as_text=True)
         self.assertIn('id="dashboard-app"', body)
         self.assertNotIn('id="dashboard-app" hidden', body)
-        self.assertNotIn('id="dashboard-auth-gate"', body)
-        self.assertNotIn('id="dashboard-login-form"', body)
-        self.assertNotIn('id="analyst-login-form"', body)
-        self.assertNotIn("/api/auth/login", body)
+        self.assertIn('name="csrf-token"', body)
+        self.assertIn("Sign out", body)
         self.assertIn("Local defender console", body)
         self.assertIn('id="sec-agents"', body)
         self.assertIn('id="sec-ips"', body)
@@ -89,7 +95,7 @@ class LocalDashboardSourceSafetyTests(unittest.TestCase):
 
         self.assertIn('start_dashboard(host: str = "127.0.0.1"', dashboard)
         self.assertIn("X-Dashboard-Internal-Token", dashboard)
-        self.assertNotIn("require_dashboard_auth", dashboard)
+        self.assertIn("require_analyst_login", dashboard)
         self.assertIn("isLoopbackRequest", middleware)
         self.assertIn("timingSafeEqual", middleware)
         self.assertIn("requireAuth(req, res, next)", middleware)

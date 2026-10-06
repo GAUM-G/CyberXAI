@@ -1,6 +1,0 @@
-event_id,timestamp,service,attack_type,prediction,confidence,threat_level,threat_score,model_used
-894cad55-b359-4fa0-a8d9-e0c3de44e089,2026-09-07T15:51:17.221186+05:30,ssh,ssh_bruteforce,attack,0.999428,Critical,94,decision_tree+lstm_classifier
-2a43e87c-c044-4e74-aa99-43acc862f33c,2026-09-07T15:51:16.499482+05:30,ssh,ssh_bruteforce,attack,0.999945,Critical,94,decision_tree+lstm_classifier
-66fe2c66-261d-4b1e-8105-17105a98d6af,2026-09-07T15:51:15.777093+05:30,ssh,ssh_bruteforce,attack,0.999961,Critical,94,decision_tree+lstm_classifier
-a2016da0-7529-43fb-84d2-b3cd3bf81763,2026-09-07T15:51:15.054105+05:30,ssh,ssh_bruteforce,attack,0.999968,Critical,90,decision_tree+lstm_classifier
-adc7cb34-67e2-4c2e-b4ad-35551a0f5d1c,2026-09-07T15:51:14.332192+05:30,ssh,ssh_bruteforce,attack,0.999972,Critical,90,decision_tree+lstm_classifier

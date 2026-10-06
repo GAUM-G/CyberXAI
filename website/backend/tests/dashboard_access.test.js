@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const jwt = require("jsonwebtoken");
 
 const {
   isLoopbackRequest,
@@ -60,4 +61,50 @@ test("an external request cannot use the internal dashboard credential", () => {
 
   assert.equal(res.statusCode, 401);
   assert.equal(res.payload.error, "Missing auth token");
+});
+
+function internalRequest(identity = {}, method = "POST") {
+  const headers = { "x-dashboard-internal-token": process.env.DASHBOARD_INTERNAL_TOKEN, ...identity };
+  return { method, socket: { remoteAddress: "127.0.0.1" }, headers,
+    get(name) { return headers[name.toLowerCase()]; } };
+}
+
+test("trusted proxy mutations use the signed-in analyst rather than ID zero", () => {
+  const req = internalRequest({ "x-dashboard-analyst-id": "7", "x-dashboard-analyst-email": "analyst@gmail.com" });
+  let continued = false;
+  requireDashboardAccess(req, responseRecorder(), () => { continued = true; });
+  assert.equal(continued, true);
+  assert.equal(req.user.userId, 7);
+  assert.equal(req.user.username, "analyst@gmail.com");
+});
+
+test("mutations require a complete, valid trusted analyst identity", () => {
+  for (const identity of [ {},
+    { "x-dashboard-analyst-id": "7" },
+    { "x-dashboard-analyst-id": "0", "x-dashboard-analyst-email": "analyst@gmail.com" },
+    { "x-dashboard-analyst-id": "7.5", "x-dashboard-analyst-email": "analyst@gmail.com" },
+    { "x-dashboard-analyst-id": "9007199254740992", "x-dashboard-analyst-email": "analyst@gmail.com" },
+    { "x-dashboard-analyst-id": "7", "x-dashboard-analyst-email": "not-an-email" },
+  ]) {
+    const res = responseRecorder();
+    requireDashboardAccess(internalRequest(identity), res, () => assert.fail("invalid identity accepted"));
+    assert.equal(res.statusCode, 403);
+  }
+});
+
+test("spoofed analyst headers without the proxy token do not authenticate", () => {
+  const req = internalRequest({ "x-dashboard-internal-token": "wrong-token",
+    "x-dashboard-analyst-id": "7", "x-dashboard-analyst-email": "analyst@gmail.com" });
+  const res = responseRecorder();
+  requireDashboardAccess(req, res, () => assert.fail("spoofed identity accepted"));
+  assert.equal(res.statusCode, 401);
+});
+
+test("a valid legacy portal JWT cannot authorize analyst mutations", () => {
+  const token = jwt.sign({ userId: 7, username: "portal-user" }, process.env.JWT_SECRET || "dev_secret");
+  const req = internalRequest({ "x-dashboard-internal-token": undefined, authorization: `Bearer ${token}` });
+  const res = responseRecorder();
+  requireDashboardAccess(req, res, () => assert.fail("portal token authorized an analyst action"));
+  assert.equal(res.statusCode, 401);
+  assert.match(res.payload.error, /Dashboard login required/);
 });

@@ -11,6 +11,7 @@ import json
 import os
 import threading
 import time
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -30,7 +31,7 @@ MAX_RATE_LIMIT_DELAY_SECONDS = 1.0
 
 _cache_lock = threading.Lock()
 _cache_path: Path | None = None
-_cache_mtime_ns: int | None = None
+_cache_signature: tuple[int, int, int, int] | None = None
 _cache_value: dict[str, Any] | None = None
 
 
@@ -64,20 +65,21 @@ def load_simulated_ips_state(
 ) -> dict[str, Any]:
     """Read the safe runtime state and reject any non-simulation contract."""
 
-    global _cache_mtime_ns, _cache_path, _cache_value
-    path = Path(state_file)
+    global _cache_signature, _cache_path, _cache_value
+    path = Path(state_file).resolve()
     try:
-        mtime_ns = path.stat().st_mtime_ns
+        stat = path.stat()
+        signature = (stat.st_ino, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size)
     except OSError:
         return _empty_state()
 
     with _cache_lock:
-        if _cache_path == path and _cache_mtime_ns == mtime_ns and _cache_value is not None:
-            return dict(_cache_value)
+        if _cache_path == path and _cache_signature == signature and _cache_value is not None:
+            return deepcopy(_cache_value)
 
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, UnicodeError, json.JSONDecodeError):
             return _empty_state()
 
         if (
@@ -94,9 +96,9 @@ def load_simulated_ips_state(
             safe[key] = [item for item in entries if isinstance(item, dict)] if isinstance(entries, list) else []
         safe["generated_at"] = value.get("generated_at")
         _cache_path = path
-        _cache_mtime_ns = mtime_ns
+        _cache_signature = signature
         _cache_value = safe
-        return dict(safe)
+        return deepcopy(safe)
 
 
 def _matches(entry: dict[str, Any], source_ip: str, service: str) -> bool:
@@ -135,8 +137,8 @@ def get_simulated_response(
         item
         for item in state["terminated_sessions"]
         if session_id
+        and _matches(item, source_ip, service)
         and str(item.get("session_id", "")).strip() == str(session_id).strip()
-        and str(item.get("service", "")).strip().lower() == str(service).strip().lower()
         and _is_active(item, observed_at)
     ]
 
@@ -144,13 +146,13 @@ def get_simulated_response(
     if limits:
         try:
             delay_ms = max(0, min(int(limits[-1].get("rate_limit_delay_ms") or 0), 1000))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             delay_ms = 0
 
     action_ids = [
         int(item["action_id"])
         for item in [*blocks, *limits, *terminations]
-        if isinstance(item.get("action_id"), int)
+        if type(item.get("action_id")) is int and item["action_id"] > 0
     ]
     return {
         "mode": IPS_MODE,
@@ -175,7 +177,7 @@ def apply_simulated_rate_limit(
         return 0.0
     try:
         seconds = float(response.get("rate_limit_delay_ms", 0)) / 1000.0
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         seconds = 0.0
     seconds = max(0.0, min(seconds, MAX_RATE_LIMIT_DELAY_SECONDS))
     if seconds:

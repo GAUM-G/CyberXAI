@@ -210,6 +210,20 @@ input:focus {
   border-color: #2468d8;
 }
 
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 55px; }
+.password-wrap .password-toggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  color: #405775;
+  padding: 6px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 button {
   border: 0;
   border-radius: 10px;

@@ -44,6 +44,7 @@ const {
 } = require("./ips_response_store");
 const { requireAuth } = require("./middleware/auth");
 const { requireDashboardAccess } = require("./middleware/dashboard_access");
+const { createSimulatedIPSMiddleware } = require("./middleware/simulated_ips");
 const { buildCommonEvent } = require("./common_event");
 const {
   buildDecoyExposure,
@@ -237,6 +238,10 @@ app.use((req, res, next) => {
 
   next();
 });
+
+app.use(createSimulatedIPSMiddleware({
+  recordResponse: details => logEvent("http_response_by_simulated_ips", details),
+}));
 
 app.post("/api/events", async (req, res) => {
   const errors = validateEventRecord(req.body);
@@ -460,6 +465,7 @@ app.get("/api/ips/safety", requireDashboardAccess, (_req, res) => {
 
 app.get("/api/ips/status", requireDashboardAccess, async (_req, res) => {
   try {
+    await syncRuntimeState(db);
     const status = await getIPSStatus(db);
     return res.json({ source: "sqlite", ...status });
   } catch (error) {
@@ -531,6 +537,11 @@ app.post("/api/ips/actions", requireDashboardAccess, async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.code === "IPS_STATE_SYNC_FAILED") {
+      return res.status(503).json({
+        executed: true, runtime_synced: false, action: error.action, error: error.message,
+      });
+    }
     if (error.code === "INVALID_IPS_ACTION") {
       return res.status(400).json({ executed: false, error: error.message });
     }

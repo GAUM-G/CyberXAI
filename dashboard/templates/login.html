@@ -1,0 +1,27 @@
+{% extends "auth_base.html" %}
+{% block title %}Analyst sign in{% endblock %}
+{% block content %}
+  {% if registered == 'pending' %}<div class="success" role="status">Account created. An administrator must approve it before you can sign in.</div>{% endif %}
+  {% if registered == 'approved' %}<div class="success" role="status">Account created. Sign in with your Gmail and password.</div>{% endif %}
+  <form method="post" action="{{ url_for('login') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="email">Gmail address</label>
+    <input id="email" name="email" type="email" autocomplete="email" required maxlength="128" autofocus>
+    <label for="password">Password</label>
+    <div class="password-field">
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="button" class="toggle-password" data-toggle-password="password" aria-label="Show password" aria-pressed="false">👁</button>
+    </div>
+    <button type="submit">Sign in</button>
+  </form>
+  <p class="links">New analyst? <a href="{{ url_for('signup') }}">Sign up with Gmail</a></p>
+  {% if pending or stale_form %}
+    <div class="notice-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="login-notice-title" aria-describedby="login-notice-text">
+      <div class="notice-box">
+        <h2 id="login-notice-title">{{ 'Approval pending' if pending else 'Sign-in page expired' }}</h2>
+        <p id="login-notice-text">{{ 'The administrator has not approved your Gmail account yet. Please try again after approval.' if pending else 'Please enter your Gmail and password again using this refreshed page.' }}</p>
+        <button type="button" onclick="this.closest('.notice-backdrop').remove();document.getElementById('email').focus()">OK</button>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "auth_base.html" %}
+{% block title %}Verify Gmail address{% endblock %}
+{% block content %}
+  <p class="hint">Enter your Gmail address. We will email a new six-digit code.</p>
+  <p class="hint">New dashboard accounts require administrator approval after signup.</p>
+  <form method="post" action="{{ url_for('signup') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="email">Gmail address</label>
+    <input id="email" name="email" type="email" autocomplete="email" required maxlength="128" autofocus>
+    <button type="submit">Send OTP</button>
+  </form>
+  <p class="links">Already registered? <a href="{{ url_for('login') }}">Sign in</a></p>
+{% endblock %}

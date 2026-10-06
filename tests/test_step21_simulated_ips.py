@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from core.simulated_ips import (
     AUTOMATIC_HOST_BLOCKING,
@@ -146,11 +148,73 @@ class Step21SimulatedIPSTests(unittest.TestCase):
             unrelated = get_simulated_response(
                 "10.0.0.9", "ssh", "selected-session", state_file=path
             )
+            different_ip = get_simulated_response(
+                "10.0.0.10", "ftp", "selected-session", state_file=path
+            )
             self.assertTrue(selected["rate_limited"])
             self.assertTrue(selected["session_terminated"])
             self.assertEqual(selected["rate_limit_delay_ms"], 750)
             self.assertFalse(other["session_terminated"])
             self.assertFalse(unrelated["rate_limited"])
+            self.assertFalse(unrelated["session_terminated"])
+            self.assertFalse(different_ip["session_terminated"])
+
+    def test_cached_state_cannot_be_mutated_by_a_caller(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            write_state(path, simulated_blocks=[{"source_ip": "10.0.0.8", "service": "ssh"}])
+            state = load_simulated_ips_state(path)
+            state["simulated_blocks"][0]["source_ip"] = "10.0.0.9"
+            state["simulated_blocks"].clear()
+            self.assertTrue(get_simulated_response("10.0.0.8", "ssh", state_file=path)["would_have_been_blocked"])
+
+    def test_replaced_state_is_reloaded_even_with_same_mtime_and_size(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            write_state(path, simulated_blocks=[{"source_ip": "10.0.0.8", "service": "ssh"}])
+            self.assertTrue(get_simulated_response("10.0.0.8", "ssh", state_file=path)["would_have_been_blocked"])
+            stat = path.stat()
+            replacement = Path(directory) / "replacement.json"
+            replacement.write_text(path.read_text(encoding="utf-8").replace("10.0.0.8", "10.0.0.9"), encoding="utf-8")
+            os.utime(replacement, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            replacement.replace(path)
+            self.assertFalse(get_simulated_response("10.0.0.8", "ssh", state_file=path)["would_have_been_blocked"])
+            self.assertTrue(get_simulated_response("10.0.0.9", "ssh", state_file=path)["would_have_been_blocked"])
+
+    def test_invalid_unicode_and_unbounded_numeric_fields_are_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            path.write_bytes(b"\xff\xfe")
+            self.assertEqual(load_simulated_ips_state(path)["rate_limits"], [])
+            write_state(path, rate_limits=[{"source_ip": "10.0.0.8", "service": "ftp", "action_id": True, "rate_limit_delay_ms": float("inf")}])
+            response = get_simulated_response("10.0.0.8", "ftp", state_file=path)
+            self.assertEqual(response["rate_limit_delay_ms"], 0)
+            self.assertEqual(response["action_ids"], [])
+
+    def test_http_rate_limit_cannot_be_bypassed_with_forwarded_ip(self) -> None:
+        from core.honeypots import http_honeypot
+        with patch.object(http_honeypot, "get_simulated_response", return_value={"rate_limited": True, "rate_limit_delay_ms": 750}) as get_response, patch.object(http_honeypot, "log_event") as log:
+            app = http_honeypot.create_http_honeypot()
+            reply = app.test_client().get("/", headers={"X-Forwarded-For": "198.51.100.22"})
+            self.assertEqual(reply.status_code, 429)
+            self.assertEqual(reply.headers["Retry-After"], "1")
+            self.assertEqual(get_response.call_args.args[0], "127.0.0.1")
+            self.assertEqual(log.call_args.kwargs["source_ip"], "127.0.0.1")
+
+    def test_ftp_uses_per_client_threads_and_does_not_sleep_on_accept(self) -> None:
+        from core.honeypots import ftp_honeypot
+        from pyftpdlib.servers import ThreadedFTPServer
+        self.assertIs(ftp_honeypot.ThreadedFTPServer, ThreadedFTPServer)
+        class Handler:
+            remote_ip = "127.0.0.1"
+            remote_port = 43210
+            def _session_id(self):
+                return "selected-session"
+            def _destination_port(self):
+                return 2121
+        with patch.object(ftp_honeypot, "apply_simulated_rate_limit") as delay, patch.object(ftp_honeypot, "log_event"):
+            ftp_honeypot._LoggingFTPHandler.on_connect(Handler())
+            delay.assert_not_called()
 
     def test_expired_actions_are_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

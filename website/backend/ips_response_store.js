@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { toISTISOString } = require("./time");
 
 const IPS_MODE = "simulation";
@@ -52,6 +53,14 @@ const POLICY = Object.freeze({
     Critical: "simulate_block",
   },
 });
+
+// Async sqlite callbacks otherwise allow simultaneous actions to interleave.
+const operationQueues = new WeakMap();
+function serializeIPS(database, operation) {
+  const result = (operationQueues.get(database) || Promise.resolve()).then(operation);
+  operationQueues.set(database, result.catch(() => {}));
+  return result;
+}
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -157,6 +166,30 @@ function initializeIPSResponseStore(database) {
     database.run(
       "CREATE INDEX IF NOT EXISTS idx_ips_actions_session ON ips_actions(session_id, id DESC)"
     );
+    // Trigger effects share the audit INSERT's SQLite statement transaction.
+    // Failed inserts cannot silently release or replace a previously active control.
+    database.run(`
+      CREATE TRIGGER IF NOT EXISTS ips_apply_simulated_action_v1
+      AFTER INSERT ON ips_actions
+      WHEN NEW.mode = 'simulation'
+      BEGIN
+        UPDATE ips_actions SET status = 'reversed', updated_at = NEW.updated_at
+        WHERE id <> NEW.id AND status = 'active' AND (
+          (NEW.action_type = 'release' AND id = NEW.related_action_id)
+          OR (
+            NEW.status = 'active'
+            AND NEW.action_type IN ('simulate_block', 'rate_limit', 'terminate_session')
+            AND action_type = NEW.action_type AND source_ip = NEW.source_ip AND service = NEW.service
+            AND (NEW.action_type <> 'terminate_session' OR session_id = NEW.session_id)
+          )
+        );
+        UPDATE ips_recommendations SET status = 'dismissed', updated_at = NEW.updated_at
+        WHERE id = NEW.recommendation_id AND NEW.action_type = 'dismiss';
+        UPDATE ips_recommendations SET status = 'executed', updated_at = NEW.updated_at
+        WHERE id = NEW.recommendation_id AND NEW.status = 'active'
+          AND NEW.action_type IN ('simulate_block', 'rate_limit', 'terminate_session');
+      END
+    `);
   });
 }
 
@@ -164,11 +197,19 @@ function normalizeDuration(value, fallback = null) {
   if (value === undefined || value === null || value === "") {
     return fallback;
   }
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > MAX_DURATION_SECONDS) {
+  const parsed = positiveInteger(value);
+  if (parsed === null || parsed > MAX_DURATION_SECONDS) {
     return null;
   }
-  return Math.floor(parsed);
+  return parsed;
+}
+
+function positiveInteger(value) {
+  if (typeof value !== "number" && (typeof value !== "string" || !/^[1-9][0-9]*$/.test(value))) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : null;
 }
 
 function validateIPSActionInput(input) {
@@ -177,6 +218,16 @@ function validateIPSActionInput(input) {
   }
 
   const errors = [];
+  for (const field of ["recommendation_id", "related_action_id"]) {
+    if (input[field] !== undefined && positiveInteger(input[field]) === null) {
+      errors.push(`${field} must be a positive integer`);
+    }
+  }
+  if (input.event_id !== undefined && (
+    typeof input.event_id !== "string" || !input.event_id.trim() || input.event_id.length > 256
+  )) {
+    errors.push("event_id must be a non-empty string of at most 256 characters");
+  }
   if (!ACTION_TYPES.has(input.action_type)) {
     errors.push(`action_type must be one of: ${[...ACTION_TYPES].join(", ")}`);
   }
@@ -200,15 +251,15 @@ function validateIPSActionInput(input) {
   }
 
   if (input.action_type === "release") {
-    if (!Number.isInteger(Number(input.related_action_id)) || Number(input.related_action_id) < 1) {
+    if (positiveInteger(input.related_action_id) === null) {
       errors.push("related_action_id is required for release");
     }
   } else if (input.action_type === "dismiss") {
-    if (!Number.isInteger(Number(input.recommendation_id)) || Number(input.recommendation_id) < 1) {
+    if (positiveInteger(input.recommendation_id) === null) {
       errors.push("recommendation_id is required for dismiss");
     }
   } else if (
-    !Number.isInteger(Number(input.recommendation_id)) &&
+    positiveInteger(input.recommendation_id) === null &&
     (typeof input.event_id !== "string" || !input.event_id.trim())
   ) {
     errors.push("recommendation_id or event_id is required");
@@ -292,6 +343,7 @@ async function loadRecommendationContext(database, eventId) {
             AND repeated.service = ids.service
             AND repeated.attack_type = events.attack_type
             AND datetime(repeated.received_at) >= datetime('now', '-5 minutes')
+            AND datetime(repeated.received_at) <= datetime('now')
         ) AS repeat_count
       FROM ids_results AS ids
       LEFT JOIN honeypot_events AS events ON events.event_id = ids.event_id
@@ -382,10 +434,11 @@ async function upsertIPSRecommendation(database, eventId) {
 }
 
 async function backfillIPSRecommendations(database, limit = 1000) {
-  const safeLimit = Math.max(1, Math.min(Number(limit) || 1000, 5000));
+  const requested = Number(limit);
+  const safeLimit = Math.max(1, Math.min(Number.isFinite(requested) ? Math.floor(requested) : 1000, 5000));
   const rows = await all(
     database,
-    "SELECT event_id FROM ids_results ORDER BY id ASC LIMIT ?",
+    "SELECT event_id FROM ids_results ORDER BY id DESC LIMIT ?",
     [safeLimit]
   );
   let updated = 0;
@@ -408,6 +461,43 @@ async function expireIPSActions(database) {
     `,
     [toISTISOString()]
   );
+  await run(database, `
+    UPDATE ips_actions SET status = 'reversed', updated_at = ?
+    WHERE status = 'active' AND (
+      (action_type = 'terminate_session' AND (service <> 'ftp' OR session_id IS NULL OR session_id = ''))
+      OR
+      EXISTS (SELECT 1 FROM ids_results AS ids
+              WHERE ids.event_id = ips_actions.event_id AND ids.prediction <> 'attack')
+      OR (SELECT verdict FROM analyst_feedback
+          WHERE event_id = ips_actions.event_id ORDER BY id DESC LIMIT 1) = 'false_positive'
+    )
+  `, [toISTISOString()]);
+  await run(database, `
+    UPDATE ips_recommendations
+    SET status = 'suppressed', recommended_action = CASE
+          WHEN (SELECT verdict FROM analyst_feedback WHERE event_id = ips_recommendations.event_id
+                ORDER BY id DESC LIMIT 1) = 'false_positive' THEN 'no_response'
+          ELSE 'continue_monitoring' END,
+        prediction = COALESCE((SELECT prediction FROM ids_results WHERE event_id = ips_recommendations.event_id), prediction),
+        feedback_verdict = (SELECT verdict FROM analyst_feedback WHERE event_id = ips_recommendations.event_id ORDER BY id DESC LIMIT 1),
+        recommended_duration_seconds = NULL,
+        reason = CASE
+          WHEN (SELECT verdict FROM analyst_feedback WHERE event_id = ips_recommendations.event_id
+                ORDER BY id DESC LIMIT 1) = 'false_positive'
+          THEN 'The latest analyst verdict is false positive, so IPS response is suppressed.'
+          ELSE 'The final IDS prediction is normal; continue monitoring without intervention.' END,
+        updated_at = ?
+    WHERE EXISTS (SELECT 1 FROM ids_results WHERE event_id = ips_recommendations.event_id AND prediction <> 'attack')
+       OR (SELECT verdict FROM analyst_feedback WHERE event_id = ips_recommendations.event_id ORDER BY id DESC LIMIT 1) = 'false_positive'
+  `, [toISTISOString()]);
+  await run(database, `
+    UPDATE ips_recommendations
+    SET status = CASE WHEN recommended_action = 'continue_monitoring' THEN 'monitoring' ELSE 'pending' END,
+        updated_at = ?
+    WHERE status = 'executed' AND NOT EXISTS (
+      SELECT 1 FROM ips_actions WHERE recommendation_id = ips_recommendations.id AND status = 'active'
+    )
+  `, [toISTISOString()]);
 }
 
 function recommendationToJSON(row) {
@@ -466,6 +556,7 @@ function actionToJSON(row) {
 }
 
 async function listIPSRecommendations(database, filters = {}) {
+  await expireIPSActions(database);
   const where = [];
   const params = [];
   for (const [column, value] of [
@@ -571,7 +662,7 @@ async function resolveActionTarget(database, input) {
   }
 
   let recommendation = null;
-  if (Number.isInteger(Number(input.recommendation_id))) {
+  if (positiveInteger(input.recommendation_id) !== null) {
     recommendation = await get(
       database,
       "SELECT * FROM ips_recommendations WHERE id = ?",
@@ -590,10 +681,19 @@ async function resolveActionTarget(database, input) {
     error.code = "IPS_TARGET_NOT_FOUND";
     throw error;
   }
+  if (input.event_id && input.event_id.trim() !== recommendation.event_id) {
+    const error = new Error("event_id does not match the selected recommendation");
+    error.code = "INVALID_IPS_ACTION";
+    throw error;
+  }
   return { action: null, recommendation };
 }
 
-async function syncRuntimeState(database, stateFile = DEFAULT_STATE_FILE) {
+function syncRuntimeState(database, stateFile = DEFAULT_STATE_FILE) {
+  return serializeIPS(database, () => writeRuntimeState(database, stateFile));
+}
+
+async function writeRuntimeState(database, stateFile) {
   await expireIPSActions(database);
   const active = await all(
     database,
@@ -632,14 +732,25 @@ async function syncRuntimeState(database, stateFile = DEFAULT_STATE_FILE) {
     if (row.action_type === "terminate_session") base.terminated_sessions.push(value);
   }
 
-  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
-  fs.writeFileSync(stateFile, `${JSON.stringify(base, null, 2)}\n`, {
-    encoding: "utf8",
-  });
+  const targetPath = path.resolve(stateFile);
+  const temporaryPath = `${targetPath}.${process.pid}.${crypto.randomBytes(12).toString("hex")}.tmp`;
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  try {
+    fs.writeFileSync(temporaryPath, `${JSON.stringify(base, null, 2)}\n`, {
+      encoding: "utf8", flag: "wx", mode: 0o600,
+    });
+    fs.renameSync(temporaryPath, targetPath);
+  } finally {
+    if (fs.existsSync(temporaryPath)) fs.unlinkSync(temporaryPath);
+  }
   return base;
 }
 
-async function performIPSAction(
+function performIPSAction(database, input, analyst, options = {}) {
+  return serializeIPS(database, () => performIPSActionSerial(database, input, analyst, options));
+}
+
+async function performIPSActionSerial(
   database,
   input,
   analyst,
@@ -648,7 +759,7 @@ async function performIPSAction(
   const errors = validateIPSActionInput(input);
   if (
     !analyst ||
-    !Number.isInteger(analyst.id) ||
+    !Number.isSafeInteger(analyst.id) ||
     analyst.id < 1 ||
     typeof analyst.username !== "string" ||
     !analyst.username.trim()
@@ -662,29 +773,28 @@ async function performIPSAction(
   }
 
   await expireIPSActions(database);
-  const { action: targetAction, recommendation } = await resolveActionTarget(database, input);
+  let { action: targetAction, recommendation } = await resolveActionTarget(database, input);
+  if (recommendation) recommendation = await upsertIPSRecommendation(database, recommendation.event_id);
   const actionType = input.action_type;
   const reason = String(input.reason || "Analyst-approved Step 21 simulated response.").trim();
 
-  if (actionType === "dismiss") {
-    await run(
-      database,
-      "UPDATE ips_recommendations SET status = 'dismissed', updated_at = ? WHERE id = ?",
-      [toISTISOString(), recommendation.id]
-    );
+  if (recommendation && actionType !== "release" && (
+    recommendation.feedback_verdict === "false_positive" || recommendation.prediction !== "attack" ||
+    recommendation.status === "suppressed" || recommendation.status === "dismissed"
+  )) {
+    const error = new Error("Response is suppressed for a normal, false-positive, or dismissed event");
+    error.code = "IPS_RESPONSE_SUPPRESSED";
+    throw error;
   }
-
-  if (actionType === "release") {
-    await run(
-      database,
-      "UPDATE ips_actions SET status = 'reversed', updated_at = ? WHERE id = ?",
-      [toISTISOString(), targetAction.id]
-    );
+  if (actionType === "dismiss" && recommendation.status === "executed") {
+    const error = new Error("Release the active response before dismissing its recommendation");
+    error.code = "IPS_RESPONSE_SUPPRESSED";
+    throw error;
   }
 
   const target = targetAction || recommendation;
-  if (actionType === "terminate_session" && !target.session_id) {
-    const error = new Error("The selected event does not have a honeypot session ID");
+  if (actionType === "terminate_session" && (!target.session_id || target.service !== "ftp")) {
+    const error = new Error("Session termination is supported only for a persistent FTP honeypot session");
     error.code = "INVALID_IPS_ACTION";
     throw error;
   }
@@ -705,24 +815,6 @@ async function performIPSAction(
     : actionType === "dismiss"
       ? "dismissed"
       : "completed";
-
-  if (ACTIVE_ACTION_TYPES.has(actionType)) {
-    await run(
-      database,
-      `
-        UPDATE ips_actions
-        SET status = 'reversed', updated_at = ?
-        WHERE status = 'active'
-          AND action_type = ?
-          AND source_ip = ?
-          AND service = ?
-          AND (
-            ? != 'terminate_session' OR session_id = ?
-          )
-      `,
-      [toISTISOString(), actionType, target.source_ip, target.service, actionType, target.session_id]
-    );
-  }
 
   const inserted = await run(
     database,
@@ -755,27 +847,31 @@ async function performIPSAction(
     ]
   );
 
-  if (recommendation && ACTIVE_ACTION_TYPES.has(actionType)) {
-    await run(
-      database,
-      "UPDATE ips_recommendations SET status = 'executed', updated_at = ? WHERE id = ?",
-      [toISTISOString(), recommendation.id]
-    );
-  }
-
   const row = await get(database, "SELECT * FROM ips_actions WHERE id = ?", [inserted.lastID]);
-  await syncRuntimeState(database, stateFile);
+  try {
+    await writeRuntimeState(database, stateFile);
+  } catch (cause) {
+    const error = new Error("Action recorded in the audit, but runtime state could not be published. Refresh IPS to retry synchronization.");
+    error.code = "IPS_STATE_SYNC_FAILED";
+    error.action = actionToJSON(row);
+    error.cause = cause;
+    throw error;
+  }
   return actionToJSON(row);
 }
 
-async function applyAnalystFeedbackToIPS(
+function applyAnalystFeedbackToIPS(database, eventId, feedback, options = {}) {
+  return serializeIPS(database, () => applyAnalystFeedbackToIPSSerial(database, eventId, feedback, options));
+}
+
+async function applyAnalystFeedbackToIPSSerial(
   database,
   eventId,
   feedback,
   { stateFile = DEFAULT_STATE_FILE } = {}
 ) {
   const recommendation = await upsertIPSRecommendation(database, eventId);
-  if (feedback?.verdict === "false_positive") {
+  if (recommendation.feedback_verdict === "false_positive") {
     await run(
       database,
       `
@@ -786,7 +882,7 @@ async function applyAnalystFeedbackToIPS(
       [toISTISOString(), eventId]
     );
   }
-  await syncRuntimeState(database, stateFile);
+  await writeRuntimeState(database, stateFile);
   return recommendationToJSON(recommendation);
 }
 

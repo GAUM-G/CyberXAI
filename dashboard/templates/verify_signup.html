@@ -1,0 +1,17 @@
+{% extends "auth_base.html" %}
+{% block title %}Verify Gmail address{% endblock %}
+{% block content %}
+  {% if message %}<div class="success" role="status">{{ message }}</div>{% endif %}
+  <p class="hint">Enter the six-digit code sent to <strong>{{ email }}</strong>. It expires in 10 minutes.</p>
+  <form method="post" action="{{ url_for('verify_signup_route') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="otp">Email verification code</label>
+    <input id="otp" name="otp" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" minlength="6" maxlength="6" required autofocus>
+    <button type="submit">Verify OTP</button>
+  </form>
+  <form method="post" action="{{ url_for('resend_signup_code') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" style="margin-top:12px;background:#1b2b39;color:#c9d6e3;border:1px solid #405164">Resend OTP</button>
+  </form>
+  <p class="links"><a href="{{ url_for('signup') }}">Use a different Gmail address</a></p>
+{% endblock %}

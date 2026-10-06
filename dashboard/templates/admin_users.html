@@ -1,0 +1,54 @@
+{% extends "auth_base.html" %}
+{% block title %}Manage dashboard users{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+  <style>
+    .users-wrap{overflow-x:auto}
+    .users-table{width:100%;border-collapse:collapse;margin-top:16px}
+    .users-table th,.users-table td{padding:12px 8px;border-bottom:1px solid #263442;text-align:left;vertical-align:middle}
+    .users-table th{color:#9aafc2;font-size:.85rem}
+    .users-table .actions{display:flex;flex-wrap:wrap;gap:6px}
+    .users-table .actions form{margin:0}
+    .users-table .actions button{width:auto;margin:0;padding:7px 10px;font-size:.82rem}
+    .users-table .actions .danger{background:#9d3347;color:#fff}
+    .users-table .actions .secondary{background:#33465c;color:#fff}
+  </style>
+  <p class="hint">Review pending accounts, manage access, and remove accounts. Removed accounts lose access immediately.</p>
+  {% if manager.is_admin %}<p class="hint">Only the main administrator can grant or revoke subadmin access.</p>{% endif %}
+  <div class="users-wrap">
+    <table class="users-table">
+      <thead><tr><th>Gmail</th><th>Status</th><th>Role</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>{{ user.email }}</td>
+            <td>{{ 'Disabled' if not user.active else 'Pending approval' if user.approval_status == 'pending' else 'Approved' }}</td>
+            <td>{{ 'Admin' if user.is_admin else 'Subadmin' if user.is_subadmin else 'User' }}</td>
+            <td class="actions">
+              {% if user.active and user.approval_status == 'pending' %}
+                <form method="post" action="{{ url_for('admin_approve_user', user_id=user.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit">Approve</button>
+                </form>
+              {% endif %}
+              {% if manager.is_admin and user.active and user.approval_status == 'approved' and not user.is_admin %}
+                <form method="post" action="{{ url_for('admin_set_subadmin', user_id=user.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="action" value="{{ 'revoke' if user.is_subadmin else 'grant' }}">
+                  <button class="secondary" type="submit">{{ 'Revoke subadmin' if user.is_subadmin else 'Make subadmin' }}</button>
+                </form>
+              {% endif %}
+              {% if user.id != manager.id and not user.is_admin and (manager.is_admin or not user.is_subadmin) %}
+                <form method="post" action="{{ url_for('admin_remove_user', user_id=user.id) }}" onsubmit="return confirm('Permanently remove this dashboard account?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="danger" type="submit">Remove</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="links"><a href="{{ url_for('index') }}">Back to dashboard</a></p>
+{% endblock %}

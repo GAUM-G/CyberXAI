@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from dashboard import app as dashboard_module
+from tests.dashboard_auth_helpers import make_authenticated_dashboard_client
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,7 +129,7 @@ class HoneypotDashboardIntegrationTests(unittest.TestCase):
 
     @unittest.skipUnless(dashboard_module._FLASK_OK, "Flask not installed")
     def test_rendered_dashboard_does_not_expose_backend_or_internal_token(self) -> None:
-        response = dashboard_module.create_dashboard_app().test_client().get("/")
+        response = make_authenticated_dashboard_client(self).get("/")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
         self.assertNotIn(dashboard_module.PORTAL_API_URL, body)

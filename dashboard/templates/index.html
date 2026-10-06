@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token }}">
 <title>Honeypot Security Framework</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -422,6 +423,12 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
     <div class="topbar">
       <div class="topbar-title"><span>■</span> HONEYPOT SECURITY FRAMEWORK</div>
       <div class="topbar-right">
+        <span class="clock">{{ dashboard_username }}</span>
+        {% if dashboard_can_manage %}<a href="{{ url_for('admin_users') }}" style="color:var(--text2);font-size:.85rem">Manage users</a>{% endif %}
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" style="background:transparent;color:var(--text2);border:1px solid var(--border2);border-radius:4px;padding:.3rem .6rem;cursor:pointer">Sign out</button>
+        </form>
         <div class="live-pill">
           <span class="dot dot-green" style="width:6px;height:6px"></span>
           LIVE · <span id="live-counter">0</span>
@@ -691,7 +698,8 @@ tbody td{padding:.45rem .6rem;color:var(--text);vertical-align:middle}
             <h3>Safe demonstration mode</h3>
             <p>Recommendations and actions are auditable simulations. Simulated blocks label later telemetry,
               rate limits affect only honeypot responses, and termination targets only the selected honeypot
-              session. Windows Firewall and host networking are never modified.</p>
+              FTP session on its next command. SSH and HTTP do not expose persistent session termination.
+              Windows Firewall and host networking are never modified.</p>
             <div class="ips-safety-grid">
               <div class="ips-safety-item"><span>IPS mode</span><strong id="ips-mode">SIMULATION</strong></div>
               <div class="ips-safety-item"><span>Automatic host blocking</span><strong id="ips-auto-block">DISABLED</strong></div>
@@ -892,6 +900,8 @@ let idsLatestFeedback={};
 let selectedIDSIndex=-1;
 let ipsRecommendations=[];
 let ipsActions=[];
+let ipsActionPending=false;
+let ipsLoadVersion=0;
 
 // Monitor
 function loadMonitor(){
@@ -1012,6 +1022,9 @@ function simulationResult(event){
 
 async function analystRequest(path,options={}){
   const headers={'Content-Type':'application/json',...(options.headers||{})};
+  if(options.method && options.method.toUpperCase()!=='GET'){
+    headers['X-CSRF-Token']=document.querySelector('meta[name="csrf-token"]').content;
+  }
   const response=await fetch(path,{...options,headers});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
@@ -1154,7 +1167,7 @@ function renderXaiAlerts(results){
 function generateXaiReport(){
   const status = document.getElementById('xai-status');
   status.textContent='Sending XAI report to n8n…';
-  fetch('/api/xai/report', {method:'POST'}).then(async r=>{
+  fetch('/api/xai/report', {method:'POST',headers:{'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content}}).then(async r=>{
     const d = await r.json();
     if(r.ok && d.status==='sent'){
       status.textContent = `Report sent: ${d.message}`;
@@ -1379,15 +1392,17 @@ function ipsRecommendationButtons(recommendation,index){
     ['suppressed','dismissed'].includes(recommendation.status)||
     recommendation.prediction!=='attack'
   )return '<span class="td-muted">Response suppressed</span>';
-  const sessionButton=recommendation.session_id
+  const sessionButton=recommendation.session_id&&recommendation.service==='ftp'
     ?`<button class="btn ips-btn ips-btn-danger" type="button" onclick="runIPSRecommendationAction('terminate_session',${index})">Terminate Session</button>`
-    :'<button class="btn ips-btn" type="button" disabled title="No session ID on this event">No Session ID</button>';
+    :'<button class="btn ips-btn" type="button" disabled title="Termination is available only for persistent FTP honeypot sessions">Session termination unavailable</button>';
   return `<div class="ips-action-row">
     <button class="btn ips-btn" type="button" onclick="runIPSRecommendationAction('recommend_block',${index})">Recommend Block</button>
     <button class="btn ips-btn ips-btn-danger" type="button" onclick="runIPSRecommendationAction('simulate_block',${index})">Simulate Block</button>
     <button class="btn ips-btn ips-btn-warn" type="button" onclick="runIPSRecommendationAction('rate_limit',${index})">Rate Limit</button>
     ${sessionButton}
-    <button class="btn ips-btn" type="button" onclick="runIPSRecommendationAction('dismiss',${index})">Dismiss</button>
+    ${recommendation.status==='executed'
+      ?'<span class="td-muted">Release the response before dismissing</span>'
+      :`<button class="btn ips-btn" type="button" onclick="runIPSRecommendationAction('dismiss',${index})">Dismiss</button>`}
   </div>`;
 }
 
@@ -1433,26 +1448,52 @@ function renderIPSActions(items){
   feather.replace();
 }
 
-async function loadIPSWorkspace(){
+function setIPSBusy(busy){
+  ipsActionPending=busy;
+  if(busy)ipsLoadVersion+=1;
+  document.querySelectorAll('#sec-ips .ips-btn').forEach(button=>{
+    if(busy&&!button.disabled){button.dataset.ipsBusy='true';button.disabled=true;}
+    if(!busy&&button.dataset.ipsBusy){delete button.dataset.ipsBusy;button.disabled=false;}
+  });
+}
+
+function requireIPSSafety(value){
+  if(value?.mode!=='simulation'||value.automatic_host_blocking!==false||value.host_firewall_changed!==false){
+    throw new Error('IPS safety contract is invalid. Response controls are unavailable.');
+  }
+}
+
+async function loadIPSWorkspace(force=false){
+  if(ipsActionPending&&!force)return;
+  const version=++ipsLoadVersion;
   const message=document.getElementById('ips-status-message');
   message.className='feedback-message';
   message.textContent='Loading simulation-only IPS state…';
   try{
     const safety=await analystRequest('/api/ips/safety');
+    if(version!==ipsLoadVersion)return;
+    requireIPSSafety(safety);
     updateIPSStats(safety);
     const [status,recommendations,actions]=await Promise.all([
       analystRequest('/api/ips/status'),
       analystRequest('/api/ips/recommendations?limit=100'),
       analystRequest('/api/ips/actions?limit=200')
     ]);
-    ipsRecommendations=recommendations.recommendations||[];
-    ipsActions=actions.actions||[];
+    if(version!==ipsLoadVersion)return;
+    requireIPSSafety(status);
+    ipsRecommendations=Array.isArray(recommendations.recommendations)?recommendations.recommendations:[];
+    ipsActions=Array.isArray(actions.actions)?actions.actions:[];
     updateIPSStats(status);
     renderIPSRecommendations(ipsRecommendations);
     renderIPSActions(ipsActions);
     message.className='feedback-message success';
     message.textContent=`Loaded ${ipsRecommendations.length} recommendations and ${ipsActions.length} audit actions. Host firewall changed: no.`;
   }catch(error){
+    if(version!==ipsLoadVersion)return;
+    ipsRecommendations=[];
+    ipsActions=[];
+    document.getElementById('ips-recommendations-wrap').textContent='Response controls unavailable until IPS can be refreshed.';
+    document.getElementById('ips-actions-wrap').textContent='Audit data unavailable.';
     message.className='feedback-message error';
     message.textContent=`Unable to load IPS workspace: ${error.message}`;
   }
@@ -1460,12 +1501,14 @@ async function loadIPSWorkspace(){
 }
 
 async function runIPSRecommendationAction(actionType,index){
+  if(ipsActionPending)return;
   const recommendation=ipsRecommendations[index];
   if(!recommendation)return;
   const active=['simulate_block','rate_limit','terminate_session'].includes(actionType);
   if(active&&!window.confirm(
     `${ipsActionLabel(actionType)} for ${recommendation.source_ip}?\n\nThis affects only the honeypot application. No Windows Firewall rule will be created.`
   ))return;
+  setIPSBusy(true);
   const message=document.getElementById('ips-status-message');
   message.className='feedback-message';
   message.textContent=`Recording ${ipsActionLabel(actionType)}…`;
@@ -1478,19 +1521,23 @@ async function runIPSRecommendationAction(actionType,index){
         reason:`Analyst selected ${ipsActionLabel(actionType)} from the 5050 Step 21 workspace.`
       })
     });
-    await loadIPSWorkspace();
+    await loadIPSWorkspace(true);
   }catch(error){
     message.className='feedback-message error';
     message.textContent=error.message;
+  }finally{
+    setIPSBusy(false);
   }
 }
 
 async function releaseIPSAction(index){
+  if(ipsActionPending)return;
   const target=ipsActions[index];
   if(!target||target.status!=='active')return;
   if(!window.confirm(
     `Release simulated action ${target.action_id}?\n\nOnly application-level simulation state will be removed.`
   ))return;
+  setIPSBusy(true);
   const message=document.getElementById('ips-status-message');
   try{
     await analystRequest('/api/ips/actions',{
@@ -1501,10 +1548,12 @@ async function releaseIPSAction(index){
         reason:'Analyst released the simulated response from the 5050 dashboard.'
       })
     });
-    await loadIPSWorkspace();
+    await loadIPSWorkspace(true);
   }catch(error){
     message.className='feedback-message error';
     message.textContent=error.message;
+  }finally{
+    setIPSBusy(false);
   }
 }
 

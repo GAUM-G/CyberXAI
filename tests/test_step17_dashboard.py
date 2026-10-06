@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dashboard import app as dashboard_module
+from tests.dashboard_auth_helpers import make_authenticated_dashboard_client
 
 
 NOW = datetime.now(timezone.utc).replace(microsecond=0)
@@ -144,7 +145,7 @@ class Step17EndpointTests(unittest.TestCase):
         original = dashboard_module._all_ids_results
         dashboard_module._all_ids_results = lambda limit=2000: _results()[:limit]
         try:
-            client = dashboard_module.create_dashboard_app().test_client()
+            client = make_authenticated_dashboard_client(self)
             response = client.get("/api/ids")
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()

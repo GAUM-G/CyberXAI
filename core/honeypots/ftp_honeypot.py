@@ -23,12 +23,12 @@ from core.simulated_ips import apply_simulated_rate_limit, get_simulated_respons
 try:
     from pyftpdlib.authorizers import DummyAuthorizer
     from pyftpdlib.handlers import FTPHandler
-    from pyftpdlib.servers import FTPServer
+    from pyftpdlib.servers import ThreadedFTPServer
     _FTP_AVAILABLE = True
 except ImportError:
     DummyAuthorizer = None
     FTPHandler = object
-    FTPServer = None
+    ThreadedFTPServer = None
     _FTP_AVAILABLE = False
     print("[FTP] pyftpdlib not installed. Run: pip install pyftpdlib")
 
@@ -63,9 +63,6 @@ class _LoggingFTPHandler(FTPHandler):
     def on_connect(self) -> None:
         session_id = self._session_id()
         destination_port = self._destination_port()
-        apply_simulated_rate_limit(
-            get_simulated_response(self.remote_ip, "ftp", session_id)
-        )
         log_event(
             source_ip=self.remote_ip,
             service="ftp",
@@ -142,7 +139,6 @@ class _LoggingFTPHandler(FTPHandler):
             "ftp",
             self._session_id(),
         )
-        apply_simulated_rate_limit(ips_response)
         if ips_response.get("session_terminated"):
             log_event(
                 source_ip=self.remote_ip,
@@ -167,6 +163,7 @@ class _LoggingFTPHandler(FTPHandler):
             self.respond("421 Session closed by server policy simulation.")
             self.close_when_done()
             return
+        apply_simulated_rate_limit(ips_response)
         log_event(
             source_ip=self.remote_ip,
             service="ftp",
@@ -220,7 +217,10 @@ def start_ftp_honeypot(host: str = "0.0.0.0", port: int = 2121) -> None:
     handler.banner = "220 ProFTPD 1.3.5a Server (ProFTPD) ready"
     handler.passive_ports = range(60000, 60100)
 
-    server = FTPServer((host, port), handler)
+    # Each client has its own loop, so a selected client's bounded IPS delay
+    # cannot freeze every other FTP session. on_connect runs on the accept loop
+    # and must not sleep; rate limiting is applied to commands instead.
+    server = ThreadedFTPServer((host, port), handler)
     server.max_cons_per_ip = 10
     print(f"[FTP] Honeypot listening on {host}:{port}")
     server.serve_forever(timeout=0.5, blocking=True)

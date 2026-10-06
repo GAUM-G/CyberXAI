@@ -1,6 +1,6 @@
 """Audit LSTM generalization with source-group-isolated validation and test sets.
 
-This script deliberately writes only to report_evidence/lstm_robustness.  It
+This script deliberately writes only to data/reports/lstm_robustness.  It
 does not replace the production preprocessor, arrays, model, or metrics.
 """
 
@@ -163,7 +163,7 @@ def main() -> int:
     args = parser().parse_args()
     if args.max_epochs < 1 or args.patience < 1:
         raise ValueError("max-epochs and patience must be positive")
-    output = args.output_dir or ROOT / "report_evidence/lstm_robustness" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    output = args.output_dir or ROOT / "data/reports/lstm_robustness" / datetime.now().strftime("%Y%m%d_%H%M%S")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     set_random_seed(args.random_state)

@@ -65,6 +65,9 @@
     padding: 10px;
     font-size: 0.95rem;
   }
+  .password-wrap { position: relative; }
+  .password-wrap input { width: 100%; padding-right: 50px; }
+  .password-toggle { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: transparent; color: var(--ink); padding: 6px; }
   button {
     background: var(--accent);
     color: #fff;
@@ -118,7 +121,10 @@
           </div>
           <div class="field">
             <label for="password">Password</label>
-            <input id="password" type="password" name="password" placeholder="password">
+            <div class="password-wrap">
+              <input id="password" type="password" name="password" placeholder="password">
+              <button id="password-toggle" class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">👁</button>
+            </div>
           </div>
           <button type="submit">Login</button>
         </form>
@@ -148,5 +154,15 @@
       </ul>
     </section>
   </main>
+  <script>
+    document.getElementById('password-toggle').addEventListener('click', function () {
+      const input = document.getElementById('password');
+      const visible = input.type === 'password';
+      input.type = visible ? 'text' : 'password';
+      this.textContent = visible ? '🙈' : '👁';
+      this.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+      this.setAttribute('aria-pressed', String(visible));
+    });
+  </script>
 </body>
 </html>

@@ -9,6 +9,7 @@ from core import logger
 from core.attack_detection import PortScanDetector
 from core.event_schema import validate_common_event
 from dashboard import app as dashboard_module
+from tests.dashboard_auth_helpers import make_authenticated_dashboard_client
 from simulation.n8n import normalize_record
 from simulation.sim_port_scan import _require_loopback
 
@@ -155,7 +156,7 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
         dashboard_module._all_events = lambda limit: events[:limit]
         dashboard_module._central_event_stats = lambda: None
         try:
-            client = dashboard_module.create_dashboard_app().test_client()
+            client = make_authenticated_dashboard_client(self)
             monitor_response = client.get("/api/monitor").get_json()
             monitor_events = monitor_response["recent_events"]
             service_events = client.get("/api/honeypot").get_json()["services"]["http"]["recent"]
@@ -206,7 +207,7 @@ class DashboardPortScanVisibilityTests(unittest.TestCase):
             "by_attack_type": {"web_activity": 2400, "sql_injection": 101},
         }
         try:
-            payload = dashboard_module.create_dashboard_app().test_client().get(
+            payload = make_authenticated_dashboard_client(self).get(
                 "/api/monitor"
             ).get_json()
             self.assertEqual(2501, payload["total_events"])

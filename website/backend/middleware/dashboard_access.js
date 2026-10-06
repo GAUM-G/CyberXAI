@@ -63,10 +63,24 @@ function requireDashboardAccess(req, res, next) {
   if (provided && isLoopbackRequest(req)) {
     try {
       if (tokensMatch(provided, loadOrCreateInternalToken())) {
+        const analystId = req.get("x-dashboard-analyst-id");
+        const analystEmail = req.get("x-dashboard-analyst-email");
+        const hasIdentity = analystId !== undefined || analystEmail !== undefined;
+        if (hasIdentity && (
+          !/^[1-9][0-9]*$/.test(String(analystId || "")) ||
+          !Number.isSafeInteger(Number(analystId)) ||
+          typeof analystEmail !== "string" ||
+          !/^[a-z0-9][a-z0-9.+_-]{0,63}@gmail\.com$/.test(analystEmail)
+        )) {
+          return res.status(403).json({ error: "Invalid dashboard analyst identity" });
+        }
+        if (!hasIdentity && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+          return res.status(403).json({ error: "Dashboard analyst identity is required" });
+        }
         req.user = {
-          userId: 0,
-          username: "local-defender",
-          email: "defender@localhost",
+          userId: hasIdentity ? Number(analystId) : 0,
+          username: hasIdentity ? analystEmail : "local-defender",
+          email: hasIdentity ? analystEmail : "defender@localhost",
           access: "local-dashboard",
         };
         return next();
@@ -77,7 +91,11 @@ function requireDashboardAccess(req, res, next) {
     }
   }
 
-  // Retain JWT support for existing administrative scripts and integrations.
+  // Portal JWTs identify decoy-site accounts, not approved dashboard analysts.
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return res.status(401).json({ error: "Dashboard login required for analyst actions" });
+  }
+  // Keep legacy read-only integration scripts working without granting IPS writes.
   return requireAuth(req, res, next);
 }
 

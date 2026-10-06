@@ -10,6 +10,7 @@ import os
 import platform
 import queue
 import secrets
+import smtplib
 import sys
 import time
 import urllib.parse
@@ -25,14 +26,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.logger import get_stream_queue, read_recent_events
 from core.time_utils import IST, now_ist, now_ist_iso, to_ist
+from dashboard.auth import (
+    approve_user,
+    auth_db_path,
+    authenticate,
+    begin_signup,
+    cancel_signup,
+    complete_signup,
+    get_user,
+    initialize_auth_store,
+    list_dashboard_users,
+    load_session_secret,
+    remove_user,
+    revoke_user_sessions,
+    set_subadmin,
+    validate_password,
+    verify_signup,
+)
+from dashboard.email_delivery import mail_is_configured, send_signup_code
 
 try:
     from flask import (
         Flask,
         Response,
         jsonify,
+        redirect,
         render_template,
         request,
+        session,
+        url_for,
     )
     _FLASK_OK = True
 except ImportError:
@@ -527,14 +549,283 @@ def _ordered_services(events: list[dict[str, Any]]) -> list[str]:
     return ordered or preferred[:3]
 
 
-def create_dashboard_app() -> "Flask":
+def create_dashboard_app(
+    *, auth_path: Path | None = None, session_secret: str | None = None
+) -> "Flask":
     if not _FLASK_OK:
         raise RuntimeError("Flask required.")
     app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
+    account_db = (auth_path or auth_db_path()).resolve()
+    initialize_auth_store(account_db)
+    app.config.update(
+        SECRET_KEY=session_secret or load_session_secret(),
+        SESSION_COOKIE_NAME="dashboard_session",
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Strict",
+        SESSION_COOKIE_SECURE=os.environ.get("DASHBOARD_COOKIE_SECURE", "").lower()
+        in {"1", "true", "yes"},
+        SESSION_REFRESH_EACH_REQUEST=False,
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        MAX_CONTENT_LENGTH=1024 * 1024,
+    )
+
+    @app.before_request
+    def require_analyst_login() -> Any:
+        if request.endpoint in {
+            "login", "signup", "verify_signup_route", "resend_signup_code", "set_signup_password"
+        }:
+            return None
+        user_id = session.get("analyst_user_id")
+        version = session.get("auth_version")
+        user = get_user(account_db, user_id) if type(user_id) is int else None
+        if not user or user["auth_version"] != version:
+            if user_id is not None or version is not None:
+                session.clear()
+            if request.path.startswith("/api/") or request.path == "/stream":
+                return jsonify({"error": "Dashboard login required"}), 401
+            if request.endpoint == "index" and request.method == "GET":
+                token = session.setdefault("login_csrf", secrets.token_urlsafe(32))
+                return render_template("login.html", csrf_token=token)
+            return redirect(url_for("login"))
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            submitted = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token", "")
+            expected = session.get("csrf_token", "")
+            if not expected or not secrets.compare_digest(submitted, expected):
+                return jsonify({"error": "Invalid CSRF token"}), 403
+        return None
+
+    @app.after_request
+    def secure_response(response: Response) -> Response:
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login() -> Any:
+        if request.method == "GET":
+            token = session.setdefault("login_csrf", secrets.token_urlsafe(32))
+            return render_template(
+                "login.html", csrf_token=token,
+                registered=request.args.get("registered", ""),
+            )
+        submitted = request.form.get("csrf_token", "")
+        expected = session.get("login_csrf", "")
+        if not expected or not secrets.compare_digest(submitted, expected):
+            fresh_token = secrets.token_urlsafe(32)
+            session["login_csrf"] = fresh_token
+            return render_template(
+                "login.html", csrf_token=fresh_token, stale_form=True,
+            ), 403
+        email = request.form.get("email", "")[:128]
+        password = request.form.get("password", "")
+        if len(password.encode("utf-8")) > 1024:
+            return render_template(
+                "login.html", csrf_token=expected, error="Invalid Gmail or password."
+            ), 401
+        user, limited, pending = authenticate(
+            account_db, email, password, request.remote_addr or "unknown"
+        )
+        if not user:
+            return render_template(
+                "login.html",
+                csrf_token=expected,
+                pending=pending,
+                error="Too many attempts. Try again in 15 minutes."
+                if limited else None if pending else "Invalid Gmail or password.",
+            ), 429 if limited else 401
+        session.clear()
+        session["analyst_user_id"] = user["id"]
+        session["auth_version"] = user["auth_version"]
+        session["csrf_token"] = secrets.token_urlsafe(32)
+        session.permanent = True
+        return redirect(url_for("index"))
+
+    @app.route("/signup", methods=["GET", "POST"])
+    def signup() -> Any:
+        token = session.setdefault("login_csrf", secrets.token_urlsafe(32))
+        if request.method == "GET":
+            return render_template("signup.html", csrf_token=token)
+        submitted = request.form.get("csrf_token", "")
+        if not secrets.compare_digest(submitted, token):
+            return jsonify({"error": "Invalid CSRF token"}), 403
+        if not mail_is_configured():
+            return render_template(
+                "signup.html", csrf_token=token,
+                error="OTP sender is not ready. In data/runtime/dashboard_mail.json, "
+                      "replace the sender Gmail and app-password placeholders. "
+                      "This is one-time administrator setup.",
+            ), 503
+        try:
+            email, code = begin_signup(
+                account_db, request.form.get("email", "")[:128], app.config["SECRET_KEY"]
+            )
+        except ValueError as exc:
+            return render_template("signup.html", csrf_token=token, error=str(exc)), 400
+        try:
+            send_signup_code(email, code)
+        except smtplib.SMTPAuthenticationError:
+            cancel_signup(account_db, email, code, app.config["SECRET_KEY"])
+            app.logger.warning("Dashboard signup email delivery failed: SMTPAuthenticationError")
+            return render_template(
+                "signup.html", csrf_token=token,
+                error="Gmail rejected the sender credential. Check the Gmail app password in dashboard_mail.json.",
+            ), 502
+        except (OSError, RuntimeError) as exc:
+            cancel_signup(account_db, email, code, app.config["SECRET_KEY"])
+            app.logger.warning("Dashboard signup email delivery failed: %s", type(exc).__name__)
+            return render_template(
+                "signup.html", csrf_token=token,
+                error="Could not send the code. Check dashboard_mail.json and try again.",
+            ), 502
+        session.pop("verified_signup_email", None)
+        session.pop("verified_signup_at", None)
+        session["pending_signup_email"] = email
+        return redirect(url_for("verify_signup_route"))
+
+    @app.route("/resend-otp", methods=["POST"])
+    def resend_signup_code() -> Any:
+        email = session.get("pending_signup_email")
+        if not email:
+            return redirect(url_for("signup"))
+        token = session.get("login_csrf", "")
+        if not token or not secrets.compare_digest(request.form.get("csrf_token", ""), token):
+            return jsonify({"error": "Invalid CSRF token"}), 403
+        try:
+            email, code = begin_signup(account_db, email, app.config["SECRET_KEY"])
+        except ValueError as exc:
+            return render_template(
+                "verify_signup.html", csrf_token=token, email=email, error=str(exc)
+            ), 429
+        try:
+            send_signup_code(email, code)
+        except (OSError, RuntimeError) as exc:
+            cancel_signup(account_db, email, code, app.config["SECRET_KEY"])
+            app.logger.warning("Dashboard OTP resend failed: %s", type(exc).__name__)
+            return render_template(
+                "verify_signup.html", csrf_token=token, email=email,
+                error="Could not resend the code. Check Gmail sender configuration.",
+            ), 502
+        return render_template(
+            "verify_signup.html", csrf_token=token, email=email,
+            message="A new code was emailed. The previous code is no longer valid.",
+        )
+
+    @app.route("/verify-signup", methods=["GET", "POST"])
+    def verify_signup_route() -> Any:
+        email = session.get("pending_signup_email")
+        if not email:
+            return redirect(url_for("signup"))
+        token = session.setdefault("login_csrf", secrets.token_urlsafe(32))
+        if request.method == "GET":
+            return render_template("verify_signup.html", csrf_token=token, email=email)
+        submitted = request.form.get("csrf_token", "")
+        if not secrets.compare_digest(submitted, token):
+            return jsonify({"error": "Invalid CSRF token"}), 403
+        valid = verify_signup(
+            account_db, email, request.form.get("otp", ""), app.config["SECRET_KEY"]
+        )
+        if not valid:
+            return render_template(
+                "verify_signup.html", csrf_token=token, email=email,
+                error="Invalid or expired code. Check your email or request a new code.",
+            ), 400
+        session.pop("pending_signup_email", None)
+        session["verified_signup_email"] = email
+        session["verified_signup_at"] = int(time.time())
+        return redirect(url_for("set_signup_password"))
+
+    @app.route("/set-password", methods=["GET", "POST"])
+    def set_signup_password() -> Any:
+        email = session.get("verified_signup_email")
+        verified_at = session.get("verified_signup_at")
+        if not email or type(verified_at) is not int or time.time() - verified_at > 600:
+            session.pop("verified_signup_email", None)
+            session.pop("verified_signup_at", None)
+            return redirect(url_for("signup"))
+        token = session.setdefault("login_csrf", secrets.token_urlsafe(32))
+        if request.method == "GET":
+            return render_template("set_password.html", csrf_token=token, email=email)
+        if not secrets.compare_digest(request.form.get("csrf_token", ""), token):
+            return jsonify({"error": "Invalid CSRF token"}), 403
+        password = request.form.get("password", "")
+        if password != request.form.get("confirm_password", ""):
+            return render_template(
+                "set_password.html", csrf_token=token, email=email,
+                error="Passwords do not match.",
+            ), 400
+        try:
+            validate_password(password)
+            created = complete_signup(account_db, email, password)
+        except ValueError as exc:
+            return render_template(
+                "set_password.html", csrf_token=token, email=email, error=str(exc)
+            ), 400
+        if not created:
+            return render_template(
+                "set_password.html", csrf_token=token, email=email,
+                error="Account could not be created. Please sign in if already registered.",
+            ), 400
+        session.pop("verified_signup_email", None)
+        session.pop("verified_signup_at", None)
+        return redirect(url_for("login", registered=created))
+
+    @app.route("/admin/users", methods=["GET"])
+    def admin_users() -> Any:
+        manager = get_user(account_db, session["analyst_user_id"])
+        if not (manager["is_admin"] or manager["is_subadmin"]):
+            return jsonify({"error": "Manager access required"}), 403
+        return render_template(
+            "admin_users.html", csrf_token=session["csrf_token"],
+            users=list_dashboard_users(account_db), manager=manager,
+        )
+
+    @app.route("/admin/users/<int:user_id>/approve", methods=["POST"])
+    def admin_approve_user(user_id: int) -> Any:
+        manager = get_user(account_db, session["analyst_user_id"])
+        if not (manager["is_admin"] or manager["is_subadmin"]):
+            return jsonify({"error": "Manager access required"}), 403
+        if not approve_user(account_db, manager["id"], user_id):
+            return jsonify({"error": "Pending user not found"}), 404
+        return redirect(url_for("admin_users"))
+
+    @app.route("/admin/users/<int:user_id>/subadmin", methods=["POST"])
+    def admin_set_subadmin(user_id: int) -> Any:
+        manager = get_user(account_db, session["analyst_user_id"])
+        if not manager["is_admin"]:
+            return jsonify({"error": "Administrator access required"}), 403
+        action = request.form.get("action", "")
+        if action not in {"grant", "revoke"}:
+            return jsonify({"error": "Invalid role action"}), 400
+        if not set_subadmin(account_db, manager["id"], user_id, action == "grant"):
+            return jsonify({"error": "User cannot be changed"}), 403
+        return redirect(url_for("admin_users"))
+
+    @app.route("/admin/users/<int:user_id>/remove", methods=["POST"])
+    def admin_remove_user(user_id: int) -> Any:
+        manager = get_user(account_db, session["analyst_user_id"])
+        if not (manager["is_admin"] or manager["is_subadmin"]):
+            return jsonify({"error": "Manager access required"}), 403
+        if not remove_user(account_db, manager["id"], user_id):
+            return jsonify({"error": "User cannot be removed"}), 403
+        return redirect(url_for("admin_users"))
+
+    @app.route("/logout", methods=["POST"])
+    def logout() -> Any:
+        revoke_user_sessions(account_db, session["analyst_user_id"])
+        session.clear()
+        return redirect(url_for("login"))
 
     @app.route("/")
     def index() -> Any:
-        return render_template("index.html")
+        user = get_user(account_db, session["analyst_user_id"])
+        return render_template(
+            "index.html",
+            csrf_token=session["csrf_token"],
+            dashboard_username=user["email"],
+            dashboard_can_manage=bool(user["is_admin"] or user["is_subadmin"]),
+        )
 
     def proxy_backend(path: str) -> Response:
         """Relay allow-listed analyst calls through the localhost dashboard."""
@@ -547,6 +838,11 @@ def create_dashboard_app() -> "Flask":
             "Accept": "application/json",
             "X-Dashboard-Internal-Token": _dashboard_internal_token(),
         }
+        analyst = get_user(account_db, session["analyst_user_id"])
+        if not analyst or analyst["auth_version"] != session.get("auth_version"):
+            return jsonify({"error": "Dashboard login required"}), 401
+        headers["X-Dashboard-Analyst-Id"] = str(analyst["id"])
+        headers["X-Dashboard-Analyst-Email"] = analyst["email"]
         body = None
         if request.method == "POST":
             headers["Content-Type"] = "application/json"
@@ -805,12 +1101,21 @@ def create_dashboard_app() -> "Flask":
 
     @app.route("/stream")
     def stream() -> Any:
+        user_id = session["analyst_user_id"]
+        auth_version = session["auth_version"]
+
         def _gen() -> Generator[str, None, None]:
             q = get_stream_queue()
             last_hb = time.time()
             while True:
+                user = get_user(account_db, user_id)
+                if not user or user["auth_version"] != auth_version:
+                    return
                 try:
                     ev = q.get(timeout=1.0)
+                    user = get_user(account_db, user_id)
+                    if not user or user["auth_version"] != auth_version:
+                        return
                     yield f"data: {json.dumps(ev)}\n\n"
                 except queue.Empty:
                     pass
@@ -825,9 +1130,11 @@ def create_dashboard_app() -> "Flask":
 
 def start_dashboard(host: str = "127.0.0.1", port: int = 5050) -> None:
     if host not in {"127.0.0.1", "localhost", "::1"}:
-        raise ValueError("The login-free defender dashboard must remain loopback-only")
+        raise ValueError("The defender dashboard must remain loopback-only")
     app = create_dashboard_app()
     print(f"[Dashboard] http://{host}:{port}")
+    if not mail_is_configured():
+        print("[Dashboard] Signup email is not configured: edit data/runtime/dashboard_mail.json")
     app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
 
 

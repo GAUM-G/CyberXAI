@@ -1,3 +1,0 @@
-run_id,evaluation,runs,test_samples,accuracy_mean,accuracy_std,balanced_accuracy_mean,macro_f1_mean,macro_f1_std,source_group_overlap,template_overlap,interpretation
-20260907_final_report_evidence,legacy chronological holdout,1,816,1.0,0.0,1.0,1.0,0.0,791/816 test rows,816/816 test rows,reproduced but optimistic; not independent generalization
-20260907_final_report_evidence,source-group-isolated holdouts,3,"710, 710, 711",0.9760675633736786,0.003450022077343988,0.9785477039979603,0.9675284795903893,0.003261310821230083,0 in every run,templates still repeat across groups,primary defensible internal LSTM estimate; external validation still required

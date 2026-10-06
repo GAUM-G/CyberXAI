@@ -108,8 +108,8 @@ class Step20DashboardTests(unittest.TestCase):
         ):
             self.assertIn(marker, dashboard)
 
-        self.assertNotIn("@require_dashboard_auth", application)
-        self.assertNotIn('/api/auth/login', application)
+        self.assertIn("require_analyst_login", application)
+        self.assertIn('@app.route("/login", methods=["GET", "POST"])', application)
         self.assertIn("X-Dashboard-Internal-Token", application)
         self.assertIn('@app.route("/api/analyst-feedback")', application)
         self.assertIn('@app.route("/api/ips/actions", methods=["GET", "POST"])', application)

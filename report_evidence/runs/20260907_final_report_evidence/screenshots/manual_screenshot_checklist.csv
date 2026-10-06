@@ -1,9 +1,0 @@
-screen,action,evidence,filename,caption
-System Monitor,Captured automatically from the isolated Flask dashboard,"125 events, 59 threats, service/navigation counters and live feed",01_system_monitor.png,Genuine defender system monitor with isolated live telemetry.
-Honeypot activity,Open Honeypot section and filter SQL Injection/XSS,Traceable event IDs and captured records,02_honeypot_filter.png,Filtered attacker activity.
-IDS incident detail,Open a processed attack result,"Prediction, components, confidence, threat level/score",03_ids_detail.png,Hybrid IDS result and component evidence.
-XAI,Open XAI panel for the same event,SHAP status/features and human reason,04_xai_detail.png,Tree-SHAP-supported explanation.
-Agents,Open Agents section,Fixed run order and six agent outputs,05_agents.png,Deterministic post-inference agent analysis.
-Analyst feedback,Submit a sanitized demo verdict,"Verdict, timestamp, severity override/audit",06_feedback.png,Analyst review record.
-Simulated IPS,Open IPS recommendation/action detail,"simulation mode, no firewall change, audit entry",07_simulated_ips.png,Simulation-only response recommendation.
-Alert receipt,Only after explicit authorization and configured Telegram,Actual message and matching event ID; redact chat identity/token,08_alert_receipt.png,Externally received alert (pending; not claimed).

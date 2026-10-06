@@ -7,6 +7,7 @@ export default function HomePage() {
   const [files, setFiles] = useState([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [loginMessage, setLoginMessage] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
@@ -85,14 +86,19 @@ export default function HomePage() {
             </div>
             <div className="field">
               <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-              />
+              <div className="password-wrap">
+                <input
+                  id="password"
+                  type={passwordVisible ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                />
+                <button type="button" className="password-toggle" onClick={() => setPasswordVisible(!passwordVisible)} aria-label={passwordVisible ? "Hide password" : "Show password"} aria-pressed={passwordVisible}>
+                  {passwordVisible ? "🙈" : "👁"}
+                </button>
+              </div>
             </div>
             <button type="submit">Sign in</button>
           </form>

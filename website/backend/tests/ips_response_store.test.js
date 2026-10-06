@@ -10,12 +10,14 @@ const {
   HOST_FIREWALL_CHANGED,
   IPS_MODE,
   applyAnalystFeedbackToIPS,
+  backfillIPSRecommendations,
   getIPSStatus,
   initializeIPSResponseStore,
   listIPSActions,
   listIPSRecommendations,
   performIPSAction,
   policyDecision,
+  syncRuntimeState,
   upsertIPSRecommendation,
   validateIPSActionInput,
 } = require("../ips_response_store");
@@ -299,6 +301,168 @@ test("false-positive feedback suppresses and reverses active responses", async (
     assert.equal(actions[0].status, "reversed");
     const state = JSON.parse(fs.readFileSync(target.stateFile, "utf8"));
     assert.deepEqual(state.simulated_blocks, []);
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("action IDs and durations reject coercion, fractions, and unsafe integers", () => {
+  for (const id of [true, false, null, [], {}, 0, -1, 1.5, "1.5", "01", "1 OR 1=1", Number.MAX_SAFE_INTEGER + 1]) {
+    assert.ok(validateIPSActionInput({ action_type: "simulate_block", recommendation_id: id }).length, String(id));
+    assert.ok(validateIPSActionInput({ action_type: "release", related_action_id: id }).length, String(id));
+  }
+  for (const duration of [true, [], {}, -1, 0, 1.5, "1.5", 86401]) {
+    assert.ok(validateIPSActionInput({ action_type: "rate_limit", event_id: "event-http", duration_seconds: duration }).length);
+  }
+  assert.deepEqual(validateIPSActionInput({ action_type: "release", related_action_id: "7" }), []);
+});
+
+test("expired and released responses return recommendations to pending", async () => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    const recommendation = await upsertIPSRecommendation(database, "event-http");
+    const action = await performIPSAction(database, { action_type: "rate_limit", recommendation_id: recommendation.id }, analyst, target);
+    await run(database, "UPDATE ips_actions SET expires_at = '2000-01-01T00:00:00Z' WHERE id = ?", [action.action_id]);
+    assert.equal((await listIPSRecommendations(database, { eventId: "event-http" }))[0].status, "pending");
+    assert.equal((await listIPSActions(database))[0].status, "expired");
+    const replacement = await performIPSAction(database, { action_type: "rate_limit", recommendation_id: recommendation.id }, analyst, target);
+    await performIPSAction(database, { action_type: "release", related_action_id: replacement.action_id }, analyst, target);
+    assert.equal((await listIPSRecommendations(database, { eventId: "event-http" }))[0].status, "pending");
+    assert.deepEqual(JSON.parse(fs.readFileSync(target.stateFile, "utf8")).rate_limits, []);
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("current IDS and analyst feedback suppress stale, normal, and dismissed targets", async () => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    const normal = await upsertIPSRecommendation(database, "event-normal");
+    await assert.rejects(performIPSAction(database, { action_type: "simulate_block", recommendation_id: normal.id }, analyst, target), { code: "IPS_RESPONSE_SUPPRESSED" });
+    const rec = await upsertIPSRecommendation(database, "event-http");
+    await assert.rejects(performIPSAction(database, { action_type: "rate_limit", recommendation_id: rec.id, event_id: "related-1" }, analyst, target), { code: "INVALID_IPS_ACTION" });
+    await performIPSAction(database, { action_type: "simulate_block", recommendation_id: rec.id }, analyst, target);
+    await assert.rejects(performIPSAction(database, { action_type: "dismiss", recommendation_id: rec.id }, analyst, target), { code: "IPS_RESPONSE_SUPPRESSED" });
+    await run(database, "INSERT INTO analyst_feedback(event_id, verdict) VALUES ('event-http', 'false_positive')");
+    // Recovery must use the persisted latest verdict even if the feedback hook was interrupted.
+    await syncRuntimeState(database, target.stateFile);
+    const updated = (await listIPSRecommendations(database, { eventId: "event-http" }))[0];
+    assert.equal(updated.status, "suppressed");
+    assert.equal(updated.feedback_verdict, "false_positive");
+    assert.deepEqual(JSON.parse(fs.readFileSync(target.stateFile, "utf8")).simulated_blocks, []);
+    await assert.rejects(performIPSAction(database, { action_type: "rate_limit", recommendation_id: rec.id }, analyst, target), { code: "IPS_RESPONSE_SUPPRESSED" });
+    const other = await upsertIPSRecommendation(database, "related-1");
+    await performIPSAction(database, { action_type: "dismiss", recommendation_id: other.id }, analyst, target);
+    await assert.rejects(performIPSAction(database, { action_type: "simulate_block", recommendation_id: other.id }, analyst, target), { code: "IPS_RESPONSE_SUPPRESSED" });
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("session termination is available only for a targeted persistent FTP session", async () => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    for (const eventId of ["event-http", "related-1"]) {
+      const rec = await upsertIPSRecommendation(database, eventId);
+      await assert.rejects(performIPSAction(database, { action_type: "terminate_session", recommendation_id: rec.id }, analyst, target), { code: "INVALID_IPS_ACTION" });
+    }
+    await run(database, "UPDATE ids_results SET prediction = 'attack', threat_level = 'High' WHERE event_id = 'event-normal'");
+    const rec = await upsertIPSRecommendation(database, "event-normal");
+    const action = await performIPSAction(database, { action_type: "terminate_session", recommendation_id: rec.id }, analyst, target);
+    assert.equal(action.session_id, "session-ftp-1");
+    assert.equal(JSON.parse(fs.readFileSync(target.stateFile, "utf8")).terminated_sessions[0].service, "ftp");
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("concurrent actions replace earlier controls and cannot release a target twice", async () => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    const rec = await upsertIPSRecommendation(database, "event-http");
+    const actions = await Promise.all([1, 2, 3].map(() => performIPSAction(database, { action_type: "rate_limit", recommendation_id: rec.id }, analyst, target)));
+    const active = await listIPSActions(database, { status: "active" });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].action_id, actions.at(-1).action_id);
+    assert.equal(JSON.parse(fs.readFileSync(target.stateFile, "utf8")).rate_limits.length, 1);
+    const results = await Promise.allSettled([1, 2].map(() => performIPSAction(database, { action_type: "release", related_action_id: active[0].action_id }, analyst, target)));
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    assert.equal(results.find(result => result.status === "rejected").reason.code, "IPS_TARGET_NOT_FOUND");
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("failed publication preserves the previous complete snapshot and can recover", async t => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    await syncRuntimeState(database, target.stateFile);
+    const previous = fs.readFileSync(target.stateFile, "utf8");
+    const rec = await upsertIPSRecommendation(database, "event-http");
+    const rename = t.mock.method(fs, "renameSync", () => { throw new Error("simulated unavailable destination"); });
+    await assert.rejects(performIPSAction(database, { action_type: "simulate_block", recommendation_id: rec.id }, analyst, target), error => {
+      assert.equal(error.code, "IPS_STATE_SYNC_FAILED");
+      assert.equal(error.action.status, "active");
+      return true;
+    });
+    assert.equal(fs.readFileSync(target.stateFile, "utf8"), previous);
+    assert.deepEqual(fs.readdirSync(target.directory), ["simulated_ips_state.json"]);
+    rename.mock.restore();
+    await syncRuntimeState(database, target.stateFile);
+    assert.equal(JSON.parse(fs.readFileSync(target.stateFile, "utf8")).simulated_blocks.length, 1);
+    assert.equal((await listIPSActions(database)).length, 1);
+  } finally {
+    await close(database);
+    fs.rmSync(target.directory, { recursive: true, force: true });
+  }
+});
+
+test("repeat context excludes future timestamps and backfill prioritizes newest IDS results", async () => {
+  const database = await makeDatabase();
+  try {
+    await run(database, "INSERT INTO honeypot_events(event_id, source_ip, service, attack_type, received_at) VALUES ('future', '10.0.0.8', 'ssh', 'ssh_bruteforce', '2099-01-01')");
+    assert.equal((await upsertIPSRecommendation(database, "related-1")).repeat_count, 6);
+    await run(database, "DELETE FROM ips_recommendations");
+    assert.equal(await backfillIPSRecommendations(database, 1), 1);
+    assert.equal((await listIPSRecommendations(database))[0].event_id, "event-normal");
+  } finally {
+    await close(database);
+  }
+});
+
+test("a failed audit insert does not release, dismiss, or replace the existing response", async () => {
+  const database = await makeDatabase();
+  const target = makeStateTarget();
+  try {
+    const rec = await upsertIPSRecommendation(database, "event-http");
+    const original = await performIPSAction(database, { action_type: "rate_limit", recommendation_id: rec.id }, analyst, target);
+    const previous = fs.readFileSync(target.stateFile, "utf8");
+    await run(database, "CREATE TRIGGER reject_test_actions BEFORE INSERT ON ips_actions BEGIN SELECT RAISE(ABORT, 'test audit insert failure'); END");
+    for (const input of [{ action_type: "rate_limit", recommendation_id: rec.id }, { action_type: "release", related_action_id: original.action_id }]) {
+      await assert.rejects(performIPSAction(database, input, analyst, target), /test audit insert failure/);
+      assert.equal((await listIPSActions(database, { status: "active" }))[0]?.action_id, original.action_id);
+      assert.equal(fs.readFileSync(target.stateFile, "utf8"), previous);
+    }
+    const other = await upsertIPSRecommendation(database, "related-1");
+    await assert.rejects(performIPSAction(database, { action_type: "dismiss", recommendation_id: other.id }, analyst, target), /test audit insert failure/);
+    assert.equal((await listIPSRecommendations(database, { eventId: "related-1" }))[0].status, "pending");
+    assert.equal((await listIPSActions(database)).length, 1);
+    await run(database, "DROP TRIGGER reject_test_actions");
+    await run(database, "CREATE TRIGGER reject_test_activation BEFORE UPDATE OF status ON ips_recommendations WHEN NEW.status = 'executed' BEGIN SELECT RAISE(ABORT, 'test activation failure'); END");
+    await assert.rejects(performIPSAction(database, { action_type: "rate_limit", recommendation_id: rec.id }, analyst, target), /test activation failure/);
+    assert.equal((await listIPSActions(database, { status: "active" }))[0].action_id, original.action_id);
+    assert.equal((await listIPSActions(database)).length, 1);
+    assert.equal(fs.readFileSync(target.stateFile, "utf8"), previous);
   } finally {
     await close(database);
     fs.rmSync(target.directory, { recursive: true, force: true });
