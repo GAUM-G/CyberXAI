@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const childProcess = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -20,9 +21,31 @@ function tokenFilePath() {
   return path.resolve(process.env.DASHBOARD_INTERNAL_TOKEN_FILE || DEFAULT_TOKEN_FILE);
 }
 
+function securePrivateFile(filePath) {
+  if (process.platform !== "win32") {
+    fs.chmodSync(filePath, 0o600);
+    return;
+  }
+  const identity = childProcess.execFileSync("whoami", [], {
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+  const result = childProcess.spawnSync(
+    "icacls",
+    [filePath, "/inheritance:r", "/grant:r", `${identity}:(F)`],
+    { encoding: "utf8", windowsHide: true }
+  );
+  if (result.status !== 0) {
+    throw new Error("Dashboard internal token permissions could not be secured");
+  }
+}
+
 function loadOrCreateInternalToken() {
   const configured = String(process.env.DASHBOARD_INTERNAL_TOKEN || "").trim();
   if (configured) {
+    if (configured.length < 32) {
+      throw new Error("DASHBOARD_INTERNAL_TOKEN must be at least 32 characters");
+    }
     return configured;
   }
   if (cachedToken) {
@@ -40,6 +63,7 @@ function loadOrCreateInternalToken() {
     }
   }
 
+  securePrivateFile(filePath);
   cachedToken = fs.readFileSync(filePath, "utf8").trim();
   if (cachedToken.length < 32) {
     throw new Error("Dashboard internal token is missing or invalid");

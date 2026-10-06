@@ -15,7 +15,11 @@ from typing import Any, Iterator
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from dashboard.mail_config import load_mail_config
+from dashboard.mail_config import (
+    harden_private_file_permissions,
+    load_mail_config,
+    normalize_gmail_address,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -27,8 +31,10 @@ MAX_LOGIN_FAILURES = 5
 OTP_LIFETIME_SECONDS = 10 * 60
 OTP_RESEND_SECONDS = 60
 OTP_MAX_SENDS_PER_HOUR = 3
+OTP_IP_MAX_SENDS_PER_HOUR = 10
+OTP_GLOBAL_MAX_SENDS_PER_HOUR = 100
+OTP_WINDOW_SECONDS = 60 * 60
 OTP_MAX_ATTEMPTS = 5
-_GMAIL_RE = re.compile(r"[a-z0-9][a-z0-9.+_-]{0,63}@gmail\.com\Z")
 _DUMMY_HASH = generate_password_hash(secrets.token_urlsafe(24), method=PASSWORD_METHOD)
 
 
@@ -112,13 +118,67 @@ def initialize_auth_store(db_path: Path) -> None:
                 PRIMARY KEY (email, source_ip)
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS dashboard_otp_send_events (
+                id INTEGER PRIMARY KEY,
+                source_ip TEXT NOT NULL,
+                sent_at INTEGER NOT NULL
+            )
+        """)
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS dashboard_otp_send_events_ip_time "
+            "ON dashboard_otp_send_events (source_ip, sent_at)"
+        )
+        _migrate_canonical_gmail_addresses(db)
+
+
+def _migrate_canonical_gmail_addresses(db: sqlite3.Connection) -> None:
+    """Canonicalize legacy accounts and invalidate alias-keyed transient state."""
+
+    updates: list[tuple[str, int]] = []
+    canonical_emails: set[str] = set()
+    for row in db.execute("SELECT id, email FROM dashboard_accounts"):
+        try:
+            canonical = normalize_gmail_address(row["email"])
+        except ValueError as error:
+            raise RuntimeError("A legacy dashboard account has an invalid Gmail address") from error
+        if canonical in canonical_emails:
+            raise RuntimeError("Legacy dashboard accounts resolve to the same Gmail inbox")
+        canonical_emails.add(canonical)
+        if canonical != row["email"]:
+            updates.append((canonical, row["id"]))
+
+    transient_aliases = False
+    for row in db.execute("SELECT email FROM dashboard_email_challenges"):
+        try:
+            transient_aliases = normalize_gmail_address(row["email"]) != row["email"]
+        except ValueError:
+            transient_aliases = True
+        if transient_aliases:
+            break
+    if not transient_aliases:
+        for row in db.execute("SELECT DISTINCT email FROM dashboard_login_failures"):
+            if row["email"] == "<invalid>":
+                continue
+            try:
+                transient_aliases = normalize_gmail_address(row["email"]) != row["email"]
+            except ValueError:
+                transient_aliases = True
+            if transient_aliases:
+                break
+
+    for canonical, account_id in updates:
+        db.execute(
+            "UPDATE dashboard_accounts SET email = ? WHERE id = ?",
+            (canonical, account_id),
+        )
+    if updates or transient_aliases:
+        db.execute("DELETE FROM dashboard_email_challenges")
+        db.execute("DELETE FROM dashboard_login_failures")
 
 
 def normalize_email(email: str) -> str:
-    normalized = email.strip().lower()
-    if not _GMAIL_RE.fullmatch(normalized):
-        raise ValueError("Enter a valid @gmail.com address")
-    return normalized
+    return normalize_gmail_address(email)
 
 
 def validate_password(password: str) -> str:
@@ -164,13 +224,32 @@ def create_user(db_path: Path, email: str, password: str) -> None:
         )
 
 
-def begin_signup(db_path: Path, email: str, secret: str) -> tuple[str, str]:
+def begin_signup(
+    db_path: Path, email: str, secret: str, source_ip: str = "local"
+) -> tuple[str, str]:
     """Store only a keyed OTP digest; return (email, code) to the mailer."""
 
     normalized = normalize_email(email)
+    source_ip = (source_ip or "unknown").strip()[:64] or "unknown"
     now = int(time.time())
     initialize_auth_store(db_path)
     with _connect(db_path) as db:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute(
+            "DELETE FROM dashboard_otp_send_events WHERE sent_at < ?",
+            (now - OTP_WINDOW_SECONDS,),
+        )
+        ip_sends = db.execute(
+            "SELECT COUNT(*) AS total FROM dashboard_otp_send_events "
+            "WHERE source_ip = ? AND sent_at >= ?",
+            (source_ip, now - OTP_WINDOW_SECONDS),
+        ).fetchone()["total"]
+        global_sends = db.execute(
+            "SELECT COUNT(*) AS total FROM dashboard_otp_send_events WHERE sent_at >= ?",
+            (now - OTP_WINDOW_SECONDS,),
+        ).fetchone()["total"]
+        if ip_sends >= OTP_IP_MAX_SENDS_PER_HOUR or global_sends >= OTP_GLOBAL_MAX_SENDS_PER_HOUR:
+            raise ValueError("Too many verification codes requested; try again later")
         if db.execute("SELECT 1 FROM dashboard_accounts WHERE email = ?", (normalized,)).fetchone():
             raise ValueError("This Gmail is already registered. Please sign in.")
         old = db.execute(
@@ -179,16 +258,23 @@ def begin_signup(db_path: Path, email: str, secret: str) -> tuple[str, str]:
         ).fetchone()
         if old and now - old["last_sent_at"] < OTP_RESEND_SECONDS:
             raise ValueError("Please wait one minute before requesting another code")
-        if old and now - old["first_sent_at"] < 3600 and old["send_count"] >= OTP_MAX_SENDS_PER_HOUR:
+        if (
+            old
+            and now - old["first_sent_at"] < OTP_WINDOW_SECONDS
+            and old["send_count"] >= OTP_MAX_SENDS_PER_HOUR
+        ):
             raise ValueError("Too many codes requested; try again in one hour")
-    while True:
-        code = f"{secrets.randbelow(1_000_000):06d}"
-        digest = _otp_digest(secret, normalized, code)
-        if not old or digest != old["otp_digest"]:
-            break
-    first_sent = old["first_sent_at"] if old and now - old["first_sent_at"] < 3600 else now
-    send_count = old["send_count"] + 1 if old and first_sent != now else 1
-    with _connect(db_path) as db:
+        while True:
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            digest = _otp_digest(secret, normalized, code)
+            if not old or digest != old["otp_digest"]:
+                break
+        first_sent = (
+            old["first_sent_at"]
+            if old and now - old["first_sent_at"] < OTP_WINDOW_SECONDS
+            else now
+        )
+        send_count = old["send_count"] + 1 if old and first_sent != now else 1
         db.execute("""
             INSERT INTO dashboard_email_challenges
                 (email, otp_digest, expires_at, attempts,
@@ -203,6 +289,10 @@ def begin_signup(db_path: Path, email: str, secret: str) -> tuple[str, str]:
                 send_count = excluded.send_count
         """, (normalized, digest, now + OTP_LIFETIME_SECONDS,
               now, first_sent, send_count))
+        db.execute(
+            "INSERT INTO dashboard_otp_send_events (source_ip, sent_at) VALUES (?, ?)",
+            (source_ip, now),
+        )
     return normalized, code
 
 
@@ -478,6 +568,8 @@ def load_session_secret(secret_path: Path | None = None) -> str:
     else:
         with os.fdopen(descriptor, "w", encoding="utf-8") as secret_file:
             secret_file.write(secrets.token_urlsafe(48))
+    if not harden_private_file_permissions(path):
+        raise RuntimeError("Dashboard session secret permissions could not be secured")
     secret = path.read_text(encoding="utf-8").strip()
     if len(secret) < 32:
         raise RuntimeError("Dashboard session secret is missing or invalid")

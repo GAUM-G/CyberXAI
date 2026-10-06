@@ -37,7 +37,7 @@ Clone the authorized private repository and select the current working branch:
 ```powershell
 git clone https://github.com/GAUM-G/majorproject.git D:\honeypot_v2
 cd D:\honeypot_v2
-git switch 'remaining20%'
+git switch main
 git status -sb
 ```
 
@@ -198,10 +198,16 @@ Expected forwarder configuration:
 
 Before signup, copy `dashboard/dashboard_mail.example.json` to the ignored
 `data/runtime/dashboard_mail.json`. In that private file, set the sender Gmail,
-and its app password once. The old `allowed_gmail_addresses` field, if present,
-is ignored; new users do not require a file edit. There are no Gmail IDs or
-app-password prompts in the startup commands. A Gmail app password requires
-2-Step Verification; see [Google's instructions](https://support.google.com/accounts/answer/185833).
+and its 16-character app password once. The application restricts that file to
+the Windows account running the dashboard and refuses to use it if the file
+cannot be protected. A managed deployment may instead set both
+`DASHBOARD_SENDER_GMAIL` and `DASHBOARD_GMAIL_APP_PASSWORD`; the environment
+values take precedence. Never store the password in source code, a tracked
+`.env` file, logs, screenshots, or documentation. The old
+`allowed_gmail_addresses` field, if present, is ignored; new users do not
+require a file edit. There are no Gmail IDs or app-password prompts in the
+startup commands. A Gmail app password requires 2-Step Verification; see
+[Google's instructions](https://support.google.com/accounts/answer/185833).
 
 Open the defender dashboard at `http://127.0.0.1:5050`. It immediately shows
 the login page with a **Sign up with Gmail** link. Enter your Gmail ID, click
@@ -218,6 +224,8 @@ The dashboard remains restricted to localhost. Verified dashboard users are
 stored as password hashes in the ignored `data\runtime\dashboard_users.db`,
 separate from decoy website users. Any Gmail address may request an OTP, but
 only administrator-approved accounts may access the dashboard.
+Gmail dot variants and `+tag` aliases resolve to one dashboard identity. OTP
+sends are limited by Gmail inbox, requesting IP, and a local global ceiling.
 Its protected backend requests use a server-side internal credential; the
 attacker-facing React portal at `http://localhost:5173` does not expose
 defender controls. For a future HTTPS reverse-proxy deployment, set

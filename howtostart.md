@@ -17,7 +17,13 @@ separate from the attacker-facing website accounts.
 Before the first signup, copy `dashboard\dashboard_mail.example.json` to the
 ignored `data\runtime\dashboard_mail.json` and edit the copy in your IDE. Set
 `sender_gmail` to a Gmail sender, `gmail_app_password` to its 16-character app
-password. This is a one-time sender setup, not a per-user Gmail list. The old
+password. The application restricts this secret file to the Windows account
+running the dashboard and refuses to use it if that protection cannot be
+applied. For a managed deployment, the equivalent
+`DASHBOARD_SENDER_GMAIL` and `DASHBOARD_GMAIL_APP_PASSWORD` environment
+variables take precedence over the file. Never put either value in source
+code, a tracked `.env` file, screenshots, logs, or documentation. This is a
+one-time sender setup, not a per-user Gmail list. The old
 `allowed_gmail_addresses` field, if present in your private file, is ignored.
 Do not commit or share the private JSON file. The sender
 must have 2-Step Verification and a Gmail app password; see
@@ -30,6 +36,9 @@ can see all accounts, remove accounts, and grant or revoke subadmin access.
 Subadmins can approve and remove ordinary users but cannot assign roles or
 remove admins and other subadmins. OTP
 verification alone never grants them defender access.
+Gmail dot variants and `+tag` aliases are treated as the same inbox, so they
+cannot create duplicate accounts or bypass OTP limits. OTP sends are also
+limited per requesting IP and across the local dashboard.
 
 ## Terminal 1 - n8n
 
@@ -109,7 +118,9 @@ not your dashboard password. Dashboard password hashes are stored in ignored
 relays protected analyst requests to port 5000
 with a separate server-side internal credential that is never exposed to the
 port 5173 attacker portal. Session signing uses a private key generated in
-`data\runtime\dashboard_session.key`; preserve that file across restarts. For a
+`data\runtime\dashboard_session.key`; preserve that file across restarts. The
+session key and dashboard/backend internal token receive the same private file
+protection as the Gmail sender configuration. For a
 future HTTPS reverse-proxy deployment, set `DASHBOARD_COOKIE_SECURE=1` and keep
 the dashboard itself bound to loopback.
 

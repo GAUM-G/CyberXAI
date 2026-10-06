@@ -30,6 +30,7 @@ from dashboard.auth import (
     verify_signup,
 )
 from dashboard.email_delivery import send_signup_code
+from dashboard.mail_config import load_mail_config, normalize_gmail_address
 
 
 PASSWORD = "Test-analyst-password-123"
@@ -59,9 +60,13 @@ class DashboardCredentialTests(unittest.TestCase):
         path = Path(self.directory.name) / "dashboard_mail.json"
         path.write_text(json.dumps({
             "sender_gmail": "sender@gmail.com",
-            "gmail_app_password": "test app secret",
+            "gmail_app_password": "abcdefghijklmnop",
         }), encoding="utf-8")
-        override = patch.dict(os.environ, {"DASHBOARD_MAIL_CONFIG": str(path)})
+        override = patch.dict(os.environ, {
+            "DASHBOARD_MAIL_CONFIG": str(path),
+            "DASHBOARD_SENDER_GMAIL": "",
+            "DASHBOARD_GMAIL_APP_PASSWORD": "",
+        })
         override.start()
         self.addCleanup(override.stop)
         return path
@@ -82,6 +87,11 @@ class DashboardCredentialTests(unittest.TestCase):
         self.assertNotIn(PASSWORD, row[1])
         self.assertTrue(row[1].startswith("pbkdf2:sha256:600000$"))
         self.assertNotEqual(self.db_path, Path("website/backend/data/honeypot.db"))
+
+    def test_short_internal_dashboard_token_is_rejected(self) -> None:
+        with patch.dict(os.environ, {"DASHBOARD_INTERNAL_TOKEN": "too-short"}):
+            with self.assertRaisesRegex(RuntimeError, "at least 32 characters"):
+                dashboard_module._dashboard_internal_token()
 
     def test_ips_proxy_uses_signed_in_identity_not_spoofed_headers(self) -> None:
         self.assertEqual(self.sign_in().status_code, 302)
@@ -523,6 +533,46 @@ class DashboardCredentialTests(unittest.TestCase):
         with patch("dashboard.auth.time.time", return_value=1_700):
             self.assertFalse(verify_signup(self.db_path, email, code, secret))
 
+    def test_gmail_aliases_share_one_identity_and_challenge(self) -> None:
+        secret = self.app.config["SECRET_KEY"]
+        self.assertEqual(
+            normalize_gmail_address(" First.Last+test@GMAIL.COM "),
+            "firstlast@gmail.com",
+        )
+        with patch("dashboard.auth.time.time", return_value=1_000):
+            email, _ = begin_signup(
+                self.db_path, "first.last+one@gmail.com", secret, "192.0.2.10"
+            )
+            self.assertEqual(email, "firstlast@gmail.com")
+            with self.assertRaisesRegex(ValueError, "wait one minute"):
+                begin_signup(
+                    self.db_path, "f.i.r.s.t.l.a.s.t+two@gmail.com", secret, "192.0.2.11"
+                )
+
+    def test_signup_codes_are_rate_limited_by_source_ip(self) -> None:
+        secret = self.app.config["SECRET_KEY"]
+        with (
+            patch("dashboard.auth.time.time", return_value=1_000),
+            patch("dashboard.auth.OTP_IP_MAX_SENDS_PER_HOUR", 2),
+        ):
+            begin_signup(self.db_path, "ipone@gmail.com", secret, "192.0.2.20")
+            begin_signup(self.db_path, "iptwo@gmail.com", secret, "192.0.2.20")
+            with self.assertRaisesRegex(ValueError, "Too many verification codes"):
+                begin_signup(self.db_path, "ipthree@gmail.com", secret, "192.0.2.20")
+            begin_signup(self.db_path, "ipthree@gmail.com", secret, "192.0.2.21")
+
+    def test_legacy_dotted_account_is_canonicalized(self) -> None:
+        with closing(sqlite3.connect(self.db_path)) as db:
+            db.execute(
+                "UPDATE dashboard_accounts SET email = ? WHERE email = ?",
+                ("ana.lyst+old@gmail.com", EMAIL),
+            )
+            db.commit()
+        initialize_auth_store(self.db_path)
+        with closing(sqlite3.connect(self.db_path)) as db:
+            stored = db.execute("SELECT email FROM dashboard_accounts").fetchone()[0]
+        self.assertEqual(stored, EMAIL)
+
     def test_resend_otp_replaces_previous_code(self) -> None:
         email = "resend@gmail.com"
         self.configure_mail()
@@ -567,10 +617,32 @@ class DashboardCredentialTests(unittest.TestCase):
         smtp.assert_called_once_with("smtp.gmail.com", 587, timeout=10)
         connection = smtp.return_value.__enter__.return_value
         connection.starttls.assert_called_once()
-        connection.login.assert_called_once_with("sender@gmail.com", "testappsecret")
+        connection.login.assert_called_once_with("sender@gmail.com", "abcdefghijklmnop")
         message = connection.send_message.call_args.args[0]
         self.assertEqual(message["To"], "newanalyst@gmail.com")
         self.assertIn("012345", message.get_content())
+
+    def test_mail_secret_is_validated_and_redacted(self) -> None:
+        path = self.configure_mail()
+        config = load_mail_config()
+        self.assertIsNotNone(config)
+        self.assertNotIn("abcdefghijklmnop", repr(config))
+        path.write_text(json.dumps({
+            "sender_gmail": "sender@gmail.com",
+            "gmail_app_password": "too-short",
+        }), encoding="utf-8")
+        self.assertIsNone(load_mail_config())
+
+    def test_mail_environment_override_avoids_secret_file(self) -> None:
+        with patch.dict(os.environ, {
+            "DASHBOARD_SENDER_GMAIL": "sen.der+smtp@gmail.com",
+            "DASHBOARD_GMAIL_APP_PASSWORD": "ponmlkjihgfedcba",
+            "DASHBOARD_MAIL_CONFIG": str(Path(self.directory.name) / "missing.json"),
+        }):
+            config = load_mail_config()
+        self.assertIsNotNone(config)
+        self.assertEqual(config.sender_gmail, "sender@gmail.com")
+        self.assertEqual(config.gmail_app_password, "ponmlkjihgfedcba")
 
 
 if __name__ == "__main__":

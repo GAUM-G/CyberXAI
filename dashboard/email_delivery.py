@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
 
-from .mail_config import load_mail_config
+from .mail_config import load_mail_config, normalize_gmail_address
 
 
 def mail_is_configured() -> bool:
@@ -17,6 +18,9 @@ def send_signup_code(recipient: str, code: str) -> None:
     config = load_mail_config()
     if config is None:
         raise RuntimeError("Gmail SMTP sender is not configured")
+    recipient = normalize_gmail_address(recipient)
+    if not re.fullmatch(r"[0-9]{6}", code):
+        raise ValueError("Verification code must contain exactly six digits")
     message = EmailMessage()
     message["From"] = config.sender_gmail
     message["To"] = recipient

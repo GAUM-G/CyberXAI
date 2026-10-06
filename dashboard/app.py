@@ -44,6 +44,7 @@ from dashboard.auth import (
     verify_signup,
 )
 from dashboard.email_delivery import mail_is_configured, send_signup_code
+from dashboard.mail_config import harden_private_file_permissions
 
 try:
     from flask import (
@@ -100,6 +101,8 @@ def _dashboard_internal_token() -> str:
     global _DASHBOARD_INTERNAL_TOKEN
     configured = os.environ.get("DASHBOARD_INTERNAL_TOKEN", "").strip()
     if configured:
+        if len(configured) < 32:
+            raise RuntimeError("DASHBOARD_INTERNAL_TOKEN must be at least 32 characters")
         return configured
     if _DASHBOARD_INTERNAL_TOKEN:
         return _DASHBOARD_INTERNAL_TOKEN
@@ -118,6 +121,8 @@ def _dashboard_internal_token() -> str:
         with os.fdopen(descriptor, "w", encoding="utf-8") as token_file:
             token_file.write(f"{generated}\n")
 
+    if not harden_private_file_permissions(DASHBOARD_TOKEN_FILE):
+        raise RuntimeError("Dashboard internal token permissions could not be secured")
     _DASHBOARD_INTERNAL_TOKEN = DASHBOARD_TOKEN_FILE.read_text(encoding="utf-8").strip()
     if len(_DASHBOARD_INTERNAL_TOKEN) < 32:
         raise RuntimeError("Dashboard internal token is missing or invalid")
@@ -136,7 +141,7 @@ def _central_event_stats() -> dict[str, Any] | None:
         stats_request = urllib.request.Request(EVENT_STATS_API_URL, headers=headers)
         with urllib.request.urlopen(stats_request, timeout=2.0) as response:
             value = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+    except (HTTPError, URLError, TimeoutError, OSError, RuntimeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, dict) else None
 
@@ -653,13 +658,16 @@ def create_dashboard_app(
         if not mail_is_configured():
             return render_template(
                 "signup.html", csrf_token=token,
-                error="OTP sender is not ready. In data/runtime/dashboard_mail.json, "
-                      "replace the sender Gmail and app-password placeholders. "
+                error="OTP sender is not ready. Configure both Gmail sender values "
+                      "in the protected mail file or environment. "
                       "This is one-time administrator setup.",
             ), 503
         try:
             email, code = begin_signup(
-                account_db, request.form.get("email", "")[:128], app.config["SECRET_KEY"]
+                account_db,
+                request.form.get("email", "")[:128],
+                app.config["SECRET_KEY"],
+                request.remote_addr or "unknown",
             )
         except ValueError as exc:
             return render_template("signup.html", csrf_token=token, error=str(exc)), 400
@@ -670,14 +678,14 @@ def create_dashboard_app(
             app.logger.warning("Dashboard signup email delivery failed: SMTPAuthenticationError")
             return render_template(
                 "signup.html", csrf_token=token,
-                error="Gmail rejected the sender credential. Check the Gmail app password in dashboard_mail.json.",
+                error="Gmail rejected the sender credential. Check the protected Gmail app password.",
             ), 502
         except (OSError, RuntimeError) as exc:
             cancel_signup(account_db, email, code, app.config["SECRET_KEY"])
             app.logger.warning("Dashboard signup email delivery failed: %s", type(exc).__name__)
             return render_template(
                 "signup.html", csrf_token=token,
-                error="Could not send the code. Check dashboard_mail.json and try again.",
+                error="Could not send the code. Check the protected Gmail sender configuration and try again.",
             ), 502
         session.pop("verified_signup_email", None)
         session.pop("verified_signup_at", None)
@@ -693,7 +701,9 @@ def create_dashboard_app(
         if not token or not secrets.compare_digest(request.form.get("csrf_token", ""), token):
             return jsonify({"error": "Invalid CSRF token"}), 403
         try:
-            email, code = begin_signup(account_db, email, app.config["SECRET_KEY"])
+            email, code = begin_signup(
+                account_db, email, app.config["SECRET_KEY"], request.remote_addr or "unknown"
+            )
         except ValueError as exc:
             return render_template(
                 "verify_signup.html", csrf_token=token, email=email, error=str(exc)

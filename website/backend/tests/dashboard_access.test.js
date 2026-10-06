@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const {
   isLoopbackRequest,
+  loadOrCreateInternalToken,
   requireDashboardAccess,
 } = require("../middleware/dashboard_access");
 
@@ -68,6 +69,17 @@ function internalRequest(identity = {}, method = "POST") {
   return { method, socket: { remoteAddress: "127.0.0.1" }, headers,
     get(name) { return headers[name.toLowerCase()]; } };
 }
+
+test("short configured dashboard credentials are rejected", () => {
+  const previous = process.env.DASHBOARD_INTERNAL_TOKEN;
+  process.env.DASHBOARD_INTERNAL_TOKEN = "too-short";
+  assert.throws(() => loadOrCreateInternalToken(), /at least 32 characters/);
+  if (previous === undefined) {
+    delete process.env.DASHBOARD_INTERNAL_TOKEN;
+  } else {
+    process.env.DASHBOARD_INTERNAL_TOKEN = previous;
+  }
+});
 
 test("trusted proxy mutations use the signed-in analyst rather than ID zero", () => {
   const req = internalRequest({ "x-dashboard-analyst-id": "7", "x-dashboard-analyst-email": "analyst@gmail.com" });
