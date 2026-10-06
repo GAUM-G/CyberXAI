@@ -5,6 +5,12 @@ These daily commands use this workstation's working `data\runtime\python312\pyth
 the existing `.venv` is broken. If the local runtime is unavailable on another
 machine, create a fresh virtual environment using [md/SETUP.md](md/SETUP.md).
 
+## PowerShell rule
+
+Run each terminal block exactly as shown. `$py` stores the Python executable
+path, so every Python command must start with `& $py`, never just `$py`.
+Write filenames normally: use `sim_ssh.py`, not `sim\_ssh.py`.
+
 ## Dashboard Gmail signup setup
 
 Opening port 5050 shows the login page and a **Sign up with Gmail** link.
