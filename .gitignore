@@ -25,6 +25,8 @@ data/processed/
 data/ml_ready/
 website/backend/logs/
 website/backend/data/*.db
+website/backend/data/*.db-shm
+website/backend/data/*.db-wal
 honeypot_security_report.txt
 *.log
 
